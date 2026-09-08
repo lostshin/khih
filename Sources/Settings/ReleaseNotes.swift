@@ -32,6 +32,60 @@ enum ReleaseNotes {
     static var all: [ReleaseNote] {
         [
             ReleaseNote(
+                version: "1.6.0",
+                headline: L10n.t("Reorder the rings, pick a display, and get told when a limit is close."),
+                changes: [
+                    ReleaseNote.Change(
+                        title: L10n.t("Drag to reorder the rings"),
+                        detail: L10n.t("Settings splits into Connected and Not connected; drag a connected row by its handle to change the order the notch draws them in.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Pin the notch to one display, or show it on every one"),
+                        detail: L10n.t("A Displays picker in Appearance offers the main display or all of them; a second picker pins a single notch to a named screen.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("A ring says when it crosses 80% and 100%"),
+                        detail: L10n.t("A system notification once per crossing, muted per provider from its own settings row.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("GitHub Copilot is a new ring"),
+                        detail: L10n.t("Reads GitHub's Copilot quota endpoint using the GitHub CLI session already on the Mac.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Say when a session ends"),
+                        detail: L10n.t("The notch opens itself for a few seconds and sounds a chime when an agent stops working or starts waiting on you; a click jumps to it.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("⌥-drag the pill along its edge"),
+                        detail: L10n.t("Nudge it clear of another menu-bar app anchored to the same spot; remembered per edge.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Choose an accent colour"),
+                        detail: L10n.t("The device accent by default, or a fixed colour for the ring's positive state — the amber and red warning colours stay fixed regardless.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("A countdown instead of a reset date"),
+                        detail: L10n.t("Appearance's Reset time picker can show \"Resets in 3h 20m\" instead of a date and time.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Read Cursor from cursor-agent, and enterprise plans correctly"),
+                        detail: L10n.t("A CLI-only Cursor login now gets a ring, and enterprise/team plans read their real usage instead of reporting nothing to meter.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Fewer keychain prompts for Claude and Antigravity"),
+                        detail: L10n.t("Claude reads its own CLI's /usage first, touching the keychain only as a fallback; Antigravity's language server is asked before it.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Sub-1% usage no longer reads as 0%"),
+                        detail: L10n.t("A reading under one percent shows a tenth (\"<0.1%\") instead of rounding to nothing.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Contributors can build without Xcode signing"),
+                        detail: L10n.t("make build and make test sign themselves automatically when the maintainer's certificate isn't present, and CI now runs the suite on every push and pull request.")
+                    )
+                ]
+            ),
+            ReleaseNote(
                 version: "1.5.0",
                 headline: L10n.t("Two more providers, and a live account plan that was silently dropped."),
                 changes: [
