@@ -29,7 +29,7 @@ struct SettingsView: View {
         // uses for this: each section is a titled, rounded group, so the
         // structure is visible all at once instead of navigated to.
         Form {
-            Section("Integrations") {
+            Section(L10n.t("Integrations")) {
                 if needsSetup { setupNote }
                 ForEach(accounts) {
                     AccountRow(provider: $0, preferences: preferences,
@@ -38,12 +38,7 @@ struct SettingsView: View {
                 }
                 // Beside the switches it explains, not stranded at the end of
                 // the page.
-                Text("Codenotch never signs in — each reading is borrowed from the "
-                     + "tool that already holds the account. Signing out here stops "
-                     + "the credential being read and forgets the numbers, but leaves "
-                     + "you signed in to that tool. macOS asks once per tool the "
-                     + "first time, and again whenever you sign in to a different "
-                     + "account; Always Allow keeps it quiet.")
+                Text(L10n.t("Codenotch never signs in — each reading is borrowed from the tool that already holds the account. Signing out here stops the credential being read and forgets the numbers, but leaves you signed in to that tool. macOS asks once per tool the first time, and again whenever you sign in to a different account; Always Allow keeps it quiet."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -53,8 +48,8 @@ struct SettingsView: View {
             // looks like and where it turns up. Split across three headers it
             // read as three unrelated settings, and "Where Codenotch appears"
             // was a header long enough to look like a warning.
-            Section("Appearance") {
-                Picker("Show", selection: $preferences.notchVisibility) {
+            Section(L10n.t("Appearance")) {
+                Picker(L10n.t("Show"), selection: $preferences.notchVisibility) {
                     ForEach(NotchVisibility.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -64,7 +59,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Picker("Edge", selection: $preferences.notchEdge) {
+                Picker(L10n.t("Edge"), selection: $preferences.notchEdge) {
                     ForEach(NotchEdge.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -76,7 +71,7 @@ struct SettingsView: View {
 
                 // "App icon", not "Icon": the two rows above it are about the
                 // notch, and on its own the word would read as another of them.
-                Picker("App icon", selection: $preferences.appPresence) {
+                Picker(L10n.t("App icon"), selection: $preferences.appPresence) {
                     ForEach(AppPresence.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -90,8 +85,8 @@ struct SettingsView: View {
             // Startup and updates together: both are about what Codenotch does
             // without being asked, and one switch under its own header looked
             // like an oversight rather than a section.
-            Section("General") {
-                Toggle("Open Codenotch at login", isOn: $preferences.launchAtLogin)
+            Section(L10n.t("General")) {
+                Toggle(L10n.t("Open Codenotch at login"), isOn: $preferences.launchAtLogin)
                 if let problem = preferences.launchAtLoginProblem {
                     Text(problem)
                         .font(.caption)
@@ -99,7 +94,7 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Toggle("Install updates automatically", isOn: Binding(
+                Toggle(L10n.t("Install updates automatically"), isOn: Binding(
                     get: { updater.automatic },
                     set: { updater.automatic = $0 }
                 ))
@@ -111,13 +106,12 @@ struct SettingsView: View {
                     // a way to switch it off, is the difference between a
                     // background updater and something that looks like it is
                     // hiding.
-                    Text("Version \(updater.currentVersion). Updates install in the "
-                         + "background and apply next time Codenotch starts.")
+                    Text(L10n.t("Version \(updater.currentVersion). Updates install in the background and apply next time Codenotch starts."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
-                    Button("Check now") { updater.checkNow() }
+                    Button(L10n.t("Check now")) { updater.checkNow() }
                         .controlSize(.small)
                 }
 
@@ -151,7 +145,7 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 4) {
-                Text("App designed and developed by")
+                Text(L10n.t("App designed and developed by"))
                 // Only the handle is the link, so the line reads as a sentence
                 // rather than as a button with a sentence attached.
                 Link("@hivinz_", destination: SettingsView.authorURL)
@@ -187,28 +181,25 @@ struct SettingsView: View {
     /// Mac". Someone who uses Claude in a browser reads that sentence, installs
     /// this, sees four blank rings and concludes it is broken — and the
     /// distinction that catches them out is Claude *Code*, not the Claude app.
-    static let setupCopy =
-        "Codenotch reads usage from tools already signed in on this Mac — it "
-        + "never asks for your password. Install and sign in to any of Claude "
-        + "Code (the terminal tool, not the Claude app), Cursor, Codex, "
-        + "Antigravity, GLM, Grok or OpenCode, and its ring appears in the notch."
+    static var setupCopy: String {
+        L10n.t("Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor, Codex, Antigravity, GLM, Grok or OpenCode, and its ring appears in the notch.")
+    }
 
     /// Said before it happens rather than after. A system dialogue asking to
     /// read a *credential*, from an app installed a minute ago, looks alarming
     /// unless it was expected — and choosing Allow instead of Always Allow makes
     /// it return on every read, which is what "it asks every time" turns out to
     /// be.
-    static let keychainCopy =
-        "macOS will ask once for permission to read Claude Code's and "
-        + "Antigravity's saved logins. Choose Always Allow — plain Allow makes "
-        + "it ask again every time."
+    static var keychainCopy: String {
+        L10n.t("macOS will ask once for permission to read Claude Code's and Antigravity's saved logins. Choose Always Allow — plain Allow makes it ask again every time.")
+    }
 
     private var setupNote: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "sparkles")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Connect an assistant to get started")
+                Text(L10n.t("Connect an assistant to get started"))
                     .font(.callout.weight(.medium))
                 Text(SettingsView.setupCopy)
                     .font(.caption)
@@ -276,10 +267,9 @@ private struct AccountRow: View {
                 // there next to a working account offering to fix nothing — and
                 // when it *was* needed there was no way to tell the two apart.
                 if isConnected, provider.wasRefusedAccess {
-                    Button("Allow access…") { retry(provider.id) }
+                    Button(L10n.t("Allow access…")) { retry(provider.id) }
                         .controlSize(.small)
-                        .help("Asks macOS for \(provider.name)'s saved login again. "
-                              + "Choose Always Allow and it will stop asking.")
+                        .help(L10n.t("Asks macOS for \(provider.name)'s saved login again. Choose Always Allow and it will stop asking."))
                 }
 
                 if isConnected, let destination {
@@ -293,9 +283,8 @@ private struct AccountRow: View {
                     .controlSize(.small)
                     .labelsHidden()
                     .help(isConnected
-                          ? "Switch off to stop reading \(provider.name) and forget its "
-                            + "readings. " + provider.signIn.signOutCaveat
-                          : "Switch on to sign in and read \(provider.name) again.")
+                          ? L10n.t("Switch off to stop reading \(provider.name) and forget its readings. \(provider.signIn.signOutCaveat)")
+                          : L10n.t("Switch on to sign in and read \(provider.name) again."))
             }
 
             detail
@@ -307,7 +296,7 @@ private struct AccountRow: View {
     @ViewBuilder
     private var detail: some View {
         if !isConnected {
-            Text("Signed out — nothing is read, and no readings are kept.")
+            Text(L10n.t("Signed out — nothing is read, and no readings are kept."))
                 .foregroundStyle(.tertiary)
         } else if let account = provider.account {
             VStack(alignment: .leading, spacing: 2) {
@@ -316,7 +305,7 @@ private struct AccountRow: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                     if canOpenSignIn {
-                        Button("Switch…") { _ = switchAccount(provider.id) }
+                        Button(L10n.t("Switch…")) { _ = switchAccount(provider.id) }
                             .buttonStyle(.link)
                             .help(provider.signIn.switchHint)
                     }
@@ -331,8 +320,7 @@ private struct AccountRow: View {
             // Not a sign-in problem, so do not send them off to sign in. The
             // credential is right there and macOS is the one saying no — the
             // remedy is the button on this same row.
-            Text("macOS is not letting Codenotch read \(provider.name)'s saved "
-                 + "login. Choose Allow access… above, then Always Allow.")
+            Text(L10n.t("macOS is not letting Codenotch read \(provider.name)'s saved login. Choose Allow access… above, then Always Allow."))
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
@@ -356,18 +344,17 @@ private struct AccountRow: View {
 
         var title: String {
             switch self {
-            case .app(_, let name):     return "Open \(name)"
-            case .website(_, let host): return "Open \(host)"
+            case .app(_, let name):     return L10n.t("Open \(name)")
+            case .website(_, let host): return L10n.t("Open \(host)")
             }
         }
 
         var help: String {
             switch self {
             case .app(_, let name):
-                return "Opens \(name), which is where this account is signed in."
+                return L10n.t("Opens \(name), which is where this account is signed in.")
             case .website(_, let host):
-                return "Opens \(host) in your browser. That site has its own sign-in, "
-                     + "separate from the credential read here."
+                return L10n.t("Opens \(host) in your browser. That site has its own sign-in, separate from the credential read here.")
             }
         }
     }

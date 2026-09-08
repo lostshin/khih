@@ -50,10 +50,10 @@ struct ClaudeSessionRecord {
 
     static func surface(_ entrypoint: String?) -> String {
         switch entrypoint {
-        case "claude-desktop", "claude-desktop-3p": return "Desktop"
-        case "claude-vscode":                       return "VS Code"
-        case "local-agent":                         return "Agent"
-        default:                                    return "Terminal"
+        case "claude-desktop", "claude-desktop-3p": return L10n.t("Desktop")
+        case "claude-vscode":                       return L10n.t("VS Code")
+        case "local-agent":                         return L10n.t("Agent")
+        default:                                    return L10n.t("Terminal")
         }
     }
 

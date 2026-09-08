@@ -95,7 +95,7 @@ final class CodexActivityMonitor: ObservableObject, AgentActivityMonitor {
         return AgentSession(
             id: id,
             name: name,
-            detail: "Working",
+            detail: L10n.t("Working"),
             state: .busy,
             waitingFor: nil,
             since: modified

@@ -34,14 +34,14 @@ enum GrokUsage {
         if let fraction = percent(credits["creditUsagePercent"]) {
             windows.append(LimitWindow(
                 id: "credits",
-                label: productLabel(credits) ?? "Grok Build",
+                label: productLabel(credits) ?? L10n.t("Grok Build"),
                 usedFraction: fraction,
                 resetsAt: creditsReset
             ))
         } else if let products = credits["productUsage"] as? [[String: Any]] {
             for product in products {
                 guard let fraction = percent(product["usagePercent"]) else { continue }
-                let name = (product["product"] as? String).map(humanize) ?? "Usage"
+                let name = (product["product"] as? String).map(humanize) ?? L10n.t("Usage")
                 // The ring is declared as `headlineID: "credits"`. Using the
                 // wire product name here left a valid bar in the tooltip and
                 // a dash on the cell.
@@ -55,7 +55,7 @@ enum GrokUsage {
         }
 
         guard !windows.isEmpty else {
-            throw UsageProviderError.nothingMetered("Grok has nothing metered on this account yet")
+            throw UsageProviderError.nothingMetered(L10n.t("Grok has nothing metered on this account yet"))
         }
         return windows
     }

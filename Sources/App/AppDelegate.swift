@@ -50,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // site behind bot management, and re-registering is one line.
             let webProviders: [WebSessionProvider] = []
             controller.signInItems = webProviders.map { provider in
-                (title: "Sign in to \(provider.displayName)…",
+                (title: L10n.t("Sign in to \(provider.displayName)…"),
                  action: { [weak provider] in provider?.presentSignIn() })
             }
             // Before Preferences reads anything, or the first launch flag and

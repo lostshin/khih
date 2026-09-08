@@ -142,7 +142,7 @@ actor AntigravityProvider: UsageProvider {
             status: .ok,
             windows: [
                 LimitWindow(id: "requests",
-                            label: "Requests today · no limit published",
+                            label: L10n.t("Requests today · no limit published"),
                             used: activity.requestsToday)
             ]
         )
@@ -223,7 +223,7 @@ actor AntigravityProvider: UsageProvider {
             guard let limit = bucket.limit, limit > 0,
                   let used = bucket.used, used >= 0, used <= limit * 1.5
             else { return nil }
-            let label = bucket.displayName ?? bucket.name ?? "Usage"
+            let label = bucket.displayName ?? bucket.name ?? L10n.t("Usage")
             return LimitWindow(id: bucket.name ?? label,
                                label: label,
                                usedFraction: used / limit,

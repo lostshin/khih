@@ -178,7 +178,7 @@ final class Preferences: ObservableObject {
             // Commonly refused for an app running from a build directory rather
             // than /Applications, which is worth saying plainly.
             Log.usage.error("launch at login failed: \(error.localizedDescription, privacy: .public)")
-            launchAtLoginProblem = "macOS refused this — try moving Codenotch to /Applications."
+            launchAtLoginProblem = L10n.t("macOS refused this — try moving Codenotch to /Applications.")
             launchAtLogin = Self.isRegisteredForLogin
         }
     }

@@ -283,7 +283,7 @@ private struct ProviderTooltip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TooltipHeader(title: "\(snapshot.displayName) Usage", note: readingAge) {
+            TooltipHeader(title: L10n.t("\(snapshot.displayName) Usage"), note: readingAge) {
                 ProviderGlyphView(glyph: snapshot.glyph)
                     .foregroundStyle(Palette.textPrimary)
             }
@@ -346,9 +346,9 @@ private struct SessionRow: View {
 
     private var stateWord: String {
         switch session.state {
-        case .busy:    return "working"
-        case .waiting: return "waiting"
-        case .idle:    return "idle"
+        case .busy:    return L10n.t("working")
+        case .waiting: return L10n.t("waiting")
+        case .idle:    return L10n.t("idle")
         }
     }
 
@@ -413,7 +413,7 @@ private struct SessionList: View {
             }
 
             if hidden > 0 {
-                Text("and \(hidden) more")
+                Text(L10n.t("and \(hidden) more"))
                     .font(Typography.cardBody)
                     .foregroundStyle(Palette.textSecondary)
                     .padding(.top, NotchLayout.blockSpacing)
