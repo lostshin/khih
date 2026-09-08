@@ -199,3 +199,39 @@ private final class StubEndpoint: URLProtocol {
 
     override func stopLoading() {}
 }
+
+/// `account()` must read through the injected credential source, like every
+/// other read here.
+///
+/// It used to call the keychain directly, which made it impossible for a test
+/// to build a real provider without touching the login keychain. On a test host
+/// rebuilt with a fresh ad-hoc signature that means an authorization prompt,
+/// and a prompt nobody answers hangs the whole suite — which is exactly what it
+/// did, on `providerSummaries`.
+final class ClaudeAccountSourceTests: XCTestCase {
+    private func provider(_ load: @escaping @Sendable () throws -> ClaudeCredentials)
+        -> ClaudeOAuthProvider {
+        let name = "ClaudeAccountSourceTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        return ClaudeOAuthProvider(archive: UsageArchive(defaults: defaults),
+                                   loadCredentials: load)
+    }
+
+    func testTheAccountComesFromTheInjectedSource() throws {
+        var reads = 0
+        let account = provider {
+            reads += 1
+            return ClaudeCredentials(accessToken: "t", expiresAt: .distantFuture,
+                                     subscriptionType: "team")
+        }.account()
+
+        XCTAssertEqual(reads, 1, "the keychain must not be consulted behind our back")
+        XCTAssertEqual(account?.plan, "team")
+    }
+
+    /// A source that has nothing is no account, and no crash.
+    func testNoCredentialIsNoAccount() {
+        XCTAssertNil(provider { throw UsageProviderError.needsAuth }.account())
+    }
+}

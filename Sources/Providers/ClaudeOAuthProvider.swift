@@ -206,7 +206,14 @@ actor ClaudeOAuthProvider: UsageProvider {
     nonisolated func forgetCachedCredential() { keychain.forgetCached() }
 
     nonisolated func account() -> ProviderAccount? {
-        guard let credentials = try? keychain.load() else { return nil }
+        // Through the injected source, not `keychain` directly. In production
+        // the source *is* `keychain.load()` — the default set in `init` — so
+        // nothing about how this reads, caches or prompts changes. What it buys
+        // is that a test can build a real provider without the call reaching
+        // the login keychain: it used to, and a test host rebuilt with a fresh
+        // ad-hoc signature would sit behind an authorization prompt nobody was
+        // there to answer, hanging the whole suite on `providerSummaries`.
+        guard let credentials = try? loadCredentials() else { return nil }
         return ProviderAccount(
             label: nil,   // the credential carries no address
             plan: credentials.subscriptionType,
