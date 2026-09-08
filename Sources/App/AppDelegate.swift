@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Held for the life of the app: releasing it stops the scheduled checks.
     private var updater: Updater?
     private var statusItem: StatusItemController?
+    /// Keeps the Claude keychain token from ageing out on a Mac where the CLI
+    /// is never run by hand. See `ClaudeTokenRefresher`.
+    private var tokenRefresher: ClaudeTokenRefresher?
     private var cancellables = Set<AnyCancellable>()
 
     /// The unit bundle is hosted by this app, so `xcodebuild test` launches it
@@ -28,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// provider and a session monitor of its own, keyed by the same id, so a
     /// work login's sessions spin the work ring and nobody else's.
     private let claudeProfiles = ClaudeProfile.discover()
+    private var claudeProviders: [ClaudeOAuthProvider] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Set here, not in the Info.plist: this call is applied at launch and
@@ -67,8 +71,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // it drew every provider from the archive and only dropped the
             // switched-off ones once the binding below delivered.
             Log.usage.info("claude profiles: \(self.claudeProfiles.map(\.displayPath).joined(separator: ", "), privacy: .public)")
+            // Held as concrete providers, not just handed to the store: the
+            // token refresher needs to ask one of them how long its token has
+            // left, and the protocol has no business carrying that.
+            let claudeProviders = claudeProfiles.map { ClaudeOAuthProvider(profile: $0) }
+            self.claudeProviders = claudeProviders
             let store = UsageStore(
-                providers: claudeProfiles.map { ClaudeOAuthProvider(profile: $0) }
+                providers: claudeProviders
                     + [CursorLocalProvider(), CodexLocalProvider(), AntigravityProvider(),
                        GLMProvider()]
                     + webProviders,
@@ -190,8 +199,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "codex": CodexActivityMonitor(),
             "gemini": AntigravityActivityMonitor()
         ]
+        var claudeMonitors: [ClaudeSessionMonitor] = []
         for profile in claudeProfiles {
-            monitors[profile.id] = ClaudeSessionMonitor(directory: profile.sessionsDirectory)
+            let monitor = ClaudeSessionMonitor(
+                directory: profile.sessionsDirectory,
+                projects: profile.projectsDirectory
+            )
+            claudeMonitors.append(monitor)
+            monitors[profile.id] = monitor
+        }
+
+        // Renewing the token runs the Claude command, which registers a session
+        // of its own for the second it lives. Every Claude monitor is told to
+        // step over that pid, so it never reaches the notch and never counts as
+        // work in progress.
+        //
+        // Only the default profile is renewed. The command writes whichever
+        // directory `CLAUDE_CONFIG_DIR` names, so a second profile would need
+        // that passed through — behaviour nobody has been able to try on a Mac
+        // with two of them, and an unverified guess is worse here than a ring
+        // that ages the way it already does.
+        if let defaultProvider = claudeProviders.first(where: { $0.profile.slug == nil }) {
+            let refresher = ClaudeTokenRefresher(
+                expiry: { await defaultProvider.tokenExpiry },
+                reload: { await defaultProvider.reloadTokenExpiry() }
+            )
+            for monitor in claudeMonitors {
+                monitor.ignoredPIDs = { [weak refresher] in
+                    guard let pid = refresher?.launchedPID else { return [] }
+                    return [pid]
+                }
+            }
+            // The one place the failure becomes visible. The store carries the
+            // fact; nothing here retries, and the warning clears itself the
+            // moment a reading comes back.
+            refresher.$outcome
+                .receive(on: RunLoop.main)
+                .sink { [weak self] outcome in
+                    guard case .failed = outcome else { return }
+                    self?.store?.reportRenewalFailed(providerID: defaultProvider.id)
+                }
+                .store(in: &cancellables)
+
+            refresher.start()
+            tokenRefresher = refresher
         }
         for (id, monitor) in monitors {
             monitor.sessionsPublisher
@@ -235,6 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        tokenRefresher?.stop()
         store?.stop()
         monitors.values.forEach { $0.stop() }
         notchController?.stop()

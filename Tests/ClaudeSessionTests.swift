@@ -252,3 +252,59 @@ extension ClaudeSessionRecordTests {
         XCTAssertEqual(first.since.timeIntervalSince1970, 1788731755.247, accuracy: 0.01)
     }
 }
+
+/// The session Codenotch starts itself must never reach the notch.
+///
+/// Renewing the OAuth token runs the Claude CLI, and the CLI registers a
+/// session file for the second or so it is alive — verified on a real machine:
+/// the count under `~/.claude/sessions` goes six, seven, six, and the file
+/// carries the pid of the process Codenotch spawned. Left alone it draws a row
+/// nobody asked for, and `isBusy` reads it as work in progress and starts
+/// polling usage hard on the strength of it.
+@MainActor
+final class ClaudeOwnSessionFilterTests: XCTestCase {
+    private var directory: URL!
+
+    override func setUpWithError() throws {
+        directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("own-session-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    /// This process, so the liveness check passes and the only thing under test
+    /// is the filter.
+    private var livePID: Int32 { ProcessInfo.processInfo.processIdentifier }
+
+    private func writeSession(pid: Int32, name: String) throws {
+        let json = """
+        { "pid": \(pid), "sessionId": "\(name)", "cwd": "/Users/vinz/app",
+          "name": "\(name)", "entrypoint": "claude-desktop" }
+        """
+        try Data(json.utf8).write(to: directory.appendingPathComponent("\(pid).json"))
+    }
+
+    func testTheSessionIsReadWhenNothingIsIgnored() throws {
+        try writeSession(pid: livePID, name: "mine")
+        let found = ClaudeSessionMonitor.read(directory: directory)
+        XCTAssertEqual(found.map(\.name), ["mine"])
+    }
+
+    func testAnIgnoredPidIsLeftOut() throws {
+        try writeSession(pid: livePID, name: "mine")
+        let found = ClaudeSessionMonitor.read(directory: directory, ignoring: [livePID])
+        XCTAssertTrue(found.isEmpty, "the session Codenotch started is not the user's")
+    }
+
+    /// Ignoring one must not hide the rest — the notch still has to show every
+    /// session the user actually has open.
+    func testEveryOtherSessionSurvives() throws {
+        try writeSession(pid: livePID, name: "ours")
+        try writeSession(pid: getppid(), name: "theirs")
+        let found = ClaudeSessionMonitor.read(directory: directory, ignoring: [livePID])
+        XCTAssertEqual(found.map(\.name), ["theirs"])
+    }
+}

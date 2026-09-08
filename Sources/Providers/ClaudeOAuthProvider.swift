@@ -24,6 +24,13 @@ actor ClaudeOAuthProvider: UsageProvider {
     /// Held between refreshes so the keychain is read once per token, not once
     /// per minute — a keychain read can put a prompt in front of the user.
     private var credentials: ClaudeCredentials?
+    /// When the token runs out, as of the last keychain read — expired or not.
+    ///
+    /// Read-only bookkeeping for `ClaudeTokenRefresher`, which has to know how
+    /// long is left *before* deciding to do anything. Kept here because this is
+    /// already the one place that reads the item, so exposing it costs no extra
+    /// keychain traffic and no extra prompt.
+    private(set) var tokenExpiry: Date?
     /// Set when the endpoint returns 429. Until it passes, refreshes are
     /// skipped without touching the network — a poll that keeps firing into a
     /// rate limit is how you stay rate limited.
@@ -153,6 +160,7 @@ actor ClaudeOAuthProvider: UsageProvider {
         // own window never expired and the keychain was never read again.
         let fresh = try loadCredentials()
         Log.usage.debug("\(self.id, privacy: .public): read keychain token, expires \(fresh.expiresAt, privacy: .public)")
+        tokenExpiry = fresh.expiresAt
         // Expired is not signed out. Claude Code rotates this token whenever it
         // runs, and this app deliberately does not — minting one would mean
         // writing a credential it does not own, and racing the owner for it. So
@@ -204,6 +212,19 @@ actor ClaudeOAuthProvider: UsageProvider {
     }
 
     nonisolated func forgetCachedCredential() { keychain.forgetCached() }
+
+    /// Read the keychain again, ignoring anything held, and report the expiry.
+    ///
+    /// The after-check for `ClaudeTokenRefresher`, and the only caller that
+    /// should want it: everything else is served from the cache precisely so
+    /// that the keychain — and its prompt — is touched as rarely as possible.
+    func reloadTokenExpiry() -> Date? {
+        keychain.forgetCached()
+        credentials = nil
+        guard let fresh = try? loadCredentials() else { return nil }
+        tokenExpiry = fresh.expiresAt
+        return fresh.expiresAt
+    }
 
     nonisolated func account() -> ProviderAccount? {
         // Through the injected source, not `keychain` directly. In production
