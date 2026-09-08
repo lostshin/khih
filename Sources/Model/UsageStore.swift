@@ -12,6 +12,15 @@ final class UsageStore: ObservableObject {
     /// Providers whose last fetch was refused by macOS, cleared as soon as one
     /// succeeds. The settings row's only honest basis for offering to ask again.
     @Published private(set) var refusedAccess: Set<String> = []
+    /// Providers whose saved login has aged out and could not be renewed.
+    ///
+    /// Kept beside `refusedAccess`, and for the same reason: it is a fact about
+    /// the *credential*, not about the numbers on screen. An expired token
+    /// leaves the last reading standing and still roughly true, so nothing in
+    /// any snapshot says anything is wrong — which is exactly how a frozen
+    /// reading went unnoticed for twelve hours. Reading it off the snapshot
+    /// would reproduce the bug.
+    @Published private(set) var needsRenewal: Set<String> = []
 
     private let providers: [UsageProvider]
     /// Providers the user has switched off. They are not fetched at all — their
@@ -147,7 +156,8 @@ final class UsageStore: ObservableObject {
             ProviderSummary(id: provider.id, name: provider.displayName,
                             glyph: provider.glyph, account: provider.account(),
                             signIn: provider.signInRoute,
-                            wasRefusedAccess: refusedAccess.contains(provider.id))
+                            wasRefusedAccess: refusedAccess.contains(provider.id),
+                            needsSignInRenewal: needsRenewal.contains(provider.id))
         }
     }
 
@@ -366,6 +376,17 @@ final class UsageStore: ObservableObject {
         return openAccountSource(providerID: providerID)
     }
 
+    /// Say that a provider's saved login needs renewing by hand.
+    ///
+    /// Called by `ClaudeTokenRefresher` when it tried and the expiry did not
+    /// move. The store only carries the fact so Settings can show it; it starts
+    /// nothing and retries nothing.
+    func reportRenewalFailed(providerID: String) {
+        guard !needsRenewal.contains(providerID) else { return }
+        needsRenewal.insert(providerID)
+        Log.usage.notice("\(providerID, privacy: .public): saved login needs renewing by hand")
+    }
+
     /// Ask macOS for this provider's credential again.
     ///
     /// The remedy for a declined keychain prompt. Dropping the in-memory copy
@@ -412,6 +433,10 @@ final class UsageStore: ObservableObject {
             lastGood[provider.id] = (fresh, Date())
             archive.save(lastGood)
             refusedAccess.remove(provider.id)
+            // A reading that actually came back is proof the credential works,
+            // whatever was thought a moment ago. The only way this clears —
+            // there is no timer and nothing retries.
+            needsRenewal.remove(provider.id)
             Log.usage.debug("\(provider.id, privacy: .public): \(fresh.windows.count) window(s)")
             return fresh
         } catch {

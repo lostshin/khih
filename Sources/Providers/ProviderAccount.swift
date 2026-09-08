@@ -129,4 +129,12 @@ struct ProviderSummary: Identifiable, Equatable {
     /// cure for an illness the provider does not have, and a button that does
     /// nothing is indistinguishable from a broken one.
     var wasRefusedAccess: Bool = false
+    /// Whether this provider's saved login has aged out and Codenotch could not
+    /// renew it, so someone has to run the tool that owns it.
+    ///
+    /// Deliberately *not* read off the snapshot's status, for the same reason
+    /// `wasRefusedAccess` is not: an expired token leaves the last reading in
+    /// place and looking fine. Tying the warning to "is there a reading" would
+    /// hide it behind exactly the stale number it is warning about.
+    var needsSignInRenewal: Bool = false
 }
