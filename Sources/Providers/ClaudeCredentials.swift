@@ -128,7 +128,19 @@ final class ClaudeKeychain: @unchecked Sendable {
     /// Read once, then held until the token expires — see `CredentialCache`.
     /// Claude Code rotates this roughly hourly, so this is about one keychain
     /// read an hour instead of two a minute.
-    private let cache = CredentialCache<ClaudeCredentials> { $0.isExpired }
+    ///
+    /// Only `.accessDenied` is permanent — a real "Deny" on the ACL prompt.
+    /// Everything else `ClaudeCredentials.read` can throw, `needsAuth`
+    /// included, gets retried after the cache's own backoff even while the
+    /// item's `mdat` has not moved: found on a real machine, a single keychain
+    /// read landing during `errSecInDarkWake` — the Mac in a brief low-power
+    /// wake with no UI possible, nothing to do with the credential at all —
+    /// was cached as `needsAuth` and replayed for the next three hours, since
+    /// nothing else ever touched the item again once it held a valid token.
+    private let cache = CredentialCache<ClaudeCredentials>(
+        isPermanentFailure: { if case UsageProviderError.accessDenied = $0 { return true }; return false },
+        isExpired: { $0.isExpired }
+    )
 
     init(service: String) {
         self.service = service
