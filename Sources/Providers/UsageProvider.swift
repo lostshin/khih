@@ -55,6 +55,10 @@ enum UsageProviderError: Error {
     /// refresh it the next time it runs. Not the same as being signed out: the
     /// last reading is still true, just old.
     case credentialExpired
+    /// The fetch never came back inside the store's deadline. Says nothing
+    /// about the account — the usual cause is a keychain read sitting behind an
+    /// authorization prompt nobody has answered yet.
+    case timedOut
     /// The endpoint answered, but not with anything we understand.
     case badResponse(status: Int)
     /// Asked to slow down. Carries the server's own retry hint when it gave one.

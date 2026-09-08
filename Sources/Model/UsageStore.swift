@@ -61,11 +61,47 @@ final class UsageStore: ObservableObject {
     private var isRefreshing = false
     private var wakeObserver: NSObjectProtocol?
 
+    /// How long one pass gets before the store stops waiting for it.
+    ///
+    /// **Not a cancellation, and it cannot be one.** At the bottom of a Claude
+    /// fetch is `SecItemCopyMatching`, which is synchronous and blocks its
+    /// thread until macOS resolves the authorization prompt sitting in front of
+    /// it. `Task.cancel()` sets a flag; it does not reach into a blocked C
+    /// call. What the deadline buys is that *the store* stops waiting — which
+    /// is the part that was broken.
+    ///
+    /// It happened for real: a keychain prompt went unanswered, the pass never
+    /// returned, `isRefreshing` stayed true, and every tick after it logged
+    /// "refresh skipped: one already in flight" for eighty minutes. The app
+    /// looked alive and had silently stopped reading anything.
+    ///
+    /// The blocked read is not on the main actor — providers are actors, so it
+    /// blocks one cooperative thread and the UI keeps running. Left to finish
+    /// whenever it finishes; `generation` stops its late answer overwriting a
+    /// newer one.
+    private let refreshDeadline: TimeInterval
+    private var deadlineTask: Task<Void, Never>?
+    /// Bumped for every pass. A pass that outlived its deadline finds its
+    /// number stale and writes nothing.
+    private var generation = 0
+    /// Providers whose fetch has not come back yet.
+    ///
+    /// An abandoned pass leaves one here and the next pass skips it, rather
+    /// than queueing a second call behind the first: a provider is an actor, so
+    /// the second call would simply wait on the blocked one and take the new
+    /// pass down with it. That is how one stuck provider used to stop all of
+    /// them.
+    private var inFlight: Set<String> = []
+
     init(
         providers: [UsageProvider],
         refreshInterval: TimeInterval = 60,
         idleRefreshInterval: TimeInterval = 5 * 60,
         staleAfter: TimeInterval = 15 * 60,
+        // Thirty times a normal pass, which is a second or two. High enough
+        // never to fire on a slow network, low enough that a wedged read costs
+        // one tick rather than the rest of the day.
+        refreshDeadline: TimeInterval = 60,
         archive: UsageArchive = UsageArchive(),
         disconnected: Set<String> = []
     ) {
@@ -73,6 +109,7 @@ final class UsageStore: ObservableObject {
         self.refreshInterval = refreshInterval
         self.idleRefreshInterval = idleRefreshInterval
         self.staleAfter = staleAfter
+        self.refreshDeadline = refreshDeadline
         self.archive = archive
 
         // Open on what we knew last time rather than on an empty ring; the
@@ -135,7 +172,10 @@ final class UsageStore: ObservableObject {
         timer?.invalidate()
         timer = nil
         refreshTask?.cancel()
+        deadlineTask?.cancel()
+        deadlineTask = nil
         isRefreshing = false
+        inFlight = []
         // Block-based observers are not removed by `removeObserver(self)`.
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
@@ -171,21 +211,90 @@ final class UsageStore: ObservableObject {
         }
         isRefreshing = true
         lastAttempt = Date()
+        generation &+= 1
+        let mine = generation
+
         refreshTask = Task { [weak self] in
             await self?.refresh()
-            self?.isRefreshing = false
+            self?.finish(pass: mine)
+        }
+        armDeadline(for: mine)
+    }
+
+    /// Stops waiting for a pass that has not come back, so the next tick can
+    /// run. Deliberately does not touch the pass itself — there is nothing here
+    /// that could stop it.
+    private func armDeadline(for pass: Int) {
+        let deadline = refreshDeadline
+        deadlineTask?.cancel()
+        deadlineTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(deadline * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.abandon(pass: pass)
         }
     }
 
+    /// A pass came back. Clears the flag whatever the outcome — success, thrown
+    /// error, or cancellation — because the one thing that must never happen is
+    /// the flag outliving the work.
+    ///
+    /// `refreshing` is not this function's to clear: `refresh()` already does,
+    /// under the same `pass == generation` guard this one uses, so a second
+    /// write here would only ever repeat what that one just did or be skipped
+    /// alongside it — never disagree with it.
+    private func finish(pass: Int) {
+        guard pass == generation else { return }   // already given up on; a newer pass owns the flag
+        deadlineTask?.cancel()
+        deadlineTask = nil
+        isRefreshing = false
+    }
+
+    /// A pass outlived its deadline.
+    ///
+    /// Says so on the providers that never answered, using the same degrading
+    /// path as any other failure: a remembered reading is re-shown and ages,
+    /// and a provider with nothing to show says it got no response. Then frees
+    /// the flag so the schedule resumes.
+    private func abandon(pass: Int) {
+        guard pass == generation, isRefreshing else { return }
+        let stuck = inFlight.sorted()
+        Log.usage.error("refresh abandoned after \(self.refreshDeadline, format: .fixed(precision: 0))s; no answer from: \(stuck.joined(separator: ", "), privacy: .public)")
+        for id in stuck {
+            guard let provider = providers.first(where: { $0.id == id }),
+                  let index = snapshots.firstIndex(where: { $0.id == id })
+            else { continue }
+            snapshots[index] = degraded(provider: provider, error: UsageProviderError.timedOut)
+        }
+        isRefreshing = false
+        refreshing = []
+    }
+
     func refresh() async {
+        let mine = generation
         let live = providers.filter { !disconnected.contains($0.id) }
         refreshing = Set(live.map(\.id))
-        defer { refreshing = [] }
         var next: [ProviderSnapshot] = []
         for provider in live {
-            next.append(await snapshot(from: provider))
+            // Still stuck from an earlier pass: leave it exactly as it is
+            // rather than queueing behind it.
+            guard !inFlight.contains(provider.id) else {
+                next.append(snapshots.first { $0.id == provider.id } ?? Self.placeholder(provider))
+                continue
+            }
+            inFlight.insert(provider.id)
+            let fresh = await snapshot(from: provider)
+            inFlight.remove(provider.id)
+            next.append(fresh)
         }
+        // A pass that was abandoned mid-flight must not touch state a newer
+        // pass owns — not the snapshots it drew, and not "still refreshing"
+        // either. That second part is not optional: this used to be a `defer`,
+        // which runs on every return regardless of this guard, so an abandoned
+        // pass that finally resolved could clear the spinner out from under a
+        // newer pass that was still genuinely fetching something else.
+        guard mine == generation else { return }
         snapshots = next
+        refreshing = []
     }
 
     /// Refetch one provider, leaving the others alone.
@@ -375,6 +484,10 @@ final class UsageStore: ObservableObject {
     /// Exposed so a test can hold the shipped defaults to the margin they are
     /// supposed to keep, without re-typing the numbers on both sides.
     var staleAfterForTesting: TimeInterval { staleAfter }
+    /// Exposed so a test can prove the flag was released rather than infer it
+    /// from a second refresh happening to work.
+    var isRefreshingForTesting: Bool { isRefreshing }
+    var inFlightForTesting: Set<String> { inFlight }
     var idleRefreshIntervalForTesting: TimeInterval { idleRefreshInterval }
 
     private static func status(for error: Error) -> ProviderStatus {
@@ -392,6 +505,11 @@ final class UsageStore: ObservableObject {
             return .stale(since: Date())
         case UsageProviderError.accessDenied:
             return .accessDenied
+        case UsageProviderError.timedOut:
+            // Nothing is known about the account, so a remembered reading stays
+            // and simply ages. `degraded` handles that; this is only what a
+            // provider with nothing to show says.
+            return .error("no response")
         case UsageProviderError.nothingMetered(let why):
             return .unsupported(why)
         case UsageProviderError.badResponse(let code):
