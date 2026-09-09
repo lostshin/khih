@@ -1267,6 +1267,20 @@ private struct AccountRow: View {
             detail
                 .font(.caption)
                 .padding(.leading, 48)
+
+            // Outside `detail` on purpose. That chain shows the account summary
+            // whenever there is an account, and an aged-out token still has
+            // one — the credential is there, it is simply too old to use. Put
+            // inside, this warning would be swallowed by the very row that
+            // makes everything look fine.
+            if isConnected, provider.needsSignInRenewal {
+                Text("\(provider.name) usage needs its sign-in renewed — run "
+                     + "`claude` once in a terminal.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(.leading, 48)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         // The whole row is the drop target, handle or not: a 12pt strip is a
         // hard thing to hit, and there is no ambiguity about which row the

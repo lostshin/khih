@@ -230,6 +230,18 @@ final class ClaudeProfileTests: XCTestCase {
         XCTAssertNotNil(archive.loadBackoffUntil(providerID: "claude"))
     }
 
+    /// Stands in for the keychain so the test below cannot reach it.
+    ///
+    /// Two profiles on a fictional `/Users/vinz` still resolve to the *real*
+    /// service name for the default one, so building them for real used to read
+    /// the login keychain — and on a test host rebuilt with a fresh ad-hoc
+    /// signature that means an authorization prompt, which hung the entire
+    /// suite on `providerSummaries`. What the test is about is naming and
+    /// ordering; the credential has nothing to do with it.
+    private static let noCredential: @Sendable () throws -> ClaudeCredentials = {
+        throw UsageProviderError.needsAuth
+    }
+
     /// Two providers, one id each, both drawn: the store has no idea they are
     /// the same tool and must not collapse them.
     @MainActor
@@ -242,13 +254,17 @@ final class ClaudeProfileTests: XCTestCase {
             providers: [
                 // `cli: nil` throughout: this is about two profiles being two
                 // cells, and finding the machine's own Claude Code would make
-                // it about what the developer has installed.
+                // it about what the developer has installed. `noCredential`
+                // for the same reason on the other side — neither the CLI nor
+                // the keychain gets to decide what this test sees.
                 ClaudeOAuthProvider(profile: .default(home: home),
                                     archive: UsageArchive(defaults: defaults),
+                                    loadCredentials: Self.noCredential,
                                     cli: nil),
                 ClaudeOAuthProvider(profile: ClaudeProfile(slug: "work",
                                                            configDirectory: home.appendingPathComponent(".claude-work")),
                                     archive: UsageArchive(defaults: defaults),
+                                    loadCredentials: Self.noCredential,
                                     cli: nil)
             ],
             archive: UsageArchive(defaults: defaults)

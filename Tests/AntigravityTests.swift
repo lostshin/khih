@@ -718,15 +718,20 @@ final class CredentialCacheTests: XCTestCase {
         XCTAssertEqual(reads, 2, "it never looked again at all")
     }
 
-    /// One refusal must not become a refusal a minute. macOS said no; asking
-    /// again on the next tick is what the user experiences as "it keeps asking
-    /// even though I chose Always Allow".
+    /// One refusal must not become a refusal a minute — *when it is a real
+    /// one*. `isPermanentFailure` is what says so: without it, this same
+    /// `Denied` would default to being retried after `retryAfterFailure`,
+    /// exactly like the dark-wake case below. The distinction is real macOS
+    /// UI (`errSecAuthFailed`/`errSecUserCanceled`/`errSecInteractionNotAllowed`)
+    /// saying no, and asking again on the next tick is what the user
+    /// experiences as "it keeps asking even though I chose Always Allow".
     func testARefusalIsNeverRetriedWhileTheItemIsUnchanged() {
         struct Denied: Error {}
         var reads = 0
         var clock = Date(timeIntervalSince1970: 0)
         var stamp = Date(timeIntervalSince1970: 1_000)
-        let cache = CredentialCache<Token>(now: { clock }) { $0.expired }
+        let cache = CredentialCache<Token>(now: { clock }, isPermanentFailure: { $0 is Denied },
+                                           isExpired: { $0.expired })
 
         // A good read first, so there is something to fall back on.
         _ = try? cache.value(itemModifiedAt: { stamp }) { reads += 1; return Token(expired: true) }
@@ -818,6 +823,91 @@ final class CredentialCacheTests: XCTestCase {
         clock.addTimeInterval(10 * 60)
         _ = try? cache.value { () -> Token in reads += 1; throw Nope() }
         XCTAssertEqual(reads, 2, "it never looked again at all")
+    }
+
+    // MARK: - Transient failures: dark wake, and anything else unclassified
+
+    /// The bug this section exists to pin down. `errSecInDarkWake` — macOS
+    /// refusing a keychain read because the Mac is in a brief low-power wake
+    /// with no UI possible — used to be cached exactly like a permanent
+    /// refusal, for as long as the item's `mdat` stayed the same. Nothing
+    /// touches the item again once it holds a valid token, so on a real
+    /// machine one unlucky read landed during dark wake and every read for
+    /// the next three hours replayed that single failure — the notch said
+    /// "Sign in to Claude Code" long after the saved login was fine again,
+    /// because nothing here ever asked macOS a second time.
+    ///
+    /// An error with no `isPermanentFailure` classifier — the default, and
+    /// what `errSecInDarkWake` gets, since it says nothing about the
+    /// credential itself — is retried after `retryAfterFailure` even while
+    /// `mdat` has not moved, which a permanent refusal (above) never is.
+    func testATransientFailureIsRetriedAfterTheWindowEvenWithTheSameMdat() {
+        struct DarkWake: Error {}
+        var reads = 0
+        var clock = Date(timeIntervalSince1970: 0)
+        let stamp = Date(timeIntervalSince1970: 1_000)
+        let cache = CredentialCache<Token>(now: { clock }, isExpired: { $0.expired })
+
+        _ = try? cache.value(itemModifiedAt: { stamp }) { () -> Token in
+            reads += 1; throw DarkWake()
+        }
+        XCTAssertEqual(reads, 1)
+
+        // Before the window: the same failure, without asking macOS again.
+        clock.addTimeInterval(4 * 60 + 59)
+        XCTAssertThrowsError(try cache.value(itemModifiedAt: { stamp }) { () -> Token in
+            reads += 1; throw DarkWake()
+        }) { XCTAssertTrue($0 is DarkWake) }
+        XCTAssertEqual(reads, 1, "still cached — the window has not passed yet")
+
+        // Past it, `mdat` still exactly the same: this is the fix. The old
+        // logic only ever asked "did the item change".
+        clock.addTimeInterval(2)
+        let recovered = try? cache.value(itemModifiedAt: { stamp }) {
+            reads += 1; return Token(expired: false)
+        }
+        XCTAssertNotNil(recovered, "the window passing must trigger a real retry")
+        XCTAssertEqual(reads, 2)
+    }
+
+    /// A repeated transient failure still respects the backoff — the fix is
+    /// "eventually retry", not "retry on every call".
+    func testARepeatedTransientFailureStillBacksOff() {
+        struct DarkWake: Error {}
+        var reads = 0
+        var clock = Date(timeIntervalSince1970: 0)
+        let stamp = Date(timeIntervalSince1970: 1_000)
+        let cache = CredentialCache<Token>(now: { clock }, isExpired: { $0.expired })
+
+        for _ in 0..<20 {
+            _ = try? cache.value(itemModifiedAt: { stamp }) { () -> Token in
+                reads += 1; throw DarkWake()
+            }
+            clock.addTimeInterval(10)
+        }
+        // 200s in 10s steps, all inside the 300s default window.
+        XCTAssertEqual(reads, 1, "hammering the cache must not hammer the keychain")
+    }
+
+    /// A rotation is picked up immediately even behind a transient failure —
+    /// the same guarantee `testARotationIsStillWorthAskingForAfterARefusal`
+    /// gives a permanent one, so a real renewal is never made to wait out a
+    /// backoff that exists for the opposite case.
+    func testARotationIsPickedUpImmediatelyAfterATransientFailure() {
+        struct DarkWake: Error {}
+        var reads = 0
+        var stamp = Date(timeIntervalSince1970: 1_000)
+        let cache = CredentialCache<Token>(isExpired: { $0.expired })
+
+        _ = try? cache.value(itemModifiedAt: { stamp }) { () -> Token in
+            reads += 1; throw DarkWake()
+        }
+        stamp = Date(timeIntervalSince1970: 2_000)   // renewed moments later
+        let renewed = try? cache.value(itemModifiedAt: { stamp }) {
+            reads += 1; return Token(expired: false)
+        }
+        XCTAssertNotNil(renewed)
+        XCTAssertEqual(reads, 2, "a real renewal must not wait out a backoff that exists for a different reason")
     }
 }
 

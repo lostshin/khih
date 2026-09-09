@@ -23,6 +23,19 @@ final class ClaudeSessionMonitor: ObservableObject, AgentActivityMonitor {
     /// the tests that only care about the registry want.
     private let transcripts: ClaudeTranscriptReader?
 
+    /// Sessions to leave out because Codenotch started them, not the user.
+    ///
+    /// Renewing the OAuth token runs the Claude CLI, and the CLI registers a
+    /// session file for the second or so it is alive, exactly like any other
+    /// session. Without this the notch grows a seventh row that nobody asked
+    /// for, and — worse — `isBusy` can read it as work in progress and start
+    /// polling usage hard on the strength of it.
+    ///
+    /// The pid alone is enough: checked on this machine, the file the CLI
+    /// writes carries the pid of the process Codenotch spawned, with no fork in
+    /// between. See `ClaudeTokenRefresher`.
+    var ignoredPIDs: () -> Set<Int32> = { [] }
+
     private var source: DispatchSourceFileSystemObject?
     private var descriptor: CInt = -1
     private var livenessTimer: Timer?
@@ -98,7 +111,8 @@ final class ClaudeSessionMonitor: ObservableObject, AgentActivityMonitor {
     }
 
     private func rescan() {
-        let found = Self.read(directory: directory, transcripts: transcripts)
+        let found = Self.read(directory: directory, transcripts: transcripts,
+                              ignoring: ignoredPIDs())
         guard found != sessions else { return }   // don't churn SwiftUI for nothing
         // Only on a change, so this is a handful of lines an hour rather than a
         // firehose. It is the one way to see what the notch thinks is running
@@ -111,7 +125,8 @@ final class ClaudeSessionMonitor: ObservableObject, AgentActivityMonitor {
     }
 
     static func read(directory: URL,
-                     transcripts: ClaudeTranscriptReader? = nil) -> [AgentSession] {
+                     transcripts: ClaudeTranscriptReader? = nil,
+                     ignoring: Set<Int32> = []) -> [AgentSession] {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
         let live = names
             .filter { $0.hasSuffix(".json") }
@@ -120,6 +135,7 @@ final class ClaudeSessionMonitor: ObservableObject, AgentActivityMonitor {
                 guard let data = try? Data(contentsOf: url),
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let record = ClaudeSessionRecord(json: json),
+                      !ignoring.contains(record.pid),
                       ProcessLiveness.isAlive(pid: record.pid, startedAt: record.startedAt)
                 else { return nil }
                 return record
