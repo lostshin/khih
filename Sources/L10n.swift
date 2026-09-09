@@ -21,7 +21,7 @@ enum L10n {
 
     /// Where the override is kept. Injectable because the unit tests run
     /// inside the app as their host, so `.standard` here is the *shipping
-    /// app's* preferences: without this, choosing 简体中文 in Settings would
+    /// app's* preferences: without this, choosing Chinese in Settings would
     /// turn every copy assertion in the suite Chinese, and a test that stored
     /// a language would leave it behind in the real app.
     static var defaults: UserDefaults = .standard
@@ -36,7 +36,7 @@ enum L10n {
         let isTest = NSClassFromString("XCTestCase") != nil
 
         // Under XCTest the host *is* the app, so the production store here is
-        // the preferences of the installed copy of Codenotch. Choosing 简体中文
+        // the preferences of the installed copy of Codenotch. Choosing Chinese
         // in Settings would otherwise decide what a hundred copy assertions
         // compare against — which it did, twice, mid-session. A test that
         // means to exercise the override injects its own store and is
@@ -44,7 +44,7 @@ enum L10n {
         if isTest, defaults == .standard { return Locale(identifier: "en") }
 
         // Existing assertions stay English on a Chinese Mac. A stored
-        // override still wins so a test can pin zh-Hans without testLocale.
+        // override still wins so a test can pin a locale without testLocale.
         if isTest, stored == nil || stored == AppLanguage.system.rawValue {
             return Locale(identifier: "en")
         }

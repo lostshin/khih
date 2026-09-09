@@ -36,8 +36,8 @@ enum ReleaseNotes {
                 headline: L10n.t("Speaks Chinese, watches local models think, and stays welded to the edge."),
                 changes: [
                     ReleaseNote.Change(
-                        title: L10n.t("简体中文"),
-                        detail: L10n.t("A Language picker in Appearance: follow the Mac, or hold the app to English or Simplified Chinese whatever the Mac is set to. Copy added since the translation was written falls back to English rather than going blank.")
+                        title: L10n.t("Traditional Chinese (Taiwan)"),
+                        detail: L10n.t("Choose English, Traditional Chinese (Taiwan), or follow your Mac in Appearance.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Ollama models show thinking and generation speed"),

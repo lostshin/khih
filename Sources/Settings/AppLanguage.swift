@@ -2,14 +2,14 @@ import Foundation
 
 /// Which language Codenotch's own copy uses.
 ///
-/// Follow System is the default. A forced English or Simplified Chinese
+/// Follow System is the default. An explicit language
 /// choice exists because the Mac's language is not always the one the
 /// person wants this app in — bilingual machines, or a Mac in a language
 /// we do not ship.
 enum AppLanguage: String, CaseIterable, Identifiable {
     case system = "system"
     case english = "en"
-    case simplifiedChinese = "zh-Hans"
+    case traditionalChineseTaiwan = "zh-Hant-TW"
 
     var id: String { rawValue }
 
@@ -23,17 +23,17 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .system:            return nil
         case .english:           return Locale(identifier: "en")
-        case .simplifiedChinese: return Locale(identifier: "zh-Hans")
+        case .traditionalChineseTaiwan: return Locale(identifier: "zh-Hant-TW")
         }
     }
 
-    /// English and 简体中文 stay in their own language so the row is
+    /// Language names stay in their own language so the row is
     /// recognizable when the rest of Settings is in the other one.
     var title: String {
         switch self {
         case .system:            return L10n.t("Follow System")
         case .english:           return "English"
-        case .simplifiedChinese: return "简体中文"
+        case .traditionalChineseTaiwan: return "繁體中文（台灣）"
         }
     }
 
@@ -41,7 +41,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .system:
             return L10n.t("Matches the Mac's preferred language.")
-        case .english, .simplifiedChinese:
+        case .english, .traditionalChineseTaiwan:
             return L10n.t("Codenotch uses this language even if the Mac does not.")
         }
     }

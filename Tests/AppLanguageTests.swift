@@ -51,12 +51,27 @@ final class AppLanguageTests: XCTestCase {
         XCTAssertEqual(L10n.t("Always show"), "Always show")
     }
 
-    /// `apply(.simplifiedChinese)` stores `zh-Hans`, and `L10n.locale`
-    /// honours that even under XCTest, so the default `t()` lookup is
-    /// Chinese without setting `testLocale`.
-    func testApplySimplifiedChineseServesChineseCopy() {
-        L10n.apply(.simplifiedChinese)
-        L10n.testLocale = nil
-        XCTAssertEqual(L10n.t("Always show"), "始终显示")
+    func testOnlySupportedLanguagesAreSelectable() {
+        XCTAssertEqual(AppLanguage.allCases.map(\.rawValue), ["system", "en", "zh-Hant-TW"])
+    }
+
+    func testUnknownLanguageUsesSystemSelection() {
+        L10n.defaults.set("removed-language", forKey: L10n.languageDefaultsKey)
+        XCTAssertEqual(AppLanguage(rawValue: "removed-language") ?? .system, .system)
+    }
+
+    func testApplyTaiwanChinesePersistsAndServesTaiwanCopy() {
+        L10n.apply(.traditionalChineseTaiwan)
+        XCTAssertEqual(L10n.defaults.string(forKey: L10n.languageDefaultsKey), "zh-Hant-TW")
+        XCTAssertEqual(L10n.locale.identifier, "zh-Hant-TW")
+        XCTAssertEqual(L10n.t("Settings…"), "設定…")
+        XCTAssertEqual(L10n.t("Accounts"), "帳號")
+        XCTAssertEqual(L10n.t("Sign in to \("Codex")"), "登入 Codex")
+        XCTAssertEqual(AppLanguage.traditionalChineseTaiwan.title, "繁體中文（台灣）")
+
+        L10n.apply(.english)
+        XCTAssertEqual(L10n.t("Settings…"), "Settings…")
+        L10n.apply(.system)
+        XCTAssertNil(L10n.defaults.string(forKey: L10n.languageDefaultsKey))
     }
 }
