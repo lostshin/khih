@@ -4235,6 +4235,171 @@
           }
         }
       }
+    },
+    "Start 5-hour window": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動 5 小時倒數"
+          }
+        }
+      }
+    },
+    "Starting…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動中…"
+          }
+        }
+      }
+    },
+    "Sends one minimal request to open this account's five-hour window. It refuses without sending anything if a countdown is already running, if the account cannot be confirmed, or if there is no reading to compare against.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送出一次最小請求，開啟這個帳號的 5 小時 window。若倒數已在進行、無法確認帳號，或還沒有可比對的讀值，就會直接拒絕，不送出任何請求。"
+          }
+        }
+      }
+    },
+    "Recent quota activity": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近期額度記錄"
+          }
+        }
+      }
+    },
+    "Nothing recorded for this account yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這個帳號還沒有任何記錄。"
+          }
+        }
+      }
+    },
+    "Started — the backend confirmed this request opened the window.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已啟動——backend 確認這次請求開啟了 window。"
+          }
+        }
+      }
+    },
+    "Sent, but the backend has not confirmed a countdown yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已送出，但 backend 尚未確認倒數已開始。"
+          }
+        }
+      }
+    },
+    "A countdown is running, but it was not started by this request.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "倒數正在進行，但不是由這次請求啟動的。"
+          }
+        }
+      }
+    },
+    "Not sent — there is no earlier reading to compare against yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——還沒有可以比對的先前讀值。"
+          }
+        }
+      }
+    },
+    "Not sent — the signed-in account could not be confirmed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——無法確認目前登入的帳號。"
+          }
+        }
+      }
+    },
+    "Not sent — the backend did not report a single five-hour window.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——backend 沒有回報唯一的 5 小時 window。"
+          }
+        }
+      }
+    },
+    "Not sent — the five-hour usage came back unreadable.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——5 小時用量讀不到數值。"
+          }
+        }
+      }
+    },
+    "Not sent — a five-hour countdown is already running.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——5 小時倒數已經在進行中。"
+          }
+        }
+      }
+    },
+    "Not sent — another check is running for this account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——這個帳號正在執行另一項檢查。"
+          }
+        }
+      }
+    },
+    "The request could not be made: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法送出請求：%@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
