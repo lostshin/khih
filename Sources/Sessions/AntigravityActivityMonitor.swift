@@ -15,17 +15,17 @@ final class AntigravityActivityMonitor: AgentActivityMonitor {
     @Published private(set) var sessions: [AgentSession] = []
     var sessionsPublisher: AnyPublisher<[AgentSession], Never> { $sessions.eraseToAnyPublisher() }
 
-    private let root: URL
+    private let roots: [URL]
     private let interval: TimeInterval
     /// How recently a transcript must have been written to count as live.
     /// Generous, because a model can think for a while between two lines.
     private let staleAfter: TimeInterval
     private var timer: Timer?
 
-    init(root: URL = AntigravityActivity.transcriptRoot,
+    init(roots: [URL] = AntigravityActivity.transcriptRoots,
          interval: TimeInterval = 2,
          staleAfter: TimeInterval = 45) {
-        self.root = root
+        self.roots = roots
         self.interval = interval
         self.staleAfter = staleAfter
     }
@@ -46,9 +46,19 @@ final class AntigravityActivityMonitor: AgentActivityMonitor {
     }
 
     private func poll() {
-        let found = Self.read(root: root, staleAfter: staleAfter)
+        let found = Self.read(roots: roots, staleAfter: staleAfter)
         guard found != sessions else { return }
         sessions = found
+    }
+
+    /// The most recent turn across every install — the same reasoning as
+    /// `AntigravityActivity.transcriptRoots`. Watching one directory meant the
+    /// ring never span for anyone whose Antigravity wrote to another.
+    static func read(roots: [URL], staleAfter: TimeInterval, now: Date = Date()) -> [AgentSession] {
+        roots
+            .flatMap { read(root: $0, staleAfter: staleAfter, now: now) }
+            .max { $0.since < $1.since }
+            .map { [$0] } ?? []
     }
 
     static func read(root: URL, staleAfter: TimeInterval, now: Date = Date()) -> [AgentSession] {

@@ -56,6 +56,20 @@ final class AntigravityCredentialsTests: XCTestCase {
     func testGarbageIsRejectedRatherThanCrashing() {
         XCTAssertNil(AntigravityCredentials.decode(Data("not base64 at all".utf8)))
     }
+
+    func testCredentialsCarriesProjectAndEmail() {
+        let creds = AntigravityCredentials(
+            accessToken: "token-123",
+            expiresAt: Date().addingTimeInterval(3600),
+            authMethod: "consumer",
+            projectId: "aicode-consumers",
+            email: "user@example.com"
+        )
+        XCTAssertEqual(creds.accessToken, "token-123")
+        XCTAssertEqual(creds.projectId, "aicode-consumers")
+        XCTAssertEqual(creds.email, "user@example.com")
+        XCTAssertFalse(creds.isExpired)
+    }
 }
 
 final class AntigravityTierTests: XCTestCase {
@@ -122,6 +136,158 @@ final class AntigravityActivityTests: XCTestCase {
     }
 
     private let noon = ISO8601DateFormatter().date(from: "2026-08-31T12:00:00Z")!
+
+    /// A second install, so the roots can be tested the way they actually
+    /// occur: several directories, only one of them in use.
+    private func makeRoot() throws -> URL {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("antigravity-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+        return url
+    }
+
+    private func write(_ lines: [String], to root: URL, trajectory: String) throws {
+        let dir = root.appendingPathComponent("\(trajectory)/.system_generated/logs")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try lines.joined(separator: "\n")
+            .write(to: dir.appendingPathComponent("transcript.jsonl"),
+                   atomically: true, encoding: .utf8)
+    }
+
+    // MARK: - More than one install
+
+    /// The bug this fixes. Leaving a flavour of Antigravity behind leaves its
+    /// directory behind, so a machine that has run the IDE and moved to the CLI
+    /// has both — and reading only the first one found reported nothing while
+    /// the transcripts sat one directory over.
+    func testAnEmptyInstallBesideAUsedOneDoesNotHideIt() throws {
+        let empty = try makeRoot()
+        let used = try makeRoot()
+        try write([step("2026-08-31T09:00:00Z", source: "MODEL")], to: used, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [empty, used], now: noon).requestsToday, 1)
+    }
+
+    /// One person, one account, one number for the day.
+    func testTwoInstallsAddUp() throws {
+        let ide = try makeRoot()
+        let cli = try makeRoot()
+        try write([step("2026-08-31T09:00:00Z", source: "MODEL")], to: ide, trajectory: "a")
+        try write([step("2026-08-31T10:00:00Z", source: "MODEL"),
+                   step("2026-08-31T11:00:00Z", source: "MODEL")], to: cli, trajectory: "b")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [ide, cli], now: noon).requestsToday, 3)
+    }
+
+    func testTheNewestRequestWinsAcrossInstalls() throws {
+        let older = try makeRoot()
+        let newer = try makeRoot()
+        try write([step("2026-08-31T09:00:00Z", source: "MODEL")], to: older, trajectory: "a")
+        try write([step("2026-08-31T11:00:00Z", source: "MODEL")], to: newer, trajectory: "b")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [older, newer], now: noon).lastRequest,
+                       ISO8601DateFormatter().date(from: "2026-08-31T11:00:00Z"))
+    }
+
+    func testNoInstallsAtAllIsNotAnError() {
+        XCTAssertEqual(AntigravityActivity.read(roots: [], now: noon).requestsToday, 0)
+    }
+
+    /// The bug itself, at the point it was made: choosing between the
+    /// directories rather than reading all of them.
+    ///
+    /// All four exist on a machine that has run more than one flavour — nothing
+    /// removes the old one — so "the first that exists" is not a choice between
+    /// a real install and a missing one. It picked an empty directory while the
+    /// transcripts sat in the next.
+    func testEveryInstallsBrainIsFoundNotJustTheFirst() throws {
+        let home = try makeRoot()
+        let gemini = home.appendingPathComponent(".gemini")
+        for name in ["antigravity", "antigravity-backup", "antigravity-cli", "antigravity-ide"] {
+            try FileManager.default.createDirectory(
+                at: gemini.appendingPathComponent("\(name)/brain"),
+                withIntermediateDirectories: true
+            )
+        }
+        // Something else living under `.gemini` is not an Antigravity install.
+        try FileManager.default.createDirectory(
+            at: gemini.appendingPathComponent("history"), withIntermediateDirectories: true
+        )
+
+        let roots = AntigravityActivity.transcriptRoots(home: home)
+
+        XCTAssertEqual(roots.count, 4, "found \(roots.map(\.path))")
+        XCTAssertTrue(roots.allSatisfy { $0.lastPathComponent == "brain" })
+        XCTAssertTrue(roots.contains { $0.path.contains("antigravity-cli") })
+    }
+
+    /// A directory without a `brain` is not one to read from.
+    func testAnInstallWithNoBrainIsSkipped() throws {
+        let home = try makeRoot()
+        try FileManager.default.createDirectory(
+            at: home.appendingPathComponent(".gemini/antigravity-cli"),
+            withIntermediateDirectories: true
+        )
+
+        XCTAssertTrue(AntigravityActivity.transcriptRoots(home: home).isEmpty)
+    }
+
+    // MARK: - What the row is called
+
+    /// A bare `0` reads as the app having found nothing, which is also what the
+    /// wrong directory looked like. Saying when it was last used tells them
+    /// apart.
+    func testAQuietDayNamesTheLastTimeItWasUsed() throws {
+        try write([step("2026-08-28T09:00:00Z", source: "MODEL")], to: root, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [root], now: noon).label(now: noon),
+                       "Requests today · last used 3 days ago")
+    }
+
+    func testYesterdayIsNamedAsYesterday() throws {
+        try write([step("2026-08-30T09:00:00Z", source: "MODEL")], to: root, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [root], now: noon).label(now: noon),
+                       "Requests today · last used yesterday")
+    }
+
+    /// Counted in calendar days, like `requestsToday` itself. Measured in
+    /// elapsed hours instead, a late evening reads as "3 hr ago" rather than
+    /// yesterday, and the row's two halves disagree about what a day is.
+    ///
+    /// Built from the local calendar rather than from fixed UTC strings: which
+    /// calendar day an instant falls on is exactly what is under test, so a
+    /// literal `Z` timestamp would pass or fail on the machine's own timezone.
+    func testTheEveningBeforeIsStillYesterday() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let earlyMorning = calendar.date(
+            from: DateComponents(year: 2026, month: 8, day: 31, hour: 1)
+        )!
+        let previousEvening = calendar.date(byAdding: .hour, value: -3, to: earlyMorning)!
+
+        let stamp = ISO8601DateFormatter().string(from: previousEvening)
+        try write([step(stamp, source: "MODEL")], to: root, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [root], now: earlyMorning)
+                           .label(now: earlyMorning),
+                       "Requests today · last used yesterday")
+    }
+
+    /// A day with work on it says nothing about recency — the count is the
+    /// answer, and the old wording is still the right one.
+    func testABusyDayKeepsThePlainLabel() throws {
+        try write([step("2026-08-31T09:00:00Z", source: "MODEL")], to: root, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [root], now: noon).label(now: noon),
+                       "Requests today · no limit published")
+    }
+
+    func testNothingEverRecordedKeepsThePlainLabel() {
+        XCTAssertEqual(AntigravityActivity.read(roots: [], now: noon).label(now: noon),
+                       "Requests today · no limit published")
+    }
 
     /// The real transcript interleaves user input and system checkpoints with
     /// model answers. Counting those would inflate the figure with work the
@@ -203,6 +369,78 @@ final class AntigravityQuotaTests: XCTestCase {
         XCTAssertEqual(windows.count, 1)
         XCTAssertEqual(windows.first?.usedFraction ?? 0, 0.25, accuracy: 0.0001)
         XCTAssertEqual(windows.first?.label, "Daily")
+    }
+
+    func testItParsesDirectCloudCodeRetrieveUserQuotaBuckets() throws {
+        let now = Date(timeIntervalSince1970: 1788900000)
+        let body = Data("""
+        {
+          "buckets": [
+            {
+              "tokenType": "WTUS",
+              "modelId": "claude-sonnet-4-6",
+              "remainingFraction": 0.75,
+              "resetTime": "2026-09-09T10:39:57Z"
+            },
+            {
+              "tokenType": "WTUS",
+              "modelId": "claude-opus-4-6-thinking",
+              "remainingFraction": 0.85,
+              "resetTime": "2026-09-16T18:00:12Z"
+            },
+            {
+              "tokenType": "WTUS",
+              "modelId": "gemini-3.7-flash-tiered",
+              "remainingFraction": 0.90,
+              "resetTime": "2026-09-09T10:39:57Z"
+            },
+            {
+              "tokenType": "WTUS",
+              "modelId": "gemini-2.5-pro",
+              "remainingFraction": 0.80,
+              "resetTime": "2026-09-16T10:39:57Z"
+            }
+          ]
+        }
+        """.utf8)
+        let windows = AntigravityProvider.windows(in: body, now: now)
+        XCTAssertEqual(windows.count, 4)
+
+        let geminiHourly = try XCTUnwrap(windows.first(where: { $0.id == "gemini-hourly" }))
+        XCTAssertEqual(geminiHourly.group, "Gemini Models")
+        XCTAssertEqual(geminiHourly.label, "5-hour Limit")
+        XCTAssertEqual(geminiHourly.usedFraction ?? 0, 0.10, accuracy: 0.0001)
+
+        let geminiWeekly = try XCTUnwrap(windows.first(where: { $0.id == "gemini-weekly" }))
+        XCTAssertEqual(geminiWeekly.group, "Gemini Models")
+        XCTAssertEqual(geminiWeekly.label, "Weekly Limit")
+        XCTAssertEqual(geminiWeekly.usedFraction ?? 0, 0.20, accuracy: 0.0001)
+
+        let thirdPartyHourly = try XCTUnwrap(windows.first(where: { $0.id == "3p-hourly" }))
+        XCTAssertEqual(thirdPartyHourly.group, "Claude and GPT models")
+        XCTAssertEqual(thirdPartyHourly.label, "5-hour Limit")
+        XCTAssertEqual(thirdPartyHourly.usedFraction ?? 0, 0.25, accuracy: 0.0001)
+
+        let thirdPartyWeekly = try XCTUnwrap(windows.first(where: { $0.id == "3p-weekly" }))
+        XCTAssertEqual(thirdPartyWeekly.group, "Claude and GPT models")
+        XCTAssertEqual(thirdPartyWeekly.label, "Weekly Limit")
+        XCTAssertEqual(thirdPartyWeekly.usedFraction ?? 0, 0.15, accuracy: 0.0001)
+    }
+
+    func testDirectCloudCodeIgnoresInvalidFractions() {
+        let body = Data("""
+        {
+          "buckets": [
+            {"modelId": "gemini-bad-over", "remainingFraction": 1.5},
+            {"modelId": "gemini-bad-under", "remainingFraction": -0.1},
+            {"modelId": "gemini-3.7-flash", "remainingFraction": 0.4}
+          ]
+        }
+        """.utf8)
+        let windows = AntigravityProvider.windows(in: body)
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(windows.first?.id, "gemini-hourly")
+        XCTAssertEqual(windows.first?.usedFraction ?? 0, 0.6, accuracy: 0.0001)
     }
 
     /// Cursor's free plan reports an included limit of zero, and dividing by it
@@ -353,6 +591,63 @@ final class AntigravityBridgeTests: XCTestCase {
     func testNoPortMeansNoEndpoint() {
         let table = "1 language_server --csrf_token abc"
         XCTAssertNil(AntigravityBridge.discover(processTable: table, listeningPorts: { _ in [] }))
+    }
+
+    // MARK: - The CLI is an install too
+
+    /// Antigravity ships a CLI as well as an IDE, and it serves the same RPC.
+    /// Looking only for `language_server --csrf_token` meant someone who uses
+    /// `agy` and never installs the IDE got the counted-requests fallback while
+    /// a real quota was being served on loopback the whole time.
+    func testTheCLIIsFoundAndAsksForNoToken() throws {
+        let table = """
+        1 /sbin/launchd
+        34221 agy
+        """
+        let endpoint = try XCTUnwrap(
+            AntigravityBridge.discover(processTable: table, listeningPorts: { pid in
+                XCTAssertEqual(pid, 34221)
+                return [54166, 54167]
+            })
+        )
+
+        XCTAssertNil(endpoint.csrfToken, "the CLI serves this without one")
+        XCTAssertEqual(endpoint.ports, [54166, 54167])
+    }
+
+    func testTheCLIIsFoundByItsFullPathToo() throws {
+        let table = "700 /Users/someone/.local/bin/agy"
+        let endpoint = try XCTUnwrap(
+            AntigravityBridge.discover(processTable: table, listeningPorts: { _ in [9000] })
+        )
+
+        XCTAssertNil(endpoint.csrfToken)
+    }
+
+    /// The IDE keeps its place: it is the one that needs the token, and sending
+    /// none to it is the one way to be refused.
+    func testTheIDEWinsWhenBothAreRunning() throws {
+        let table = """
+        29283 /Applications/Antigravity.app/Contents/Resources/bin/language_server --csrf_token abc
+        34221 agy
+        """
+        let endpoint = try XCTUnwrap(
+            AntigravityBridge.discover(processTable: table, listeningPorts: { _ in [1] })
+        )
+
+        XCTAssertEqual(endpoint.csrfToken, "abc")
+    }
+
+    /// "agy" is three letters and turns up inside real words and real paths, so
+    /// the executable's own name is what is matched — not the line.
+    func testSomethingElseWithAgyInItIsNotTheCLI() {
+        for command in ["/opt/legacy/bin/server", "/usr/bin/agyllomerate", "500 imagy-daemon"] {
+            XCTAssertNil(
+                AntigravityBridge.discover(processTable: "500 \(command)",
+                                           listeningPorts: { _ in [1] }),
+                "\(command) was taken for the Antigravity CLI"
+            )
+        }
     }
 
     func testItParsesPortsFromLSOF() {
