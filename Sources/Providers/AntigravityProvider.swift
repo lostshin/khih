@@ -1,6 +1,6 @@
 import Foundation
+import SQLite3
 import os
-
 /// Gemini, as Antigravity sees it.
 ///
 /// **What this can and cannot report, and why.** Antigravity talks to Google's
@@ -26,7 +26,7 @@ actor AntigravityProvider: UsageProvider {
     /// different audience.
     private let endpoint = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist")!
     /// The real usage figure — when the account is allowed to ask for it.
-    private let quotaEndpoint = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary")!
+    private let quotaEndpoint = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota")!
     private let session: URLSession
     /// A second session, trusting loopback only, for the local language server.
     private let localSession: URLSession
@@ -131,19 +131,21 @@ actor AntigravityProvider: UsageProvider {
         request.httpMethod = "POST"
         request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // `GEMINI` and not `ANTIGRAVITY`: the latter is rejected outright with
-        // "Invalid value at 'metadata.plugin_type'". The wire name lags the
-        // product name.
+        request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
         request.httpBody = try JSONSerialization.data(
-            withJSONObject: ["metadata": ["pluginType": "GEMINI"]]
+            withJSONObject: [
+                "cloudaicompanionProject": credentials.projectId as Any,
+                "metadata": [
+                    "ideType": "IDE_UNSPECIFIED",
+                    "platform": "PLATFORM_UNSPECIFIED",
+                    "pluginType": "GEMINI"
+                ]
+            ]
         )
         request.timeoutInterval = 15
 
-        // The body is not read. `:loadCodeAssist` answers with tiers and no
-        // numbers — no used, no limit, no reset — so the only thing this call
-        // still contributes is its status code, which separates "signed out"
-        // from "something else went wrong" before the quota endpoint is tried.
-        let (_, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
 
         if status == 401 {
@@ -164,12 +166,34 @@ actor AntigravityProvider: UsageProvider {
         }
         guard status == 200 else { throw UsageProviderError.badResponse(status: status) }
 
-        // Then Google directly, which answers for a licensed account.
-        if let windows = try await quota(token: credentials.accessToken), !windows.isEmpty {
-            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
-                                    fidelity: .official, status: .ok, windows: windows)
+        var companionProject = credentials.projectId
+        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let p = obj["cloudaicompanionProject"] as? String {
+                companionProject = p
+            } else if let pObj = obj["cloudaicompanionProject"] as? [String: Any],
+                      let p = pObj["id"] as? String {
+                companionProject = p
+            }
         }
 
+        // Then Google directly, which answers for both licensed accounts and
+        // consumer accounts when addressed with proper client metadata.
+        if let windows = try await quota(token: credentials.accessToken, project: companionProject), !windows.isEmpty {
+            let hourlies = windows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") || $0.id.lowercased().contains("flash") }
+            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
+            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
+                                    fidelity: .official, status: .ok, windows: windows,
+                                    headlineID: mostConstrained?.id ?? "gemini-quota")
+        }
+
+        // Check if OMP has recorded recent usage history in its SQLite store
+        let ompWindows = Self.ompUsageWindows()
+        if !ompWindows.isEmpty {
+            let mostConstrained = ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
+            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
+                                    fidelity: .official, status: .ok, windows: ompWindows,
+                                    headlineID: mostConstrained?.id ?? "gemini-quota")
+        }
         // Not licensed, so Google will not say how much of what. Our own count
         // is the only number left — reported as a *count*, with no
         // `usedFraction`, which is a case the model already knows: the cell
@@ -232,14 +256,15 @@ actor AntigravityProvider: UsageProvider {
     /// license of this product" — the endpoint exists and the request is well
     /// formed, the entitlement is what is missing. That is not an error worth
     /// alarming anyone about, so it returns nil and the caller falls back.
-    private func quota(token: String) async throws -> [LimitWindow]? {
+    private func quota(token: String, project: String? = nil) async throws -> [LimitWindow]? {
         var request = URLRequest(url: quotaEndpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // Empty on purpose. The request message carries no fields — sending
-        // `metadata` or `quotaId` is rejected outright with "Unknown name".
-        request.httpBody = Data("{}".utf8)
+        request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
+        let bodyObj: [String: Any] = (project != nil && !project!.isEmpty) ? ["project": project!] : ["project": "aicode-consumers"]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: bodyObj)
         request.timeoutInterval = 15
 
         let (data, response) = try await session.data(for: request)
@@ -247,45 +272,206 @@ actor AntigravityProvider: UsageProvider {
         return Self.windows(in: data)
     }
 
-    /// Turns a quota summary into limit windows.
+    /// Turns a quota summary into standard limit windows.
     ///
-    /// Written from the message names in Antigravity's own binary
-    /// (`QuotaSummaryGroup`, `QuotaSummaryBucket`, `QuotaLimit`) because no
-    /// licensed account was available to answer with a real body. So it is
-    /// deliberately suspicious of itself: anything without a positive limit, or
-    /// claiming more used than the limit allows, is dropped rather than shown.
-    /// An empty result sends the caller to the honest fallback, which is the
-    /// right outcome for a shape that turns out to differ.
-    static func windows(in data: Data) -> [LimitWindow] {
-        struct Response: Decodable {
+    /// Standard Antigravity exposes two groups with two windows each:
+    /// 1. "Gemini Models" -> 5-hour Limit & Weekly Limit
+    /// 2. "Claude and GPT models" -> 5-hour Limit & Weekly Limit
+    ///
+    /// Both the local language server (which already provides grouped buckets)
+    /// and direct Google Cloud Code PA `retrieveUserQuota` responses (which list
+    /// individual model buckets) are normalized into this standard 4-window structure.
+    static func windows(in data: Data, now: Date = Date()) -> [LimitWindow] {
+        struct DirectResponse: Decodable {
             struct Bucket: Decodable {
+                let modelId: String?
+                let bucketId: String?
                 let name: String?
                 let displayName: String?
+                let remainingFraction: Double?
                 let used: Double?
                 let limit: Double?
                 let resetTime: String?
+                let window: String?
             }
             struct Group: Decodable {
                 let displayName: String?
                 let buckets: [Bucket]?
             }
-            let quotaGroups: [Group]?
             let buckets: [Bucket]?
+            let groups: [Group]?
+            let quotaGroups: [Group]?
+            let response: GroupBody?
+            struct GroupBody: Decodable {
+                let groups: [Group]?
+            }
         }
 
-        guard let decoded = try? JSONDecoder().decode(Response.self, from: data) else { return [] }
-        let buckets = (decoded.quotaGroups?.flatMap { $0.buckets ?? [] } ?? []) + (decoded.buckets ?? [])
+        guard let decoded = try? JSONDecoder().decode(DirectResponse.self, from: data) else { return [] }
 
-        return buckets.compactMap { bucket in
-            guard let limit = bucket.limit, limit > 0,
-                  let used = bucket.used, used >= 0, used <= limit * 1.5
-            else { return nil }
-            let label = bucket.displayName ?? bucket.name ?? "Usage"
-            return LimitWindow(id: bucket.name ?? label,
-                               label: label,
-                               usedFraction: used / limit,
-                               resetsAt: bucket.resetTime.flatMap(AntigravityCredentials.parse))
+        // Pre-grouped response from local server or legacy wrapper
+        let groups = (decoded.response?.groups ?? []) + (decoded.groups ?? []) + (decoded.quotaGroups ?? [])
+        if !groups.isEmpty {
+            return groups.flatMap { group -> [LimitWindow] in
+                (group.buckets ?? []).compactMap { bucket in
+                    let rawID = bucket.bucketId ?? bucket.modelId ?? bucket.name ?? group.displayName ?? "quota"
+                    if let remaining = bucket.remainingFraction, remaining >= 0, remaining <= 1 {
+                        var bucketLabel = bucket.displayName ?? "Usage"
+                        if bucketLabel.hasSuffix(" Remaining") {
+                            bucketLabel = String(bucketLabel.dropLast(" Remaining".count))
+                        }
+                        let groupLabel = group.displayName ?? ""
+                        return LimitWindow(
+                            id: rawID,
+                            group: groupLabel.isEmpty ? nil : groupLabel,
+                            label: bucketLabel,
+                            usedFraction: 1 - remaining,
+                            resetsAt: bucket.resetTime.flatMap(AntigravityCredentials.parse),
+                            duration: bucket.window == "weekly" ? 7 * 86400 : nil
+                        )
+                    }
+                    if let limit = bucket.limit, limit > 0, let used = bucket.used, used >= 0, used <= limit * 1.5 {
+                        let label = bucket.displayName ?? rawID
+                        return LimitWindow(
+                            id: rawID,
+                            group: group.displayName,
+                            label: label,
+                            usedFraction: used / limit,
+                            resetsAt: bucket.resetTime.flatMap(AntigravityCredentials.parse)
+                        )
+                    }
+                    return nil
+                }
+            }
         }
+
+        // Direct model-level buckets from Google Cloud Code PA `retrieveUserQuota`
+        guard let buckets = decoded.buckets, !buckets.isEmpty else { return [] }
+
+        // If buckets are in legacy/explicit used and limit format
+        if buckets.contains(where: { $0.limit != nil }) {
+            return buckets.compactMap { bucket in
+                guard let limit = bucket.limit, limit > 0,
+                      let used = bucket.used, used >= 0, used <= limit * 1.5
+                else { return nil }
+                let rawID = bucket.name ?? bucket.modelId ?? bucket.bucketId ?? "quota"
+                let label = bucket.displayName ?? rawID
+                return LimitWindow(
+                    id: rawID,
+                    label: label,
+                    usedFraction: used / limit,
+                    resetsAt: bucket.resetTime.flatMap(AntigravityCredentials.parse)
+                )
+            }
+        }
+
+        struct Candidate {
+            let remaining: Double
+            let resetDate: Date?
+            let isWeekly: Bool
+        }
+
+        var geminiHourly: [Candidate] = []
+        var geminiWeekly: [Candidate] = []
+        var thirdPartyHourly: [Candidate] = []
+        var thirdPartyWeekly: [Candidate] = []
+
+        for bucket in buckets {
+            guard let rem = bucket.remainingFraction, rem >= 0, rem <= 1 else { continue }
+            let model = (bucket.modelId ?? bucket.bucketId ?? "").lowercased()
+            guard !model.isEmpty && !model.starts(with: "chat_") else { continue }
+
+            let resetDate = bucket.resetTime.flatMap(AntigravityCredentials.parse)
+            let isWeekly = (bucket.window == "weekly") || (resetDate.map { $0.timeIntervalSince(now) > 24 * 3600 } ?? false)
+            let cand = Candidate(remaining: rem, resetDate: resetDate, isWeekly: isWeekly)
+
+            if model.contains("gemini") {
+                if isWeekly { geminiWeekly.append(cand) } else { geminiHourly.append(cand) }
+            } else if model.contains("claude") || model.contains("gpt") || model.contains("openai") {
+                if isWeekly { thirdPartyWeekly.append(cand) } else { thirdPartyHourly.append(cand) }
+            }
+        }
+
+        func aggregate(candidates: [Candidate], id: String, group: String, label: String, isWeekly: Bool) -> LimitWindow? {
+            guard !candidates.isEmpty else { return nil }
+            let best = candidates.min(by: { $0.remaining < $1.remaining })!
+            return LimitWindow(
+                id: id,
+                group: group,
+                label: label,
+                usedFraction: 1 - best.remaining,
+                resetsAt: best.resetDate,
+                duration: isWeekly ? 7 * 86400 : nil
+            )
+        }
+
+        var windows: [LimitWindow] = []
+        if let w = aggregate(candidates: geminiHourly, id: "gemini-hourly", group: "Gemini Models", label: "5-hour Limit", isWeekly: false) {
+            windows.append(w)
+        }
+        if let w = aggregate(candidates: geminiWeekly, id: "gemini-weekly", group: "Gemini Models", label: "Weekly Limit", isWeekly: true) {
+            windows.append(w)
+        }
+        if let w = aggregate(candidates: thirdPartyHourly, id: "3p-hourly", group: "Claude and GPT models", label: "5-hour Limit", isWeekly: false) {
+            windows.append(w)
+        }
+        if let w = aggregate(candidates: thirdPartyWeekly, id: "3p-weekly", group: "Claude and GPT models", label: "Weekly Limit", isWeekly: true) {
+            windows.append(w)
+        }
+        return windows
+    }
+
+    static func ompUsageWindows() -> [LimitWindow] {
+        let dbURL = URL(fileURLWithPath: ("~/.omp/agent/agent.db" as NSString).expandingTildeInPath)
+        guard let db = SQLiteStore.open(dbURL) else { return [] }
+        defer { sqlite3_close(db) }
+
+        let sql = """
+        SELECT limit_id, label, window_label, used_fraction, resets_at
+        FROM usage_history
+        WHERE provider = 'google-antigravity'
+        ORDER BY recorded_at DESC, id DESC
+        LIMIT 30;
+        """
+        let rows = SQLiteStore.rows(in: db, sql: sql, columns: 5)
+        var latestByID: [String: (group: String, label: String, used: Double, resets: Date?)] = [:]
+
+        for row in rows where row.count >= 5 {
+            let limitId = row[0]
+            guard latestByID[limitId] == nil else { continue }
+
+            let rawLabel = row[1]
+            let windowLabel = row[2].lowercased()
+            guard let usedFraction = Double(row[3]) else { continue }
+            let resetsAtMs = Double(row[4])
+            let resetsAt = (resetsAtMs != nil && resetsAtMs! > 0) ? Date(timeIntervalSince1970: resetsAtMs! / 1000.0) : nil
+
+            let isGemini = limitId.contains(":google:") || rawLabel.contains("Google")
+            let groupName = isGemini ? "Gemini Models" : "Claude and GPT models"
+            let isWeekly = windowLabel.contains("weekly")
+            let labelName = isWeekly ? "Weekly Limit" : "5-hour Limit"
+            let standardID = isGemini ? (isWeekly ? "gemini-weekly" : "gemini-hourly") : (isWeekly ? "3p-weekly" : "3p-hourly")
+
+            if latestByID[standardID] == nil {
+                latestByID[standardID] = (groupName, labelName, usedFraction, resetsAt)
+            }
+        }
+
+        var windows: [LimitWindow] = []
+        let order = ["gemini-hourly", "gemini-weekly", "3p-hourly", "3p-weekly"]
+        for key in order {
+            if let item = latestByID[key] {
+                windows.append(LimitWindow(
+                    id: key,
+                    group: item.group,
+                    label: item.label,
+                    usedFraction: item.used,
+                    resetsAt: item.resets,
+                    duration: key.contains("weekly") ? 7 * 86400 : nil
+                ))
+            }
+        }
+        return windows
     }
 
     /// The plan's display name, for the message the cell shows.

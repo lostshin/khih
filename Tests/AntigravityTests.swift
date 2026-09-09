@@ -56,6 +56,20 @@ final class AntigravityCredentialsTests: XCTestCase {
     func testGarbageIsRejectedRatherThanCrashing() {
         XCTAssertNil(AntigravityCredentials.decode(Data("not base64 at all".utf8)))
     }
+
+    func testCredentialsCarriesProjectAndEmail() {
+        let creds = AntigravityCredentials(
+            accessToken: "token-123",
+            expiresAt: Date().addingTimeInterval(3600),
+            authMethod: "consumer",
+            projectId: "aicode-consumers",
+            email: "user@example.com"
+        )
+        XCTAssertEqual(creds.accessToken, "token-123")
+        XCTAssertEqual(creds.projectId, "aicode-consumers")
+        XCTAssertEqual(creds.email, "user@example.com")
+        XCTAssertFalse(creds.isExpired)
+    }
 }
 
 final class AntigravityTierTests: XCTestCase {
@@ -355,6 +369,78 @@ final class AntigravityQuotaTests: XCTestCase {
         XCTAssertEqual(windows.count, 1)
         XCTAssertEqual(windows.first?.usedFraction ?? 0, 0.25, accuracy: 0.0001)
         XCTAssertEqual(windows.first?.label, "Daily")
+    }
+
+    func testItParsesDirectCloudCodeRetrieveUserQuotaBuckets() throws {
+        let now = Date(timeIntervalSince1970: 1788900000)
+        let body = Data("""
+        {
+          "buckets": [
+            {
+              "tokenType": "WTUS",
+              "modelId": "claude-sonnet-4-6",
+              "remainingFraction": 0.75,
+              "resetTime": "2026-09-09T10:39:57Z"
+            },
+            {
+              "tokenType": "WTUS",
+              "modelId": "claude-opus-4-6-thinking",
+              "remainingFraction": 0.85,
+              "resetTime": "2026-09-16T18:00:12Z"
+            },
+            {
+              "tokenType": "WTUS",
+              "modelId": "gemini-3.7-flash-tiered",
+              "remainingFraction": 0.90,
+              "resetTime": "2026-09-09T10:39:57Z"
+            },
+            {
+              "tokenType": "WTUS",
+              "modelId": "gemini-2.5-pro",
+              "remainingFraction": 0.80,
+              "resetTime": "2026-09-16T10:39:57Z"
+            }
+          ]
+        }
+        """.utf8)
+        let windows = AntigravityProvider.windows(in: body, now: now)
+        XCTAssertEqual(windows.count, 4)
+
+        let geminiHourly = try XCTUnwrap(windows.first(where: { $0.id == "gemini-hourly" }))
+        XCTAssertEqual(geminiHourly.group, "Gemini Models")
+        XCTAssertEqual(geminiHourly.label, "5-hour Limit")
+        XCTAssertEqual(geminiHourly.usedFraction ?? 0, 0.10, accuracy: 0.0001)
+
+        let geminiWeekly = try XCTUnwrap(windows.first(where: { $0.id == "gemini-weekly" }))
+        XCTAssertEqual(geminiWeekly.group, "Gemini Models")
+        XCTAssertEqual(geminiWeekly.label, "Weekly Limit")
+        XCTAssertEqual(geminiWeekly.usedFraction ?? 0, 0.20, accuracy: 0.0001)
+
+        let thirdPartyHourly = try XCTUnwrap(windows.first(where: { $0.id == "3p-hourly" }))
+        XCTAssertEqual(thirdPartyHourly.group, "Claude and GPT models")
+        XCTAssertEqual(thirdPartyHourly.label, "5-hour Limit")
+        XCTAssertEqual(thirdPartyHourly.usedFraction ?? 0, 0.25, accuracy: 0.0001)
+
+        let thirdPartyWeekly = try XCTUnwrap(windows.first(where: { $0.id == "3p-weekly" }))
+        XCTAssertEqual(thirdPartyWeekly.group, "Claude and GPT models")
+        XCTAssertEqual(thirdPartyWeekly.label, "Weekly Limit")
+        XCTAssertEqual(thirdPartyWeekly.usedFraction ?? 0, 0.15, accuracy: 0.0001)
+    }
+
+    func testDirectCloudCodeIgnoresInvalidFractions() {
+        let body = Data("""
+        {
+          "buckets": [
+            {"modelId": "gemini-bad-over", "remainingFraction": 1.5},
+            {"modelId": "gemini-bad-under", "remainingFraction": -0.1},
+            {"modelId": "gemini-3.7-flash", "remainingFraction": 0.4}
+          ]
+        }
+        """.utf8)
+        let windows = AntigravityProvider.windows(in: body)
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(windows.first?.id, "gemini-hourly")
+        XCTAssertEqual(windows.first?.usedFraction ?? 0, 0.6, accuracy: 0.0001)
     }
 
     /// Cursor's free plan reports an included limit of zero, and dividing by it
