@@ -105,7 +105,8 @@ actor AntigravityProvider: UsageProvider {
         }
 
         // 1. Check if OMP has recorded active usage history in its SQLite store
-        let ompWindows = Self.ompUsageWindows()
+        let credentials = try? AntigravityCredentials.load()
+        let ompWindows = Self.ompUsageWindows(forEmail: credentials?.email)
         if !ompWindows.isEmpty {
             let hourlies = ompWindows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
             let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
@@ -115,7 +116,7 @@ actor AntigravityProvider: UsageProvider {
         }
 
         // 2. If local bridge and OMP are absent, try reading credentials and asking Google directly
-        if let credentials = try? AntigravityCredentials.load() {
+        if let credentials {
             var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"
             request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
@@ -383,30 +384,59 @@ actor AntigravityProvider: UsageProvider {
         return windows
     }
 
-    static func ompUsageWindows() -> [LimitWindow] {
+    static func ompUsageWindows(forEmail email: String? = nil) -> [LimitWindow] {
         let dbURL = URL(fileURLWithPath: ("~/.omp/agent/agent.db" as NSString).expandingTildeInPath)
         guard let db = SQLiteStore.open(dbURL) else { return [] }
         defer { sqlite3_close(db) }
 
-        let sql = """
-        SELECT limit_id, label, window_label, used_fraction, resets_at
-        FROM usage_history
-        WHERE provider = 'google-antigravity'
-        ORDER BY recorded_at DESC, id DESC
-        LIMIT 30;
-        """
-        let rows = SQLiteStore.rows(in: db, sql: sql, columns: 5)
+        var targetEmail = email
+        if targetEmail == nil {
+            let sql = "SELECT email FROM usage_history WHERE provider = 'google-antigravity' AND email IS NOT NULL AND email != '' ORDER BY recorded_at DESC, id DESC LIMIT 1;"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW, let em = sqlite3_column_text(stmt, 0) {
+                    targetEmail = String(cString: em)
+                }
+                sqlite3_finalize(stmt)
+            }
+        }
+
+        let sql: String
+        if let targetEmail, !targetEmail.isEmpty {
+            sql = """
+            SELECT limit_id, label, window_label, used_fraction, resets_at
+            FROM usage_history
+            WHERE provider = 'google-antigravity' AND email = ?1
+            ORDER BY recorded_at DESC, id DESC
+            LIMIT 10;
+            """
+        } else {
+            sql = """
+            SELECT limit_id, label, window_label, used_fraction, resets_at
+            FROM usage_history
+            WHERE provider = 'google-antigravity'
+            ORDER BY recorded_at DESC, id DESC
+            LIMIT 10;
+            """
+        }
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+
+        if let targetEmail, !targetEmail.isEmpty {
+            sqlite3_bind_text(stmt, 1, targetEmail, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        }
+
         var latestByID: [String: (group: String, label: String, used: Double, resets: Date?)] = [:]
 
-        for row in rows where row.count >= 5 {
-            let limitId = row[0]
-            guard latestByID[limitId] == nil else { continue }
-
-            let rawLabel = row[1]
-            let windowLabel = row[2].lowercased()
-            guard let usedFraction = Double(row[3]) else { continue }
-            let resetsAtMs = Double(row[4])
-            let resetsAt = (resetsAtMs != nil && resetsAtMs! > 0) ? Date(timeIntervalSince1970: resetsAtMs! / 1000.0) : nil
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let limitId = String(cString: sqlite3_column_text(stmt, 0))
+            let rawLabel = String(cString: sqlite3_column_text(stmt, 1))
+            let windowLabel = sqlite3_column_text(stmt, 2).map { String(cString: $0).lowercased() } ?? ""
+            let usedFraction = sqlite3_column_double(stmt, 3)
+            let resetsAtMs = sqlite3_column_type(stmt, 4) != SQLITE_NULL ? sqlite3_column_double(stmt, 4) : 0
+            let resetsAt = (resetsAtMs > 0) ? Date(timeIntervalSince1970: resetsAtMs / 1000.0) : nil
 
             let isGemini = limitId.contains(":google:") || rawLabel.contains("Google")
             let groupName = isGemini ? "Gemini Models" : "Claude and GPT models"
@@ -435,7 +465,6 @@ actor AntigravityProvider: UsageProvider {
         }
         return windows
     }
-
     /// The plan's display name, for the message the cell shows.
     static func tier(in data: Data) -> String {
         struct Response: Decodable {
