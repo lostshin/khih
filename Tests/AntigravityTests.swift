@@ -507,6 +507,63 @@ final class AntigravityBridgeTests: XCTestCase {
         XCTAssertNil(AntigravityBridge.discover(processTable: table, listeningPorts: { _ in [] }))
     }
 
+    // MARK: - The CLI is an install too
+
+    /// Antigravity ships a CLI as well as an IDE, and it serves the same RPC.
+    /// Looking only for `language_server --csrf_token` meant someone who uses
+    /// `agy` and never installs the IDE got the counted-requests fallback while
+    /// a real quota was being served on loopback the whole time.
+    func testTheCLIIsFoundAndAsksForNoToken() throws {
+        let table = """
+        1 /sbin/launchd
+        34221 agy
+        """
+        let endpoint = try XCTUnwrap(
+            AntigravityBridge.discover(processTable: table, listeningPorts: { pid in
+                XCTAssertEqual(pid, 34221)
+                return [54166, 54167]
+            })
+        )
+
+        XCTAssertNil(endpoint.csrfToken, "the CLI serves this without one")
+        XCTAssertEqual(endpoint.ports, [54166, 54167])
+    }
+
+    func testTheCLIIsFoundByItsFullPathToo() throws {
+        let table = "700 /Users/someone/.local/bin/agy"
+        let endpoint = try XCTUnwrap(
+            AntigravityBridge.discover(processTable: table, listeningPorts: { _ in [9000] })
+        )
+
+        XCTAssertNil(endpoint.csrfToken)
+    }
+
+    /// The IDE keeps its place: it is the one that needs the token, and sending
+    /// none to it is the one way to be refused.
+    func testTheIDEWinsWhenBothAreRunning() throws {
+        let table = """
+        29283 /Applications/Antigravity.app/Contents/Resources/bin/language_server --csrf_token abc
+        34221 agy
+        """
+        let endpoint = try XCTUnwrap(
+            AntigravityBridge.discover(processTable: table, listeningPorts: { _ in [1] })
+        )
+
+        XCTAssertEqual(endpoint.csrfToken, "abc")
+    }
+
+    /// "agy" is three letters and turns up inside real words and real paths, so
+    /// the executable's own name is what is matched — not the line.
+    func testSomethingElseWithAgyInItIsNotTheCLI() {
+        for command in ["/opt/legacy/bin/server", "/usr/bin/agyllomerate", "500 imagy-daemon"] {
+            XCTAssertNil(
+                AntigravityBridge.discover(processTable: "500 \(command)",
+                                           listeningPorts: { _ in [1] }),
+                "\(command) was taken for the Antigravity CLI"
+            )
+        }
+    }
+
     func testItParsesPortsFromLSOF() {
         let output = """
         language_server 29283 vinz 12u IPv4 0x1 0t0 TCP 127.0.0.1:63881 (LISTEN)
