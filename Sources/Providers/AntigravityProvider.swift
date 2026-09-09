@@ -104,7 +104,17 @@ actor AntigravityProvider: UsageProvider {
             throw UsageProviderError.credentialExpired
         }
 
-        // If local bridge is absent, try reading credentials and asking Google directly
+        // 1. Check if OMP has recorded active usage history in its SQLite store
+        let ompWindows = Self.ompUsageWindows()
+        if !ompWindows.isEmpty {
+            let hourlies = ompWindows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
+            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
+            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
+                                    fidelity: .official, status: .ok, windows: ompWindows,
+                                    headlineID: mostConstrained?.id ?? "gemini-hourly")
+        }
+
+        // 2. If local bridge and OMP are absent, try reading credentials and asking Google directly
         if let credentials = try? AntigravityCredentials.load() {
             var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"
@@ -144,16 +154,6 @@ actor AntigravityProvider: UsageProvider {
                                             headlineID: mostConstrained?.id ?? "gemini-hourly")
                 }
             }
-        }
-
-        // Check if OMP has recorded recent usage history in its SQLite store
-        let ompWindows = Self.ompUsageWindows()
-        if !ompWindows.isEmpty {
-            let hourlies = ompWindows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
-            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
-            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
-                                    fidelity: .official, status: .ok, windows: ompWindows,
-                                    headlineID: mostConstrained?.id ?? "gemini-hourly")
         }
 
         if everBridged { throw UsageProviderError.credentialExpired }
