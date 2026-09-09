@@ -1241,19 +1241,28 @@ private struct AccountRow: View {
 
     @ViewBuilder
     private var detail: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             accountDetail
             // Google publishes no limit for a bare API key, so the ring has
             // nothing to fill against until the user names a ceiling itself.
             if isConnected, provider.id == "gemini-api" {
-                HStack(spacing: 6) {
+                // The field's own title would be drawn as a leading label
+                // inside a `Form` row, which puts the caption hard against
+                // the box and leaves the unit stranded past it. Hidden, so
+                // the caption above can own the naming and the row can
+                // breathe.
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Monthly budget")
-                    TextField("None", value: $preferences.geminiAPIMonthlyTokenBudget,
-                              format: .number)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 110)
-                    Text("tokens")
+                    HStack(spacing: 8) {
+                        TextField("None", value: $preferences.geminiAPIMonthlyTokenBudget,
+                                  format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .labelsHidden()
+                            .frame(width: 130)
+                        Text("tokens")
+                    }
                 }
+                .padding(.top, 2)
                 .foregroundStyle(.secondary)
                 .help("Fills the ring against a ceiling you choose; Google publishes "
                       + "none for an API key.")
@@ -1274,26 +1283,35 @@ private struct AccountRow: View {
     @State private var ollamaKeySaved = false
 
     private var ollamaKeyEntry: some View {
-        HStack(spacing: 8) {
-            SecureField("Ollama API key", text: $ollamaKey)
-                .textContentType(.password)
-                .textFieldStyle(.roundedBorder)
-                .controlSize(.small)
-            Button("Save") {
-                guard !ollamaKey.isEmpty else { return }
-                OllamaCredentials.store(ollamaKey)
-                ollamaKey = ""
-                ollamaKeySaved = true
-                _ = signIn(provider.id)
-            }
-            .controlSize(.small)
-            .disabled(ollamaKey.isEmpty)
-            if ollamaKeySaved {
-                Text("Saved.")
-                    .foregroundStyle(.green)
-                    .controlSize(.small)
+        // Laid out like the Gemini budget above it, and for the same reason:
+        // a field's own title becomes a leading label in a `Form` row, which
+        // crowds the box and pins it to the caption. The caption goes on its
+        // own line instead, and `.small` comes off the controls — it bought
+        // nothing but a cramped row.
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Ollama API key")
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                SecureField("Paste your key", text: $ollamaKey)
+                    .textContentType(.password)
+                    .textFieldStyle(.roundedBorder)
+                    .labelsHidden()
+                    .frame(maxWidth: 260)
+                Button("Save") {
+                    guard !ollamaKey.isEmpty else { return }
+                    OllamaCredentials.store(ollamaKey)
+                    ollamaKey = ""
+                    ollamaKeySaved = true
+                    _ = signIn(provider.id)
+                }
+                .disabled(ollamaKey.isEmpty)
+                if ollamaKeySaved {
+                    Text("Saved")
+                        .foregroundStyle(.green)
+                }
             }
         }
+        .padding(.top, 2)
     }
 
     @ViewBuilder
