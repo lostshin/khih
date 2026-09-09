@@ -279,8 +279,7 @@ actor ClaudeOAuthProvider: UsageProvider {
     nonisolated var signInRoute: SignInRoute {
         // Names the command for a profile, because that is the only way to
         // reach it: plain `claude` signs the default one in, not this.
-        .guidance("Run `\(profile.signInCommand)` once — it signs in and is what "
-                  + "these readings come from. Use /login there to change account.")
+        .guidance(L10n.t("Run `\(profile.signInCommand)` once — it signs in and is what these readings come from. Use /login there to change account."))
     }
 
     nonisolated func forgetCachedCredential() { keychain.forgetCached() }
@@ -438,8 +437,8 @@ struct UsageResponse: Decodable {
                                        usedFraction: window.utilization / 100,
                                        resetsAt: resetsAt, duration: Self.duration(forKind: id)))
         }
-        merge(fiveHour, id: "session", label: "Current session")
-        merge(sevenDay, id: "weekly_all", label: "All models")
+        merge(fiveHour, id: "session", label: L10n.t("Current session"))
+        merge(sevenDay, id: "weekly_all", label: L10n.t("All models"))
 
         return windows.sorted(by: UsageResponse.displayOrder)
     }
@@ -453,13 +452,13 @@ struct UsageResponse: Decodable {
     /// The frame's wording, for the kinds it drew.
     static func label(forKind kind: String) -> String {
         switch kind {
-        case "session":       return "Current session"
-        case "weekly_all":    return "All models"
-        case "weekly_opus":   return "Opus"
-        case "weekly_sonnet": return "Sonnet"
+        case "session":       return L10n.t("Current session")
+        case "weekly_all":    return L10n.t("All models")
+        case "weekly_opus":   return L10n.t("Opus")
+        case "weekly_sonnet": return L10n.t("Sonnet")
         // Only reached when the response names no model for the window, which
         // is the one case where there is nothing better to call it.
-        case "weekly_scoped", "scoped": return "Scoped"
+        case "weekly_scoped", "scoped": return L10n.t("Scoped")
         default:
             return kind
                 .replacingOccurrences(of: "weekly_", with: "")

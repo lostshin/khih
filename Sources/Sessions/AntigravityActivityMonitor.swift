@@ -104,7 +104,7 @@ final class AntigravityActivityMonitor: AgentActivityMonitor {
         return AgentSession(
             id: "antigravity.\(id)",
             name: "Antigravity",
-            detail: isBusy ? "Working" : "Idle",
+            detail: isBusy ? L10n.t("Working") : L10n.t("Idle"),
             state: isBusy ? .busy : .idle,
             waitingFor: nil,
             since: modified

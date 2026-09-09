@@ -32,11 +32,11 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
-        case .accounts:      return "Accounts"
-        case .ollama:        return "Ollama"
-        case .appearance:    return "Appearance"
-        case .notifications: return "Notifications"
-        case .general:       return "General"
+        case .accounts:      return L10n.t("Accounts")
+        case .ollama:        return "Ollama"   // a product name, the same in every language
+        case .appearance:    return L10n.t("Appearance")
+        case .notifications: return L10n.t("Notifications")
+        case .general:       return L10n.t("General")
         }
     }
 
@@ -328,7 +328,7 @@ struct SettingsView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Hide Sidebar")
+        .help(L10n.t("Hide Sidebar"))
     }
 
     /// And brings it back, from the pane's own header.
@@ -357,7 +357,7 @@ struct SettingsView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .help("Show Sidebar")
+        .help(L10n.t("Show Sidebar"))
     }
 
     private func toggleSidebar() {
@@ -419,7 +419,7 @@ struct SettingsView: View {
             // Split in two, because ordering only means anything for the
             // first group: a provider switched off has no ring in the notch,
             // so dragging it was arranging something that is not on screen.
-            Section("Connected") {
+            Section(L10n.t("Connected")) {
                 if needsSetup { setupNote }
                 ForEach(connected) { account in
                     AccountRow(provider: account, preferences: preferences,
@@ -433,25 +433,19 @@ struct SettingsView: View {
                                didConnect: { connect(account.id) })
                 }
                 if connected.isEmpty {
-                    Text("Nothing is connected, so the notch has no rings to draw.")
+                    Text(L10n.t("Nothing is connected, so the notch has no rings to draw."))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if !connected.isEmpty {
-                    Text("The notch draws these in this order. Drag one by its "
-                         + "handle to move it.")
+                    Text(L10n.t("The notch draws these in this order. Drag one by its handle to move it."))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 // Beside the switches it explains, not stranded at the end of
                 // the page.
-                Text("Codenotch never signs in — each reading is borrowed from the "
-                     + "tool that already holds the account. Signing out here stops "
-                     + "the credential being read and forgets the numbers, but leaves "
-                     + "you signed in to that tool. macOS asks once per tool the "
-                     + "first time, and again whenever you sign in to a different "
-                     + "account; Always Allow keeps it quiet.")
+                Text(L10n.t("Codenotch never signs in — each reading is borrowed from the tool that already holds the account. Signing out here stops the credential being read and forgets the numbers, but leaves you signed in to that tool. macOS asks once per tool the first time, and again whenever you sign in to a different account; Always Allow keeps it quiet."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -460,7 +454,7 @@ struct SettingsView: View {
             // Absent rather than empty when everything is on: a titled, empty
             // group reads as something having failed to load.
             if !notConnected.isEmpty {
-                Section("Not connected") {
+                Section(L10n.t("Not connected")) {
                     ForEach(notConnected) { account in
                         AccountRow(provider: account, preferences: preferences,
                                    signOut: signOut, signIn: signIn,
@@ -474,8 +468,7 @@ struct SettingsView: View {
                     }
                     // Says what switching one back on will do, which is the
                     // only question this group raises.
-                    Text("These have no ring to place. Switch one on and it "
-                         + "joins the end of the list above.")
+                    Text(L10n.t("These have no ring to place. Switch one on and it joins the end of the list above."))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -494,8 +487,8 @@ struct SettingsView: View {
     // warning.
     private var appearancePane: some View {
         Form {
-            Section("Notch") {
-                Picker("Reset time", selection: $preferences.resetTimeFormat) {
+            Section(L10n.t("Notch")) {
+                Picker(L10n.t("Reset time"), selection: $preferences.resetTimeFormat) {
                     ForEach(ResetTimeFormat.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -505,14 +498,13 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Toggle("Show usage pace", isOn: $preferences.showUsagePace)
-                Text("Compares each timed allowance with the time left until reset, "
-                     + "showing quota in deficit or held in reserve.")
+                Toggle(L10n.t("Show usage pace"), isOn: $preferences.showUsagePace)
+                Text(L10n.t("Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Picker("Show", selection: $preferences.notchVisibility) {
+                Picker(L10n.t("Show"), selection: $preferences.notchVisibility) {
                     ForEach(NotchVisibility.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -522,7 +514,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Picker("Edge", selection: $preferences.notchEdge) {
+                Picker(L10n.t("Edge"), selection: $preferences.notchEdge) {
                     ForEach(NotchEdge.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -536,12 +528,12 @@ struct SettingsView: View {
                 // different people: three named sizes for anyone who wants a
                 // decision made for them, and a slider for anyone who has a
                 // particular size in mind and will not be talked out of it.
-                Picker("Size", selection: Binding(
+                Picker(L10n.t("Size"), selection: Binding(
                     get: { preferences.usesCustomNotchScale },
                     set: { preferences.usesCustomNotchScale = $0 }
                 )) {
-                    Text("Preset").tag(false)
-                    Text("Custom").tag(true)
+                    Text(L10n.t("Preset")).tag(false)
+                    Text(L10n.t("Custom")).tag(true)
                 }
                 .pickerStyle(.segmented)
 
@@ -583,17 +575,16 @@ struct SettingsView: View {
                 // This is also the only way back from a nudge that went too
                 // far, short of dragging it out again.
                 HStack {
-                    Text("Hold ⌥ and drag the notch to slide it along its edge. "
-                         + "Each edge remembers where you left it.")
+                    Text(L10n.t("Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
-                    Button("Recentre", action: resetPosition)
+                    Button(L10n.t("Recentre"), action: resetPosition)
                         .controlSize(.small)
                 }
 
-                Picker("Displays", selection: $preferences.notchScope) {
+                Picker(L10n.t("Displays"), selection: $preferences.notchScope) {
                     ForEach(NotchScreenScope.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -607,14 +598,14 @@ struct SettingsView: View {
                 // one notch to place — under "All displays" every screen
                 // already gets its own, so there is nothing left to pin.
                 if preferences.notchScope == .mainDisplay {
-                    Picker("Display", selection: $preferences.displayPreference) {
-                        Text("Follow active window").tag(DisplayPreference.followActiveWindow)
+                    Picker(L10n.t("Display"), selection: $preferences.displayPreference) {
+                        Text(L10n.t("Follow active window")).tag(DisplayPreference.followActiveWindow)
                         ForEach(displays) { display in
                             Text(display.name).tag(DisplayPreference.display(display.id))
                         }
                         if case .display(let id) = preferences.displayPreference,
                            !displays.contains(where: { $0.id == id }) {
-                            Text("Unavailable display").tag(DisplayPreference.display(id))
+                            Text(L10n.t("Unavailable display")).tag(DisplayPreference.display(id))
                         }
                     }
 
@@ -627,8 +618,8 @@ struct SettingsView: View {
 
             // Apart from the notch's own group: these are about the app, not
             // the thing it draws on the screen edge.
-            Section("App") {
-                LabeledContent("Accent color") {
+            Section(L10n.t("App")) {
+                LabeledContent(L10n.t("Accent color")) {
                     // 2pt, not 7: each swatch is now sized to its own
                     // selection ring, so the gap the eye sees is this plus
                     // the 6pt of ring standing clear of the dot inside it.
@@ -646,12 +637,22 @@ struct SettingsView: View {
 
                 // "App icon", not "Icon": the picker above is about the
                 // notch, and on its own the word would read as another of it.
-                Picker("App icon", selection: $preferences.appPresence) {
+                Picker(L10n.t("App icon"), selection: $preferences.appPresence) {
                     ForEach(AppPresence.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
 
                 Text(preferences.appPresence.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.t("Language"), selection: $preferences.language) {
+                    ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+
+                Text(preferences.language.explanation)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -666,10 +667,10 @@ struct SettingsView: View {
             // part of the app that speaks first, and a switch that stops the
             // Mac making a noise has to be findable by someone who is looking
             // for exactly that and nothing else.
-            Section("When a session ends") {
-                Toggle("Open the notch for a moment", isOn: $preferences.announceSessionEnd)
+            Section(L10n.t("When a session ends")) {
+                Toggle(L10n.t("Open the notch for a moment"), isOn: $preferences.announceSessionEnd)
 
-                Picker("For", selection: $preferences.peekDuration) {
+                Picker(L10n.t("For"), selection: $preferences.peekDuration) {
                     ForEach(PeekDuration.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -680,31 +681,23 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Toggle("Play a sound", isOn: $preferences.sessionEndSound)
+                Toggle(L10n.t("Play a sound"), isOn: $preferences.sessionEndSound)
 
                 // Two sounds, because the two events say different things: one
                 // is "that's done", the other is "you are the hold-up". Each
                 // has a preview beside it — picking an alert sound you cannot
                 // hear until the next time it fires is guesswork.
-                SoundRow(label: "Finished", name: $preferences.sessionEndSoundName,
+                SoundRow(label: L10n.t("Finished"), name: $preferences.sessionEndSoundName,
                          pickerEnabled: preferences.sessionEndSound)
-                SoundRow(label: "Waiting on you", name: $preferences.sessionBlockedSoundName,
+                SoundRow(label: L10n.t("Waiting on you"), name: $preferences.sessionBlockedSoundName,
                          pickerEnabled: preferences.sessionEndSound)
 
-                Text("Codenotch already knows the moment an agent stops working "
-                     + "or stops to ask you something. Clicking the notch while "
-                     + "it is open brings that session's app to the front — the "
-                     + "app, not the tab: only some terminals let anything "
-                     + "outside them choose a tab, so the tooltip names the "
-                     + "session instead.")
+                Text(L10n.t("Codenotch already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("The sound plays on the ordinary output, not the interface "
-                     + "sound-effects channel — so it is still heard with "
-                     + "\u{201C}Play user interface sound effects\u{201D} "
-                     + "switched off in System Settings → Sound.")
+                Text(L10n.t("The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with \u{201C}Play user interface sound effects\u{201D} switched off in System Settings → Sound."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -714,11 +707,8 @@ struct SettingsView: View {
             // Accounts — muting is a fact about that provider's reading, not
             // about notifications in general — but the mechanism it silences
             // belongs to this pane's subject.
-            Section("Threshold alerts") {
-                Text("A system notification the moment a provider's headline limit "
-                     + "crosses 80%, and again at 100% — once per crossing, and "
-                     + "again only after the window rolls over. Mute one from the "
-                     + "bell beside its row in Accounts.")
+            Section(L10n.t("Threshold alerts")) {
+                Text(L10n.t("A system notification the moment a provider's headline limit crosses 80%, and again at 100% — once per crossing, and again only after the window rolls over. Mute one from the bell beside its row in Accounts."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -735,7 +725,7 @@ struct SettingsView: View {
             // No title on the group: the pane's own header above already
             // says "General", and repeating it here would say it twice.
             Section {
-                Toggle("Open Codenotch at login", isOn: $preferences.launchAtLogin)
+                Toggle(L10n.t("Open Codenotch at login"), isOn: $preferences.launchAtLogin)
                 if let problem = preferences.launchAtLoginProblem {
                     Text(problem)
                         .font(.caption)
@@ -743,7 +733,7 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Toggle("Install updates automatically", isOn: Binding(
+                Toggle(L10n.t("Install updates automatically"), isOn: Binding(
                     get: { updater.automatic },
                     set: { updater.automatic = $0 }
                 ))
@@ -755,13 +745,12 @@ struct SettingsView: View {
                     // a way to switch it off, is the difference between a
                     // background updater and something that looks like it is
                     // hiding.
-                    Text("Version \(updater.currentVersion). Updates install in the "
-                         + "background and apply next time Codenotch starts.")
+                    Text(L10n.t("Version \(updater.currentVersion). Updates install in the background and apply next time Codenotch starts."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
-                    Button("Check now") { updater.checkNow() }
+                    Button(L10n.t("Check now")) { updater.checkNow() }
                         .controlSize(.small)
                 }
 
@@ -785,7 +774,7 @@ struct SettingsView: View {
             // what an unrelated pane earns for it.
             Section {
                 HStack(spacing: 4) {
-                    Text("App designed and developed by")
+                    Text(L10n.t("App designed and developed by"))
                     Link("@hivinz_", destination: SettingsView.authorURL)
                         .foregroundStyle(authorLinkHovered
                                          ? preferences.accentColor.color : .primary)
@@ -811,12 +800,12 @@ struct SettingsView: View {
     private var displayExplanation: String {
         switch preferences.displayPreference {
         case .followActiveWindow:
-            return "Moves to the display containing the window receiving keyboard input."
+            return L10n.t("Moves to the display containing the window receiving keyboard input.")
         case .display(let id):
             if let display = displays.first(where: { $0.id == id }) {
-                return "Pinned to \(display.name)."
+                return L10n.t("Pinned to \(display.name).")
             }
-            return "That display is disconnected. Codenotch follows the active window until it returns."
+            return L10n.t("That display is disconnected. Codenotch follows the active window until it returns.")
         }
     }
 
@@ -890,23 +879,18 @@ struct SettingsView: View {
     /// Mac". Someone who uses Claude in a browser reads that sentence, installs
     /// this, sees four blank rings and concludes it is broken — and the
     /// distinction that catches them out is Claude *Code*, not the Claude app.
-    static let setupCopy =
-        "Codenotch reads usage from tools already signed in on this Mac — it "
-        + "never asks for your password. Install and sign in to any of Claude "
-        + "Code (the terminal tool, not the Claude app), Cursor (the editor or "
-        + "cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command "
-        + "Code, GitHub Copilot or a Gemini API key (via Gemini CLI, OpenCode or Hermes), "
-        + "and its ring appears in the notch."
+    static var setupCopy: String {
+        L10n.t("Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.")
+    }
 
     /// Said before it happens rather than after. A system dialogue asking to
     /// read a *credential*, from an app installed a minute ago, looks alarming
     /// unless it was expected — and choosing Allow instead of Always Allow makes
     /// it return on every read, which is what "it asks every time" turns out to
     /// be.
-    static let keychainCopy =
-        "macOS will ask once for permission to read Claude Code's, "
-        + "Antigravity's and cursor-agent's saved logins. Choose Always Allow "
-        + "— plain Allow makes it ask again every time."
+    static var keychainCopy: String {
+        L10n.t("macOS will ask once for permission to read Claude Code's, Antigravity's and cursor-agent's saved logins. Choose Always Allow — plain Allow makes it ask again every time.")
+    }
 
     /// A provider has just been switched on: put it after the ones already
     /// connected.
@@ -954,7 +938,7 @@ struct SettingsView: View {
             Image(systemName: "sparkles")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Connect an assistant to get started")
+                Text(L10n.t("Connect an assistant to get started"))
                     .font(.callout.weight(.medium))
                 Text(SettingsView.setupCopy)
                     .font(.caption)
@@ -1060,7 +1044,7 @@ private struct AccentColorSwatch: View {
         .buttonStyle(.plain)
         .help(choice.title)
         .accessibilityLabel(choice.title)
-        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityValue(isSelected ? L10n.t("Selected") : L10n.t("Not selected"))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -1082,7 +1066,7 @@ private struct SoundRow: View {
                 // to appear, or the picker would silently show a different one
                 // and the setting would look like it had changed itself.
                 if !SessionChime.available.contains(name) {
-                    Text("\(name) (missing)").tag(name)
+                    Text(L10n.t("\(name) (missing)")).tag(name)
                 }
                 ForEach(SessionChime.available, id: \.self) { Text($0).tag($0) }
             }
@@ -1094,7 +1078,7 @@ private struct SoundRow: View {
                 Image(systemName: "play.circle")
             }
             .buttonStyle(.borderless)
-            .help("Play \(name)")
+            .help(L10n.t("Play \(name)"))
         }
     }
 }
@@ -1182,8 +1166,8 @@ private struct AccountRow: View {
                     .padding(.vertical, 4)
                 }
                 .help(isOrderable
-                      ? "Drag to reorder. The notch draws the rings in this order."
-                      : "Switch this on to give it a ring in the notch.")
+                      ? L10n.t("Drag to reorder. The notch draws the rings in this order.")
+                      : L10n.t("Switch this on to give it a ring in the notch."))
                 // Two mechanisms, neither of which covers both halves.
                 // `pointerStyle` draws the hand on an ordinary hover but cannot
                 // re-evaluate under a pointer that has not moved, which is the
@@ -1216,8 +1200,8 @@ private struct AccountRow: View {
                     }
                     .buttonStyle(.borderless)
                     .help(isMuted
-                          ? "Alerts for \(provider.name) are muted. Click to unmute."
-                          : "Alert when \(provider.name) crosses 80% and 100% of a limit.")
+                          ? L10n.t("Alerts for \(provider.name) are muted. Click to unmute.")
+                          : L10n.t("Alert when \(provider.name) crosses 80% and 100% of a limit."))
                 }
 
                 // Prefers the app that owns the account, and falls back to the
@@ -1238,10 +1222,9 @@ private struct AccountRow: View {
                 // there next to a working account offering to fix nothing — and
                 // when it *was* needed there was no way to tell the two apart.
                 if isConnected, provider.wasRefusedAccess {
-                    Button("Allow access…") { retry(provider.id) }
+                    Button(L10n.t("Allow access…")) { retry(provider.id) }
                         .controlSize(.small)
-                        .help("Asks macOS for \(provider.name)'s saved login again. "
-                              + "Choose Always Allow and it will stop asking.")
+                        .help(L10n.t("Asks macOS for \(provider.name)'s saved login again. Choose Always Allow and it will stop asking."))
                 }
 
                 if isConnected, let destination {
@@ -1255,11 +1238,10 @@ private struct AccountRow: View {
                     .controlSize(.small)
                     .labelsHidden()
                     .help(provider.localModel != nil
-                          ? "Show or hide this model in the notch. It stays loaded in Ollama."
+                          ? L10n.t("Show or hide this model in the notch. It stays loaded in Ollama.")
                           : isConnected
-                          ? "Switch off to stop reading \(provider.name) and forget its "
-                            + "readings. " + provider.signIn.signOutCaveat
-                          : "Switch on to sign in and read \(provider.name) again.")
+                          ? L10n.t("Switch off to stop reading \(provider.name) and forget its readings. \(provider.signIn.signOutCaveat)")
+                          : L10n.t("Switch on to sign in and read \(provider.name) again."))
             }
 
             // 48 = the handle, the glyph and the two gaps before the name, so
@@ -1343,20 +1325,19 @@ private struct AccountRow: View {
                 // the caption above can own the naming and the row can
                 // breathe.
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Monthly budget")
+                    Text(L10n.t("Monthly budget"))
                     HStack(spacing: 8) {
-                        TextField("None", value: $preferences.geminiAPIMonthlyTokenBudget,
+                        TextField(L10n.t("None"), value: $preferences.geminiAPIMonthlyTokenBudget,
                                   format: .number)
                             .textFieldStyle(.roundedBorder)
                             .labelsHidden()
                             .frame(width: 130)
-                        Text("tokens")
+                        Text(L10n.t("tokens"))
                     }
                 }
                 .padding(.top, 2)
                 .foregroundStyle(.secondary)
-                .help("Fills the ring against a ceiling you choose; Google publishes "
-                      + "none for an API key.")
+                .help(L10n.t("Fills the ring against a ceiling you choose; Google publishes none for an API key."))
             }
             // Ollama owns its credential: the user enters an API key here, stored
             // in the keychain. The env var OLLAMA_API_KEY is checked first, so a
@@ -1408,11 +1389,11 @@ private struct AccountRow: View {
     @ViewBuilder
     private var accountDetail: some View {
         if let model = provider.localModel {
-            Text(isConnected ? "\(model.memoryText) \(model.memoryLabel) · via Ollama"
-                 : "Hidden from the notch · Loaded in Ollama")
+            Text(isConnected ? L10n.t("\(model.memoryText) \(model.memoryLabel) · via Ollama")
+                 : L10n.t("Hidden from the notch · Loaded in Ollama"))
                 .foregroundStyle(.secondary)
         } else if !isConnected {
-            Text("Signed out — nothing is read, and no readings are kept.")
+            Text(L10n.t("Signed out — nothing is read, and no readings are kept."))
                 .foregroundStyle(.tertiary)
         } else if let account = provider.account {
             VStack(alignment: .leading, spacing: 2) {
@@ -1421,7 +1402,7 @@ private struct AccountRow: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                     if canOpenSignIn {
-                        Button("Switch…") { _ = switchAccount(provider.id) }
+                        Button(L10n.t("Switch…")) { _ = switchAccount(provider.id) }
                             .buttonStyle(.link)
                             .help(provider.signIn.switchHint)
                     }
@@ -1436,8 +1417,7 @@ private struct AccountRow: View {
             // Not a sign-in problem, so do not send them off to sign in. The
             // credential is right there and macOS is the one saying no — the
             // remedy is the button on this same row.
-            Text("macOS is not letting Codenotch read \(provider.name)'s saved "
-                 + "login. Choose Allow access… above, then Always Allow.")
+            Text(L10n.t("macOS is not letting Codenotch read \(provider.name)'s saved login. Choose Allow access… above, then Always Allow."))
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
@@ -1461,18 +1441,17 @@ private struct AccountRow: View {
 
         var title: String {
             switch self {
-            case .app(_, let name):     return "Open \(name)"
-            case .website(_, let host): return "Open \(host)"
+            case .app(_, let name):     return L10n.t("Open \(name)")
+            case .website(_, let host): return L10n.t("Open \(host)")
             }
         }
 
         var help: String {
             switch self {
             case .app(_, let name):
-                return "Opens \(name), which is where this account is signed in."
+                return L10n.t("Opens \(name), which is where this account is signed in.")
             case .website(_, let host):
-                return "Opens \(host) in your browser. That site has its own sign-in, "
-                     + "separate from the credential read here."
+                return L10n.t("Opens \(host) in your browser. That site has its own sign-in, separate from the credential read here.")
             }
         }
     }

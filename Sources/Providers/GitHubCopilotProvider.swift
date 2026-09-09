@@ -18,7 +18,7 @@ actor GitHubCopilotProvider: UsageProvider {
     }
 
     nonisolated var signInRoute: SignInRoute {
-        .guidance("Sign in with GitHub CLI using `gh auth login`, then enable GitHub Copilot.")
+        .guidance(L10n.t("Sign in with GitHub CLI using `gh auth login`, then enable GitHub Copilot."))
     }
 
     nonisolated func account() -> ProviderAccount? {
@@ -178,7 +178,7 @@ enum GitHubCopilotUsage {
             return window(id: key, quota: quota, root: root)
         }
         guard !windows.isEmpty else {
-            throw UsageProviderError.nothingMetered("GitHub Copilot reported no metered quotas")
+            throw UsageProviderError.nothingMetered(L10n.t("GitHub Copilot reported no metered quotas"))
         }
         return windows
     }

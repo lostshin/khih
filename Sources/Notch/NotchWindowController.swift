@@ -824,7 +824,7 @@ final class NotchWindowController {
         // below. Turning it off means every item has to say so for itself.
         menu.autoenablesItems = false
         let keepOpen = NSMenuItem(
-            title: "Keep open",
+            title: L10n.t("Keep open"),
             action: #selector(MenuActions.togglePinned(_:)),
             keyEquivalent: ""
         )
@@ -836,13 +836,13 @@ final class NotchWindowController {
         keepOpen.state = model.staysOpen ? .on : .off
         keepOpen.isEnabled = !model.isAlwaysOn
         keepOpen.toolTip = model.isAlwaysOn
-            ? "Codenotch is set to Always show. Change it in Settings."
+            ? L10n.t("Codenotch is set to Always show. Change it in Settings.")
             : nil
         menu.addItem(keepOpen)
         menu.addItem(.separator())
 
         let refresh = NSMenuItem(
-            title: "Refresh now",
+            title: L10n.t("Refresh now"),
             action: #selector(MenuActions.refreshNow(_:)),
             keyEquivalent: "r"
         )
@@ -863,7 +863,7 @@ final class NotchWindowController {
         }
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: "Quit Codenotch",
+            withTitle: L10n.t("Quit Codenotch"),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         ).isEnabled = true

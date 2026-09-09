@@ -22,7 +22,7 @@ actor OllamaProvider: UsageProvider {
     }
 
     nonisolated var signInRoute: SignInRoute {
-        .guidance("Enter an Ollama API key below, or export OLLAMA_API_KEY in your shell.")
+        .guidance(L10n.t("Enter an Ollama API key below, or export OLLAMA_API_KEY in your shell."))
     }
 
     nonisolated func account() -> ProviderAccount? {

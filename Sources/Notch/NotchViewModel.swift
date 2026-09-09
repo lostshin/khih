@@ -146,6 +146,18 @@ final class NotchViewModel: ObservableObject {
         return min(max(centre, lower), upper)
     }
 
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        // Language change leaves snapshots untouched; tick `now` so copy
+        // already on screen is redrawn against the new catalog.
+        NotificationCenter.default.publisher(for: L10n.didChange)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.now = Date() }
+            }
+            .store(in: &cancellables)
+    }
+
     /// Take the notch geometry of whichever screen the panel is on.
     func adopt(screen: ScreenDescribing) {
         let merging = edge == .top ? screen.hardwareNotch : nil

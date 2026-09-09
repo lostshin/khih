@@ -4,6 +4,7 @@ options:
   deploymentTarget:
     macOS: "15.0"
   createIntermediateGroups: true
+  defaultLocalization: en
 
 settings:
   base:
@@ -63,6 +64,10 @@ targets:
         # and no obvious way to reach settings or quit.
         CFBundleName: Codenotch
         CFBundleDisplayName: Codenotch
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations:
+          - en
+          - zh-Hans
         LSMinimumSystemVersion: "15.0"
         # Sources/Info.plist is *generated* from this block, so editing that
         # file directly is undone by the next `make gen`. Pointing both at the
@@ -94,6 +99,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.vinz.codenotch
         GENERATE_INFOPLIST_FILE: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        DEVELOPMENT_LANGUAGE: en
 
   CodenotchTests:
     type: bundle.unit-test

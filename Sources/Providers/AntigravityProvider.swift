@@ -241,7 +241,7 @@ actor AntigravityProvider: UsageProvider {
                 (group.buckets ?? []).compactMap { bucket in
                     let rawID = bucket.bucketId ?? bucket.modelId ?? bucket.name ?? group.displayName ?? "quota"
                     if let remaining = bucket.remainingFraction, remaining >= 0, remaining <= 1 {
-                        var bucketLabel = bucket.displayName ?? "Usage"
+                        var bucketLabel = bucket.displayName ?? L10n.t("Usage")
                         if bucketLabel.hasSuffix(" Remaining") {
                             bucketLabel = String(bucketLabel.dropLast(" Remaining".count))
                         }

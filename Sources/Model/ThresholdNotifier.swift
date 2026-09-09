@@ -74,13 +74,14 @@ enum ThresholdAlerts {
 
             let content = UNMutableNotificationContent()
             content.title = alert.threshold >= 100
-                ? "\(alert.providerName) limit reached"
-                : "\(alert.providerName) is at \(alert.usedPercent)%"
+                ? L10n.t("\(alert.providerName) limit reached")
+                : L10n.t("\(alert.providerName) is at \(alert.usedPercent)%")
             if alert.threshold >= 100 {
-                content.body = "Its \(alert.windowLabel.lowercased()) limit is spent"
-                    + (alert.resetsAt.map { " — resets \($0.formatted(date: .omitted, time: .shortened))" } ?? ".")
+                content.body = alert.resetsAt.map {
+                    L10n.t("Its \(alert.windowLabel.lowercased()) limit is spent — resets \($0.formatted(date: .omitted, time: .shortened))")
+                } ?? L10n.t("Its \(alert.windowLabel.lowercased()) limit is spent.")
             } else {
-                content.body = "\(alert.usedPercent)% of its \(alert.windowLabel.lowercased()) limit used."
+                content.body = L10n.t("\(alert.usedPercent)% of its \(alert.windowLabel.lowercased()) limit used.")
             }
             // One thread per provider, so two limits ending together read as
             // two notes, not one merged pile.

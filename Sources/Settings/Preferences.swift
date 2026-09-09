@@ -140,6 +140,14 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(accentColor.rawValue, forKey: Keys.accentColor) }
     }
 
+    /// The language the app itself speaks.
+    ///
+    /// `.system` follows the Mac. Written through `L10n.apply` so the store
+    /// and the change notification stay a single write.
+    @Published var language: AppLanguage {
+        didSet { L10n.apply(language) }
+    }
+
     /// Where the app itself shows up: Dock, menu bar, or nowhere.
     @Published var appPresence: AppPresence {
         didSet { defaults.set(appPresence.rawValue, forKey: Keys.presence) }
@@ -367,6 +375,9 @@ final class Preferences: ObservableObject {
         // Follow the Mac unless the user explicitly chooses a Codenotch colour.
         self.accentColor = defaults.string(forKey: Keys.accentColor)
             .flatMap(AccentColorChoice.init(rawValue:)) ?? .system
+        // Absent means never chosen, which is follow-the-Mac.
+        self.language = defaults.string(forKey: L10n.languageDefaultsKey)
+            .flatMap(AppLanguage.init(rawValue:)) ?? .system
         // Absent means nothing has been shown yet, which is true of a fresh
         // install — so the current release reads as new to it.
         self.lastSeenVersion = defaults.string(forKey: Keys.lastSeenVersion)
@@ -470,7 +481,7 @@ final class Preferences: ObservableObject {
             // Commonly refused for an app running from a build directory rather
             // than /Applications, which is worth saying plainly.
             Log.usage.error("launch at login failed: \(error.localizedDescription, privacy: .public)")
-            launchAtLoginProblem = "macOS refused this — try moving Codenotch to /Applications."
+            launchAtLoginProblem = L10n.t("macOS refused this — try moving Codenotch to /Applications.")
             launchAtLogin = Self.isRegisteredForLogin
         }
     }
