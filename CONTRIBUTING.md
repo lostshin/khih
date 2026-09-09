@@ -48,8 +48,10 @@ credentials only the maintainer has. You won't need it to contribute.
 - User-visible strings (settings, menus, tooltips, notifications, What's New,
   provider labels and status) go through `L10n.t("English source")`. The
   English source **is** the key.
-- Add a `zh-Hans` entry in `Sources/Localizable.xcstrings` in the same change.
-  Missing translations fall back to English; missing keys should fail tests.
+- English is the source language. Put optional translations in
+  `Sources/Localizable.xcstrings`. A missing translation falls back to
+  English and must not fail tests — do not gate CI on any locale being
+  complete.
 - Don't freeze `L10n.t` in a `static let` — lookup has to see the current
   language.
 - Follow System plus the in-app Language setting; don't set `AppleLanguages`.

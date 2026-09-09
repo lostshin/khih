@@ -1,10 +1,9 @@
 import XCTest
 @testable import Codenotch
 
-/// Catalog lookups with an explicit locale. The XCTest pin makes the default
-/// English, so a missing translation would still look fine on a Chinese Mac
-/// unless something asks for `zh-Hans` by name. Passing `en` the same way is
-/// what catches that pin going missing.
+/// Catalog lookups with an explicit locale. English is the source; Chinese
+/// assertions here only prove a translation that exists is served, not that
+/// every key has one.
 final class LocalizationTests: XCTestCase {
     private let zhHans = Locale(identifier: "zh-Hans")
     private let english = Locale(identifier: "en")
