@@ -32,6 +32,52 @@ enum ReleaseNotes {
     static var all: [ReleaseNote] {
         [
             ReleaseNote(
+                version: "1.7.0",
+                headline: L10n.t("Speaks Chinese, watches local models think, and stays welded to the edge."),
+                changes: [
+                    ReleaseNote.Change(
+                        title: L10n.t("简体中文"),
+                        detail: L10n.t("A Language picker in Appearance: follow the Mac, or hold the app to English or Simplified Chinese whatever the Mac is set to. Copy added since the translation was written falls back to English rather than going blank.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Ollama models show thinking and generation speed"),
+                        detail: L10n.t("Each loaded model gets its own cell, with the tokens per second of its last response and a mark while it is thinking. The measurement is taken locally and nothing about a prompt leaves the machine.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Claude Code sessions started from the desktop app are counted"),
+                        detail: L10n.t("A session launched from Claude for Mac now reaches the notch like any other. The sign-in also renews itself in the background, so a ring stops ageing out after a week of use.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("The notch is welded to the screen edge"),
+                        detail: L10n.t("No hairline of wallpaper behind it at any size, and it stays anchored while the size slider is dragged instead of drifting and catching up at the end.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Set the size by slider as well as by preset"),
+                        detail: L10n.t("Three named sizes for a decision made for you, or a slider when you have a particular size in mind.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("The notch folds away for a full-screen app"),
+                        detail: L10n.t("Whatever is frontmost and full-screen gets the whole screen; the notch comes back when you leave it.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("The settings gear is a toggle"),
+                        detail: L10n.t("It turns and presses in as it is clicked, and a second click closes Settings rather than doing nothing.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Cursor stops showing work that finished months ago"),
+                        detail: L10n.t("Finished background agents were leaving the ring amber indefinitely. Only a real, current chat counts as waiting now.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Antigravity reads a CLI-only install"),
+                        detail: L10n.t("An install with no desktop app is a real account rather than a missing one, and its daily quota is read directly.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("A ready-made download, no Xcode needed"),
+                        detail: L10n.t("Every build now produces an app bundle you can run, so trying Codenotch no longer starts with a developer setup.")
+                    ),
+                ]
+            ),
+            ReleaseNote(
                 version: "1.6.0",
                 headline: L10n.t("Reorder the rings, pick a display, and get told when a limit is close."),
                 changes: [
