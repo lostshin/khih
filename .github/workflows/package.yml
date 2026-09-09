@@ -1,0 +1,74 @@
+name: Package
+
+# Separate from CI on purpose: that job answers "do the tests pass", this one
+# answers "can somebody run this without a Mac dev setup". Tying them together
+# would mean a failing unit test also removes the only way to try the build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # So a build can be produced from any branch on demand, without pushing to
+  # main first — this is the button to press when you just want to try it.
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: Unsigned app bundle
+    # Same reason as the test job: an older image ships an Xcode that cannot
+    # read the project at all — `objectVersion 77` is a format it does not
+    # know — whatever the deployment target happens to be.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --show-sdk-version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # Ad-hoc signed and not notarized — see the `build-ci` comment in the
+      # Makefile for what that costs the person who runs it.
+      - name: Build the disk image
+        run: make dmg-ci
+
+      # Read back rather than assumed: the version comes from project.yml and
+      # is in the filename, so the artifact is identifiable months later when
+      # several of these are sitting in a downloads folder.
+      - name: Read the version
+        id: version
+        run: |
+          echo "value=$(awk -F'"' '/MARKETING_VERSION:/ {print $2}' project.yml)" >> "$GITHUB_OUTPUT"
+
+      # The commit, not just the version, because every push to a branch
+      # produces one of these and the version only changes at a release.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Codenotch-${{ steps.version.outputs.value }}-${{ github.sha }}
+          path: build/ci/*.dmg
+          # Silence here would mean a green run with nothing to download, which
+          # is the one failure this workflow exists to prevent.
+          if-no-files-found: error
+
+      # Gatekeeper will refuse an ad-hoc signed download, and the instructions
+      # for getting past it are not obvious. Putting them on the run's own page
+      # keeps them next to the file they apply to.
+      - name: Explain how to open it
+        run: |
+          {
+            echo "### Codenotch ${{ steps.version.outputs.value }} — unsigned build"
+            echo
+            echo "Download the artifact below, unzip it, and open the \`.dmg\`."
+            echo
+            echo "This build is ad-hoc signed rather than notarized, so macOS quarantines it."
+            echo "After dragging the app to /Applications, clear the quarantine flag once:"
+            echo
+            echo '```'
+            echo "xattr -dr com.apple.quarantine /Applications/Codenotch.app"
+            echo '```'
+            echo
+            echo "Universal binary — Apple Silicon and Intel. Requires macOS 15 or later."
+          } >> "$GITHUB_STEP_SUMMARY"
+
