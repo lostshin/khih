@@ -27,7 +27,6 @@ actor AntigravityProvider: UsageProvider {
     private let endpoint = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist")!
     /// The real usage figure — served by Cloud Code PA.
     private let quotaEndpoint = URL(string: "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary")!
-    private let prodQuotaEndpoint = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary")!
     private let session: URLSession
     /// A second session, trusting loopback only, for the local language server.
     private let localSession: URLSession
@@ -93,12 +92,10 @@ actor AntigravityProvider: UsageProvider {
             everBridged = true
             UserDefaults.standard.set(true, forKey: "AntigravityEverBridged")
             
-            let hourlies = windows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
-            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
-            
+            let mostConstrained = windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
             return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
                                     fidelity: .official, status: .ok, windows: windows,
-                                    headlineID: mostConstrained?.id ?? "gemini-hourly")
+                                    headlineID: mostConstrained?.id ?? "gemini-5h")
         }
 
         if localQuotaOverride != nil && everBridged {
@@ -107,52 +104,19 @@ actor AntigravityProvider: UsageProvider {
 
         // 1. Try reading credentials and asking Google Cloud Code PA directly
         let credentials = try? AntigravityCredentials.load()
-        if let credentials {
-            var request = URLRequest(url: endpoint)
-            request.httpMethod = "POST"
-            request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
-            request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
-            request.httpBody = try? JSONSerialization.data(
-                withJSONObject: [
-                    "cloudaicompanionProject": credentials.projectId as Any,
-                    "metadata": [
-                        "ideType": "IDE_UNSPECIFIED",
-                        "platform": "PLATFORM_UNSPECIFIED",
-                        "pluginType": "GEMINI"
-                    ]
-                ]
-            )
-            request.timeoutInterval = 15
-
-            if let (data, response) = try? await session.data(for: request),
-               let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200 {
-                var companionProject = credentials.projectId
-                if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    if let p = obj["cloudaicompanionProject"] as? String {
-                        companionProject = p
-                    } else if let pObj = obj["cloudaicompanionProject"] as? [String: Any],
-                              let p = pObj["id"] as? String {
-                        companionProject = p
-                    }
-                }
-
-                if let windows = try? await quota(token: credentials.accessToken, project: companionProject), !windows.isEmpty {
-                    let hourlies = windows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") || $0.id.lowercased().contains("5h") }
-                    let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
-                    return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
-                                            fidelity: .official, status: .ok, windows: windows,
-                                            headlineID: mostConstrained?.id ?? "gemini-5h")
-                }
-            }
+        if let credentials,
+           let windows = try? await quota(token: credentials.accessToken, project: credentials.projectId),
+           !windows.isEmpty {
+            let mostConstrained = windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
+            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
+                                    fidelity: .official, status: .ok, windows: windows,
+                                    headlineID: mostConstrained?.id ?? "gemini-5h")
         }
 
         // 2. Fallback to OMP SQLite store if offline or direct call fails
         let ompWindows = Self.ompUsageWindows(forEmail: credentials?.email)
         if !ompWindows.isEmpty {
-            let hourlies = ompWindows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") || $0.id.lowercased().contains("5h") }
-            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
+            let mostConstrained = ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
             return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
                                     fidelity: .official, status: .ok, windows: ompWindows,
                                     headlineID: mostConstrained?.id ?? "gemini-5h")
@@ -217,28 +181,20 @@ actor AntigravityProvider: UsageProvider {
     /// Ask for the account's quota, returning nil when it is not allowed to.
     ///
     /// A free or personal account answers 403 #3501, "You do not have a valid
-    /// license of this product" — the endpoint exists and the request is well
-    /// formed, the entitlement is what is missing. That is not an error worth
-    /// alarming anyone about, so it returns nil and the caller falls back.
     private func quota(token: String, project: String? = nil) async throws -> [LimitWindow]? {
-        for url in [quotaEndpoint, prodQuotaEndpoint] {
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
-            request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
-            let bodyObj: [String: Any] = (project != nil && !project!.isEmpty) ? ["project": project!] : [:]
-            request.httpBody = try? JSONSerialization.data(withJSONObject: bodyObj)
-            request.timeoutInterval = 15
+        var request = URLRequest(url: quotaEndpoint)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
+        let bodyObj: [String: Any] = (project != nil && !project!.isEmpty) ? ["project": project!] : [:]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: bodyObj)
+        request.timeoutInterval = 15
 
-            if let (data, response) = try? await session.data(for: request),
-               (response as? HTTPURLResponse)?.statusCode == 200 {
-                let parsed = Self.windows(in: data)
-                if !parsed.isEmpty { return parsed }
-            }
-        }
-        return nil
+        guard let (data, response) = try? await session.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return Self.windows(in: data)
     }
 
     /// Turns a quota summary into standard limit windows.
