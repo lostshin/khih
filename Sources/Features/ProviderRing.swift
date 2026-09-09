@@ -20,6 +20,7 @@ struct ProviderRing: View {
     var activity: ActivitySummary?
     /// A fetch this cell asked for, in flight.
     var isRefreshing: Bool = false
+    var localPerformance: LocalModelPerformance?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
@@ -40,7 +41,11 @@ struct ProviderRing: View {
                 Circle()
                     .strokeBorder(Palette.ringTrack, lineWidth: NotchLayout.trackStroke)
 
-                if usedFraction != nil {
+                if let localPerformance {
+                    Circle()
+                        .strokeBorder(localPerformance.band.color, lineWidth: NotchLayout.progressStroke)
+                        .animation(NotchMotion.reading, value: localPerformance.band)
+                } else if usedFraction != nil {
                     Circle()
                         .inset(by: NotchLayout.trackStroke / 2)
                         .trim(from: 0, to: sweep)
@@ -158,14 +163,13 @@ private struct ActivityArc: View {
     }
 }
 
-/// A ring and the percent burned underneath it.
 struct ProviderCell: View {
     let snapshot: ProviderSnapshot
     var activity: ActivitySummary?
     var isRefreshing: Bool = false
 
     /// A dash, not "0%": nothing read is not the same as nothing used.
-    private var percentText: String {
+    private var readingText: String {
         snapshot.hasReading ? snapshot.headlineText : "—"
     }
 
@@ -177,20 +181,27 @@ struct ProviderCell: View {
                 isStale: snapshot.status.isStale || !snapshot.hasReading,
                 isBlocked: snapshot.block != nil,
                 activity: activity,
-                isRefreshing: isRefreshing
+                isRefreshing: isRefreshing,
+                localPerformance: snapshot.localPerformance
             )
-            Text(percentText)
+            Text(readingText)
                 .font(Typography.percent)
-                .foregroundStyle(Palette.textPrimary)
-                // Never squeezed: across a horizontal edge the cell is only as
-                // wide as the ring, and a label wider than that would be
-                // truncated rather than allowed to overhang into the spacing
-                // that is already there for it.
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(height: NotchLayout.percentLineHeight)
+                .foregroundStyle(snapshot.showsLocalPerformance && snapshot.localPerformance == nil
+                                 ? Palette.textSecondary : Palette.textPrimary)
+                // Keep local speeds inside the ring's column so longer units
+                // cannot consume the notch's existing side margins.
+                .lineLimit(1)
+                .minimumScaleFactor(snapshot.localModel == nil ? 1 : 0.5)
+                .fixedSize(horizontal: snapshot.localModel == nil, vertical: false)
+                .frame(width: snapshot.localModel == nil ? nil : NotchLayout.ringDiameter,
+                       height: NotchLayout.percentLineHeight)
                 .contentTransition(.numericText())
-                .animation(NotchMotion.reading, value: percentText)
+                .animation(NotchMotion.reading, value: readingText)
         }
         .frame(height: NotchLayout.cellExtent)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(snapshot.localModel.map {
+            "\($0.brand.map { "\($0.displayName), " } ?? "")\($0.name), \(snapshot.displayName) local, \(snapshot.showsLocalPerformance ? (snapshot.localPerformance.map { "Last generation speed \($0.speedText), \($0.band.label)" } ?? "Speed not measured") : "Loaded"), \($0.detail)\(activity?.state == .working ? ", Thinking" : "")"
+        } ?? "\(snapshot.displayName), \(readingText)")
     }
 }

@@ -8,14 +8,17 @@ import os
 final class Preferences: ObservableObject {
     static let showUsagePaceKey = "showUsagePace"
 
-    /// Providers the user has switched off. Stored as the *disconnected* set
-    /// rather than the connected one, so a provider added in a later version is
-    /// on by default instead of silently staying dark.
-    ///
-    /// Switching one off is not merely hiding it: the store stops fetching it,
-    /// so its credential is never read at all.
+    /// Disabled model IDs hide cells without stopping their shared runtime.
     @Published var disconnectedProviders: Set<String> {
         didSet { defaults.set(Array(disconnectedProviders), forKey: Keys.disconnected) }
+    }
+
+    @Published var ollamaMetricsEnabled: Bool {
+        didSet { defaults.set(ollamaMetricsEnabled, forKey: Keys.ollamaMetricsEnabled) }
+    }
+
+    @Published var ollamaEndpoint: String {
+        didSet { defaults.set(ollamaEndpoint, forKey: Keys.ollamaEndpoint) }
     }
 
     /// Providers whose threshold alerts are muted. Stored as the muted set so
@@ -222,6 +225,10 @@ final class Preferences: ObservableObject {
     private enum Keys {
         /// The old name. Kept so existing choices survive the rename.
         static let disconnected = "hiddenProviders"
+        static let ollamaEndpoint = "ollamaEndpoint"
+        static let introducedOllama = "introducedOllama"
+        static let migratedOllamaID = "migratedOllamaLocalID"
+        static let ollamaMetricsEnabled = "ollamaMetricsEnabled"
         static let mutedAlerts = "mutedAlertProviders"
         static let hasLaunched = "hasLaunchedBefore"
         static let visibility = "notchVisibility"
@@ -296,7 +303,31 @@ final class Preferences: ObservableObject {
         self.defaults = defaults
         self.isFirstLaunch = !defaults.bool(forKey: Keys.hasLaunched)
         defaults.set(true, forKey: Keys.hasLaunched)
-        self.disconnectedProviders = Set(defaults.stringArray(forKey: Keys.disconnected) ?? [])
+        // Only the earlier local integration used this sentinel. Keep unrelated
+        // provider IDs untouched when upgrading from upstream.
+        if defaults.bool(forKey: Keys.introducedOllama),
+           !defaults.bool(forKey: Keys.migratedOllamaID) {
+            for key in [Keys.disconnected, Keys.order, Keys.mutedAlerts] {
+                var seen = Set<String>()
+                let migrated = (defaults.stringArray(forKey: key) ?? []).map { id in
+                    if id == "ollama" { return "ollama-local" }
+                    if id.hasPrefix("ollama:model:") {
+                        return "ollama-local:model:" + id.dropFirst("ollama:model:".count)
+                    }
+                    return id
+                }.filter { seen.insert($0).inserted }
+                defaults.set(migrated, forKey: key)
+            }
+            defaults.set(true, forKey: Keys.migratedOllamaID)
+        }
+        let disconnected = Set(defaults.stringArray(forKey: Keys.disconnected) ?? [])
+        self.disconnectedProviders = disconnected
+        self.ollamaMetricsEnabled = defaults.object(forKey: Keys.ollamaMetricsEnabled) as? Bool
+            ?? (defaults.bool(forKey: Keys.introducedOllama)
+                && !disconnected.contains("ollama-local"))
+        self.ollamaEndpoint = (try? OllamaEndpoint.parse(
+            defaults.string(forKey: Keys.ollamaEndpoint) ?? OllamaEndpoint.defaultAddress
+        ).absoluteString) ?? OllamaEndpoint.defaultAddress
         self.mutedAlertProviders = Set(defaults.stringArray(forKey: Keys.mutedAlerts) ?? [])
         // Absent means never chosen, which is the hover behaviour the app was
         // designed around — not hidden, which would make a fresh install look

@@ -4,6 +4,38 @@ import Combine
 @MainActor
 final class NotchViewModel: ObservableObject {
     @Published var snapshots: [ProviderSnapshot] = []
+    private var performances: [String: LocalModelPerformance] = [:]
+    private var localMetricsEnabled = false
+
+    func setLocalMetricsEnabled(_ enabled: Bool) {
+        localMetricsEnabled = enabled
+        if !enabled { performances = [:]; thinkingModels = [:] }
+        snapshots = snapshots.map(withPerformance)
+    }
+
+    func updateSnapshots(_ providerSnapshots: [ProviderSnapshot]) {
+        let hoveredID = hoveredSnapshot?.id
+        let next = ProviderOrder.cells(from: providerSnapshots, keeping: snapshots).map(withPerformance)
+        let nextHoveredIndex = hoveredID.flatMap { id in next.firstIndex { $0.id == id } }
+        if hoveredIndex != nextHoveredIndex { hoveredIndex = nextHoveredIndex }
+        snapshots = next
+    }
+
+    func updatePerformances(_ measurements: [String: LocalModelPerformance]) {
+        performances = measurements
+        snapshots = snapshots.map(withPerformance)
+    }
+
+    private func withPerformance(_ snapshot: ProviderSnapshot) -> ProviderSnapshot {
+        guard let model = snapshot.localModel else { return snapshot }
+        var snapshot = snapshot
+        snapshot.showsLocalPerformance = localMetricsEnabled
+        snapshot.localPerformance = localMetricsEnabled
+            ? performances[OllamaThinkingStream.modelKey(model.name)] : nil
+        return snapshot
+    }
+    @Published var thinkingModels: [String: Date] = [:]
+
     /// Live agent sessions, keyed by the provider they belong to. They surface
     /// inside that provider's own ring rather than as a cell of their own — one
     /// ring per provider, so nothing in the notch looks like a ring without
@@ -36,6 +68,27 @@ final class NotchViewModel: ObservableObject {
     var staysOpen: Bool { isPinned || isAlwaysOn }
     /// Providers with a fetch in flight, driven by the store.
     @Published var refreshing: Set<String> = []
+    @Published private(set) var refreshingCells: Set<String> = []
+
+    func isRefreshing(_ snapshot: ProviderSnapshot) -> Bool {
+        snapshot.localModel == nil
+            ? refreshing.contains(snapshot.providerID)
+            : refreshingCells.contains(snapshot.id)
+    }
+
+    func refresh(_ snapshot: ProviderSnapshot, using refreshProvider: (String) async -> Void) async {
+        guard snapshot.localModel != nil else {
+            await refreshProvider(snapshot.providerID)
+            return
+        }
+        guard refreshingCells.insert(snapshot.id).inserted else { return }
+        defer { refreshingCells.remove(snapshot.id) }
+        // A shared inventory fetch is not activity in every loaded model.
+        // Only the clicked cell presses in, even when it joins an existing poll.
+        async let feedback: Void = Task.sleep(nanoseconds: 380_000_000)
+        await refreshProvider(snapshot.providerID)
+        _ = try? await feedback
+    }
     /// The settings handle is under the cursor.
     @Published var isHoveringSettings = false
     /// A direct SwiftUI tap on the settings orb, independent of the panel's
@@ -286,18 +339,45 @@ final class NotchViewModel: ObservableObject {
     /// The straight part of the shape, flares excluded.
     var bodyLength: CGFloat {
         NotchLayout.bodyLength(
-            cellCount: snapshots.count, edge: edge
+            cellCount: snapshots.count, edge: edge, spacing: cellSpacing
         ) + 2 * endSpread
     }
 
     /// Distance along the stack to cell `index`'s ring centre, widening
     /// included so the readings stay in the middle of the bar.
     func ringCenter(index: Int) -> CGFloat {
-        NotchLayout.ringCenter(index: index, edge: edge, flare: flare) + endSpread
+        NotchLayout.ringCenter(index: index, edge: edge, flare: flare,
+                              spacing: cellSpacing) + endSpread
+    }
+
+    var cellSpacing: CGFloat { cellSpacing(cellCount: snapshots.count) }
+    var cellPitch: CGFloat { NotchLayout.cellAlong(for: edge) + cellSpacing }
+
+    private func cellSpacing(cellCount: Int) -> CGFloat {
+        guard edge.isVertical, screenSize.height > 0, cellCount > 1 else {
+            return NotchLayout.cellSpacing
+        }
+        // Extra model cells spend the gaps first. Reserve the cards actually
+        // present; assuming four quota windows for every local model overflows laptops.
+        let slack = NotchLayout.slack(for: edge,
+            maxCardHeight: snapshots.isEmpty ? NotchLayout.maxCardHeight(sessionCap: 0)
+                : contentCardHeight(sessionCap: 0),
+            notchScale: sizeScale)
+        let packed = NotchLayout.shapeLength(cellCount: cellCount, edge: edge,
+                                             flare: flare, spacing: 0)
+        return min(NotchLayout.cellSpacing,
+                   max(0, ((screenSize.height - 2 * slack) / sizeScale - packed) / CGFloat(cellCount - 1)))
     }
 
     /// A provider with no activity source gets none, rather than borrowing
     /// somebody else's.
+    func activity(for snapshot: ProviderSnapshot) -> ActivitySummary? {
+        guard let model = snapshot.localModel else { return activity(for: snapshot.providerID) }
+        guard let since = thinkingModels[OllamaThinkingStream.modelKey(model.name)] else { return nil }
+        return ActivitySummary(sessions: [AgentSession(id: snapshot.id, name: "Thinking",
+            detail: "Ollama", state: .busy, waitingFor: nil, since: since)])
+    }
+
     func activity(for providerID: String) -> ActivitySummary? {
         ActivitySummary(sessions: sessions[providerID] ?? [])
     }
@@ -338,9 +418,26 @@ final class NotchViewModel: ObservableObject {
                                            hasTokenUsage: hasTokenUsage)
     }
 
+    private func contentCardHeight(sessionCap: Int) -> CGFloat {
+        snapshots.map { snapshot in
+            NotchLayout.cardHeight(windowCount: snapshot.windows.count,
+                groupCount: Set(snapshot.windows.compactMap(\.group)).count,
+                sessionCount: snapshot.localModel == nil ? sessionCap + 1 : 0,
+                sessionCap: sessionCap,
+                statusMessage: snapshot.statusMessage,
+                blockMessage: snapshot.block?.summary(now: now),
+                hasTokenUsage: snapshot.tokenUsage != nil,
+                localModelName: snapshot.localModel?.name,
+                showsLocalPerformance: snapshot.showsLocalPerformance,
+                compactRowCount: snapshot.compactRowCount)
+        }.max() ?? 0
+    }
+
     func maxCardHeight(cellCount: Int) -> CGFloat {
-        NotchLayout.maxCardHeight(sessionCap: sessionCap(cellCount: cellCount),
-                                  hasTokenUsage: hasTokenUsage)
+        let cap = sessionCap(cellCount: cellCount)
+        return snapshots.isEmpty
+            ? NotchLayout.maxCardHeight(sessionCap: cap, hasTokenUsage: hasTokenUsage)
+            : contentCardHeight(sessionCap: cap)
     }
 
     /// How tall the tallest card may be before the panel runs off the screen.
@@ -411,7 +508,8 @@ final class NotchViewModel: ObservableObject {
     /// the panel is sized for the list that caused the change.
     func shapeLength(cellCount: Int) -> CGFloat {
         NotchLayout.shapeLength(cellCount: cellCount,
-                                edge: edge, flare: flare)
+                                edge: edge, flare: flare,
+                                spacing: cellSpacing(cellCount: cellCount))
             + 2 * endSpread(cellCount: cellCount)
     }
 

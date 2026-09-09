@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notchFleet: NotchFleet?
     private var store: UsageStore?
     private var monitors: [String: any AgentActivityMonitor] = [:]
+    private var ollamaRelay: OllamaActivityRelay?
     private var preferences: Preferences?
     private var settings: SettingsWindowController?
     private var whatsNew: WhatsNewWindowController?
@@ -88,7 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     + [AntigravityProvider(),
                        GLMProvider(), GrokLocalProvider(), OpenCodeProvider(),
                        CommandCodeProvider(), GitHubCopilotProvider(),
-                       OllamaLocalProvider(), OllamaProvider(),
+                       OllamaLocalProvider(endpoint: URL(string: preferences.ollamaEndpoint)!),
+                       OllamaProvider(),
                        // A closure, not the value: the provider is an actor and
                        // re-reads the budget on every fetch, so a ceiling typed
                        // into Settings applies without a restart.
@@ -106,6 +108,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             let updater = Updater()
             self.updater = updater
+
+            let relay = OllamaActivityRelay()
+            self.ollamaRelay = relay
+            // A single publisher chain exceeds Swift's type-checking time limit.
+            let relayPreferences = Publishers.CombineLatest3(
+                preferences.$disconnectedProviders,
+                preferences.$ollamaEndpoint,
+                preferences.$ollamaMetricsEnabled)
+            let relayConfiguration = relayPreferences.map { values in
+                (enabled: !values.0.contains("ollama-local") && values.2, endpoint: values.1)
+            }.eraseToAnyPublisher()
+            relayConfiguration
+                .removeDuplicates { $0.enabled == $1.enabled && $0.endpoint == $1.endpoint }
+                .receive(on: RunLoop.main)
+                .sink { [weak relay, weak fleet] configuration in
+                    fleet?.setLocalMetricsEnabled(configuration.enabled)
+                    relay?.configure(enabled: configuration.enabled, endpoint: configuration.endpoint)
+                }
+                .store(in: &cancellables)
+            relay.$thinkingModels
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet, weak store] models in
+                    let previous = fleet?.thinkingModels ?? [:]
+                    fleet?.setThinkingModels(models)
+                    if models.keys.contains(where: { previous[$0] == nil }) { store?.refresh(providerID: "ollama-local") }
+                }
+                .store(in: &cancellables)
+
+            relay.$performances
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet, weak store] measurements in
+                    fleet?.setPerformances(measurements)
+                    if !measurements.isEmpty { store?.refresh(providerID: "ollama-local") }
+                }
+                .store(in: &cancellables)
 
             let settings = SettingsWindowController(
                 preferences: preferences,
@@ -127,7 +164,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 resetPosition: { [weak fleet, weak preferences] in
                     preferences?.setOffset(0, for: preferences?.notchEdge ?? .right)
                     fleet?.apply(alongOffset: 0)
-                }
+                },
+                usageStore: store, ollamaRelay: relay
             )
             fleet.onOpenSettings = { [weak settings] in settings?.show() }
             self.settings = settings
@@ -241,6 +279,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .sink { [weak store] in store?.disconnected = $0 }
                 .store(in: &cancellables)
 
+            preferences.$ollamaEndpoint
+                .receive(on: RunLoop.main)
+                .sink { [weak store] address in
+                    guard let endpoint = try? OllamaEndpoint.parse(address) else { return }
+                    store?.updateOllamaEndpoint(endpoint)
+                }
+                .store(in: &cancellables)
+
             preferences.$providerOrder
                 .receive(on: RunLoop.main)
                 .sink { [weak store] in store?.order = $0 }
@@ -269,17 +315,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             self.thresholdNotifier = notifier
 
+            store.$notchSnapshots
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.setSnapshots($0) }
+                .store(in: &cancellables)
+
             store.$snapshots
                 .receive(on: RunLoop.main)
-                .sink { [weak fleet, weak statusItem] snapshots in
-                    fleet?.setSnapshots(snapshots)
+                .sink { [weak statusItem] snapshots in
                     statusItem?.snapshots = snapshots
                     notifier.observe(snapshots)
                 }
                 .store(in: &cancellables)
             store.start()
             fleet.onRefresh = { [weak store] in store?.refreshNow() }
-            fleet.onRefreshProvider = { [weak store] id in store?.refresh(providerID: id) }
+            fleet.onRefreshProvider = { [weak store] id in
+                await store?.refresh(providerID: id)?.value
+            }
             store.$refreshing
                 .receive(on: RunLoop.main)
                 .sink { [weak fleet] ids in fleet?.setRefreshing(ids) }
@@ -307,8 +359,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "gemini": AntigravityActivityMonitor(),
             "grok": GrokActivityMonitor(),
             "gemini-api": GeminiCLIActivityMonitor(),
-            "ollama": OllamaActivityMonitor(),
-            "ollama-local": OllamaActivityMonitor()
         ]
         for profile in claudeProfiles {
             monitors[profile.id] = ClaudeSessionMonitor(
@@ -402,11 +452,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// opening it from Applications or Spotlight reopens settings.
     func applicationShouldHandleReopen(_ sender: NSApplication,
                                        hasVisibleWindows: Bool) -> Bool {
-        settings?.show()
+        openSettings()
         return true
     }
 
+    @MainActor func openSettings() { settings?.show() }
+
     func applicationWillTerminate(_ notification: Notification) {
+        ollamaRelay?.configure(enabled: false, endpoint: OllamaEndpoint.defaultAddress)
         store?.stop()
         monitors.values.forEach { $0.stop() }
         notchFleet?.stop()
