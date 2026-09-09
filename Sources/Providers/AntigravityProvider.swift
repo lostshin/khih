@@ -25,8 +25,9 @@ actor AntigravityProvider: UsageProvider {
     /// which answers 403 to this token — so it is not a fallback, it is a
     /// different audience.
     private let endpoint = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist")!
-    /// The real usage figure — when the account is allowed to ask for it.
-    private let quotaEndpoint = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota")!
+    /// The real usage figure — served by Cloud Code PA.
+    private let quotaEndpoint = URL(string: "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary")!
+    private let prodQuotaEndpoint = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary")!
     private let session: URLSession
     /// A second session, trusting loopback only, for the local language server.
     private let localSession: URLSession
@@ -104,18 +105,8 @@ actor AntigravityProvider: UsageProvider {
             throw UsageProviderError.credentialExpired
         }
 
-        // 1. Check if OMP has recorded active usage history in its SQLite store
+        // 1. Try reading credentials and asking Google Cloud Code PA directly
         let credentials = try? AntigravityCredentials.load()
-        let ompWindows = Self.ompUsageWindows(forEmail: credentials?.email)
-        if !ompWindows.isEmpty {
-            let hourlies = ompWindows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
-            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
-            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
-                                    fidelity: .official, status: .ok, windows: ompWindows,
-                                    headlineID: mostConstrained?.id ?? "gemini-hourly")
-        }
-
-        // 2. If local bridge and OMP are absent, try reading credentials and asking Google directly
         if let credentials {
             var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"
@@ -148,13 +139,23 @@ actor AntigravityProvider: UsageProvider {
                 }
 
                 if let windows = try? await quota(token: credentials.accessToken, project: companionProject), !windows.isEmpty {
-                    let hourlies = windows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
+                    let hourlies = windows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") || $0.id.lowercased().contains("5h") }
                     let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
                     return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
                                             fidelity: .official, status: .ok, windows: windows,
-                                            headlineID: mostConstrained?.id ?? "gemini-hourly")
+                                            headlineID: mostConstrained?.id ?? "gemini-5h")
                 }
             }
+        }
+
+        // 2. Fallback to OMP SQLite store if offline or direct call fails
+        let ompWindows = Self.ompUsageWindows(forEmail: credentials?.email)
+        if !ompWindows.isEmpty {
+            let hourlies = ompWindows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") || $0.id.lowercased().contains("5h") }
+            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
+            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
+                                    fidelity: .official, status: .ok, windows: ompWindows,
+                                    headlineID: mostConstrained?.id ?? "gemini-5h")
         }
 
         if everBridged { throw UsageProviderError.credentialExpired }
@@ -220,19 +221,24 @@ actor AntigravityProvider: UsageProvider {
     /// formed, the entitlement is what is missing. That is not an error worth
     /// alarming anyone about, so it returns nil and the caller falls back.
     private func quota(token: String, project: String? = nil) async throws -> [LimitWindow]? {
-        var request = URLRequest(url: quotaEndpoint)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
-        request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
-        let bodyObj: [String: Any] = (project != nil && !project!.isEmpty) ? ["project": project!] : ["project": "aicode-consumers"]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: bodyObj)
-        request.timeoutInterval = 15
+        for url in [quotaEndpoint, prodQuotaEndpoint] {
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
+            request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
+            let bodyObj: [String: Any] = (project != nil && !project!.isEmpty) ? ["project": project!] : [:]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: bodyObj)
+            request.timeoutInterval = 15
 
-        let (data, response) = try await session.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        return Self.windows(in: data)
+            if let (data, response) = try? await session.data(for: request),
+               (response as? HTTPURLResponse)?.statusCode == 200 {
+                let parsed = Self.windows(in: data)
+                if !parsed.isEmpty { return parsed }
+            }
+        }
+        return nil
     }
 
     /// Turns a quota summary into standard limit windows.
@@ -282,6 +288,9 @@ actor AntigravityProvider: UsageProvider {
                         var bucketLabel = bucket.displayName ?? "Usage"
                         if bucketLabel.hasSuffix(" Remaining") {
                             bucketLabel = String(bucketLabel.dropLast(" Remaining".count))
+                        }
+                        if bucketLabel == "Five Hour Limit" {
+                            bucketLabel = "5-hour Limit"
                         }
                         let groupLabel = group.displayName ?? ""
                         return LimitWindow(
