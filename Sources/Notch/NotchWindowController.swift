@@ -20,6 +20,7 @@ final class NotchWindowController {
     var onRefresh: (() -> Void)?
     /// One "Sign in to …" item per provider that needs a browser session.
     var signInItems: [(title: String, action: () -> Void)] = []
+    var fiveHourItems: [(title: String, action: () -> Void)] = []
     /// Refetch a single provider, asked for by clicking its ring.
     var onRefreshProvider: ((String) async -> Void)?
     /// Open the settings window, asked for by clicking the handle.
@@ -915,6 +916,28 @@ final class NotchWindowController {
             item.isEnabled = true
             menu.addItem(item)
         }
+        // Behind a submenu, and with no key equivalent: this is the one item
+        // here that spends quota rather than reading it, so reaching it should
+        // take a deliberate second step.
+        if !fiveHourItems.isEmpty {
+            menu.addItem(.separator())
+            let parent = NSMenuItem(title: L10n.t("Start 5-hour window"),
+                                    action: nil, keyEquivalent: "")
+            let submenu = NSMenu()
+            for (index, entry) in fiveHourItems.enumerated() {
+                let item = NSMenuItem(title: entry.title,
+                                      action: #selector(MenuActions.startFiveHour(_:)),
+                                      keyEquivalent: "")
+                item.target = menuActions
+                item.tag = index
+                item.isEnabled = true
+                submenu.addItem(item)
+            }
+            parent.submenu = submenu
+            parent.isEnabled = true
+            menu.addItem(parent)
+        }
+
         menu.addItem(.separator())
         menu.addItem(
             withTitle: L10n.t("Quit Codenotch"),
@@ -927,7 +950,8 @@ final class NotchWindowController {
     private lazy var menuActions = MenuActions(
         refresh: { [weak self] in self?.onRefresh?() },
         signIn: { [weak self] index in self?.signInItems[safe: index]?.action() },
-        togglePinned: { [weak self] in self?.togglePinned() }
+        togglePinned: { [weak self] in self?.togglePinned() },
+        startFiveHour: { [weak self] index in self?.fiveHourItems[safe: index]?.action() }
     )
 }
 
@@ -938,15 +962,18 @@ final class MenuActions: NSObject {
     private let refresh: () -> Void
     private let signIn: (Int) -> Void
     private let pin: () -> Void
+    private let fiveHour: (Int) -> Void
 
     init(
         refresh: @escaping () -> Void,
         signIn: @escaping (Int) -> Void,
-        togglePinned: @escaping () -> Void
+        togglePinned: @escaping () -> Void,
+        startFiveHour: @escaping (Int) -> Void
     ) {
         self.refresh = refresh
         self.signIn = signIn
         self.pin = togglePinned
+        self.fiveHour = startFiveHour
     }
 
     @objc func refreshNow(_ sender: Any?) { refresh() }
@@ -955,6 +982,11 @@ final class MenuActions: NSObject {
     @objc func signIn(_ sender: Any?) {
         guard let item = sender as? NSMenuItem else { return }
         signIn(item.tag)
+    }
+
+    @objc func startFiveHour(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem else { return }
+        fiveHour(item.tag)
     }
 }
 

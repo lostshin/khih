@@ -21,6 +21,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let updater: Updater
     private let ollamaRelay: OllamaActivityRelay?
     private let usageStore: UsageStore?
+    /// Absent when there is no quota engine to drive — no `codex` binary, or
+    /// no managed accounts. The rows simply show no button in that case.
+    private let quota: QuotaController?
     private let resetPosition: () -> Void
 
     init(preferences: Preferences,
@@ -32,7 +35,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
          retry: @escaping (String) -> Void,
          resetPosition: @escaping () -> Void,
          usageStore: UsageStore? = nil,
-         ollamaRelay: OllamaActivityRelay? = nil) {
+         ollamaRelay: OllamaActivityRelay? = nil,
+         quota: QuotaController? = nil) {
+        self.quota = quota
         self.ollamaRelay = ollamaRelay
         self.usageStore = usageStore
         self.resetPosition = resetPosition
@@ -174,7 +179,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                                    retry: retry,
                                    resetPosition: resetPosition,
                                    updater: updater,
-                                   ollamaRelay: ollamaRelay, usageStore: usageStore)
+                                   ollamaRelay: ollamaRelay, usageStore: usageStore,
+                                   quota: quota)
         )
         window.center()
         window.isReleasedWhenClosed = false

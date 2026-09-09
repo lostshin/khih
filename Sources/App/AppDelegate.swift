@@ -14,6 +14,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updater: Updater?
     private var thresholdNotifier: ThresholdNotifier?
     private var statusItem: StatusItemController?
+    /// Held for the life of the app: it owns the in-flight state the settings
+    /// rows observe.
+    private var quota: QuotaController?
     /// Keeps the Claude keychain token from ageing out on a Mac where the CLI
     /// is never run by hand. See `ClaudeTokenRefresher`.
     private var tokenRefresher: ClaudeTokenRefresher?
@@ -36,7 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// provider and a session monitor of its own, keyed by the same id, so a
     /// work login's sessions spin the work ring and nobody else's.
     private let claudeProfiles = ClaudeProfile.discover()
-    private let codexProfiles = CodexProfile.discover()
+    // Both the `~/.codex*` convention and the accounts the quota engine
+    // manages, each of which has its own CODEX_HOME elsewhere on disk.
+    private let codexProfiles = CodexProfile.discoverAll()
     /// Held as concrete providers, not just handed to the store: the token
     /// refresher needs to ask one of them how long its token has left, and the
     /// protocol has no business carrying that.
@@ -153,6 +158,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 .store(in: &cancellables)
 
+            // The quota engine's own accounts, and the one control that spends
+            // quota rather than reading it. Absent when there is no `codex`
+            // binary to run, in which case the rows simply show no button.
+            let quota = QuotaController()
+            self.quota = quota
+            // Only the accounts the engine actually manages; a `~/.codex`
+            // profile it never adopted has no state directory to hold a
+            // baseline or a lock, so there is nothing to start.
+            fleet.fiveHourItems = codexProfiles
+                .filter { quota.canStartFiveHour($0.id) }
+                .map { profile in
+                    (title: profile.displayName,
+                     action: { [weak quota] in
+                         guard let quota else { return }
+                         Task { await quota.startFiveHour(profile.id) }
+                     })
+                }
+
             let settings = SettingsWindowController(
                 preferences: preferences,
                 // A closure so the sheet re-reads accounts each time it comes
@@ -174,7 +197,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     preferences?.setOffset(0, for: preferences?.notchEdge ?? .right)
                     fleet?.apply(alongOffset: 0)
                 },
-                usageStore: store, ollamaRelay: relay
+                usageStore: store, ollamaRelay: relay,
+                quota: quota
             )
             // The gear toggles; everything else that opens settings opens it.
             fleet.onOpenSettings = { [weak settings] in settings?.toggle() }

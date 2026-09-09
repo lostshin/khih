@@ -8,6 +8,10 @@ struct CodexProfile: Equatable, Hashable {
 
     let slug: String?
     let configDirectory: URL
+    /// Set for an account the quota engine manages, whose home lives under the
+    /// engine's own directory rather than under `~`. The user named it when
+    /// they added it, and that name reads better than the account id.
+    var managedLabel: String? = nil
 
     static var homeDirectory: URL { URL(fileURLWithPath: NSHomeDirectory()) }
 
@@ -48,7 +52,10 @@ struct CodexProfile: Equatable, Hashable {
 
     // Preserve the default id so existing readings and preferences survive.
     var id: String { slug.map { "\(Self.defaultID)-\($0)" } ?? Self.defaultID }
-    var displayName: String { slug.map { "Codex (\($0))" } ?? "Codex" }
+    var displayName: String {
+        if let managedLabel { return "Codex (\(managedLabel))" }
+        return slug.map { "Codex (\($0))" } ?? "Codex"
+    }
 
     static func slug(fromProviderID id: String) -> String? {
         let prefix = defaultID + "-"
@@ -67,7 +74,10 @@ struct CodexProfile: Equatable, Hashable {
         return path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
     }
 
-    var sourceName: String { slug == nil ? "Codex" : "Codex in \(displayPath)" }
+    var sourceName: String {
+        if managedLabel != nil { return displayName }
+        return slug == nil ? "Codex" : "Codex in \(displayPath)"
+    }
 
     var signInCommand: String {
         guard slug != nil else { return "codex login" }
@@ -75,5 +85,38 @@ struct CodexProfile: Equatable, Hashable {
         // would not expand, and an unquoted slug could become shell syntax.
         let path = "'" + configDirectory.path.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
         return "CODEX_HOME=\(path) codex -c 'cli_auth_credentials_store=\"file\"' login"
+    }
+}
+
+extension CodexProfile {
+    /// Accounts the quota engine manages.
+    ///
+    /// These live under the engine's own base directory rather than `~`, each
+    /// with its own `CODEX_HOME` — which is the whole of the isolation between
+    /// them. `discover(home:)` cannot see them because it only walks the home
+    /// directory convention, so they are found here and joined to that list.
+    static func discoverManaged(storage: QuotaStorage = QuotaStorage.systemDefault(),
+                                fileManager: FileManager = .default) -> [CodexProfile] {
+        storage.loadAccounts().accounts
+            .filter { $0.provider == .codex && $0.enabled }
+            .compactMap { account in
+                let directory = account.codexHomeURL
+                guard isProfileDirectory(directory, fileManager: fileManager) else { return nil }
+                return CodexProfile(slug: account.id,
+                                    configDirectory: directory,
+                                    managedLabel: account.label)
+            }
+    }
+
+    /// Home-directory profiles first, then managed ones, with any directory
+    /// that appears in both kept only once. Order is stable so a ring does not
+    /// move between launches.
+    static func discoverAll(home: URL = homeDirectory,
+                            storage: QuotaStorage = QuotaStorage.systemDefault(),
+                            fileManager: FileManager = .default) -> [CodexProfile] {
+        var seen = Set<String>()
+        return (discover(home: home, fileManager: fileManager)
+                + discoverManaged(storage: storage, fileManager: fileManager))
+            .filter { seen.insert($0.configDirectory.standardizedFileURL.path).inserted }
     }
 }

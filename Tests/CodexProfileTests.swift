@@ -37,6 +37,94 @@ final class CodexProfileTests: XCTestCase {
         try JSONSerialization.data(withJSONObject: auth).write(to: profile.authURL)
     }
 
+    // MARK: - Accounts the quota engine manages
+
+    /// Those accounts keep their CODEX_HOME under the engine's own directory,
+    /// so the `~/.codex*` walk cannot see them.
+    private func managedStorage(_ accounts: [QuotaAccountConfig]) throws -> QuotaStorage {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ManagedCodex.\(UUID().uuidString)")
+        let storage = QuotaStorage(baseDir: root)
+        try QuotaStorage.privateDirectory(root)
+        try storage.saveAccounts(QuotaAccountsFile(version: 1, accounts: accounts))
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return storage
+    }
+
+    private func managedAccount(id: String, label: String, provider: QuotaProvider = .codex,
+                                enabled: Bool = true, signedIn: Bool = true) throws -> QuotaAccountConfig {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ManagedHome.\(UUID().uuidString)")
+        let codexHome = root.appendingPathComponent("codex-home")
+        try FileManager.default.createDirectory(at: codexHome, withIntermediateDirectories: true)
+        if signedIn {
+            try Data("{}".utf8).write(to: codexHome.appendingPathComponent("auth.json"))
+        }
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return QuotaAccountConfig(id: id, label: label, provider: provider,
+                                  codexHome: codexHome.path,
+                                  stateDir: root.appendingPathComponent("monitor").path,
+                                  enabled: enabled)
+    }
+
+    func testManagedAccountsBecomeProfilesWithTheirOwnIdentity() throws {
+        let first = try managedAccount(id: "account-a", label: "主帳號")
+        let second = try managedAccount(id: "account-b", label: "備用")
+        let storage = try managedStorage([first, second])
+
+        let profiles = CodexProfile.discoverManaged(storage: storage)
+        XCTAssertEqual(profiles.map(\.id), ["codex-account-a", "codex-account-b"])
+        // Each keeps its own home — that is the whole of the isolation.
+        XCTAssertEqual(profiles.map(\.configDirectory.path), [first.codexHome, second.codexHome])
+        // The name the user gave it reads better than the account id.
+        XCTAssertEqual(profiles.map(\.displayName), ["Codex (主帳號)", "Codex (備用)"])
+    }
+
+    func testAManagedAccountSignsInAgainstItsOwnHome() throws {
+        let account = try managedAccount(id: "account-a", label: "主帳號")
+        let storage = try managedStorage([account])
+        let profile = try XCTUnwrap(CodexProfile.discoverManaged(storage: storage).first)
+
+        XCTAssertTrue(profile.signInCommand.contains(account.codexHome))
+        XCTAssertTrue(profile.signInCommand.contains("cli_auth_credentials_store"))
+    }
+
+    func testDisabledAndNonCodexManagedAccountsAreLeftOut() throws {
+        let storage = try managedStorage([
+            try managedAccount(id: "account-a", label: "在用"),
+            try managedAccount(id: "account-off", label: "停用", enabled: false),
+            try managedAccount(id: "account-claude", label: "Claude", provider: .claude),
+            try managedAccount(id: "account-agy", label: "Antigravity", provider: .antigravity),
+        ])
+        XCTAssertEqual(CodexProfile.discoverManaged(storage: storage).map(\.id), ["codex-account-a"])
+    }
+
+    func testAManagedDirectoryThatHasNeverBeenUsedIsLeftOut() throws {
+        let storage = try managedStorage([
+            try managedAccount(id: "account-empty", label: "空的", signedIn: false)
+        ])
+        XCTAssertTrue(CodexProfile.discoverManaged(storage: storage).isEmpty)
+    }
+
+    func testDiscoverAllJoinsBothSourcesAndKeepsEachDirectoryOnce() throws {
+        let home = try home([".codex": ["auth.json"], ".codex-work": ["auth.json"]])
+        let managed = try managedAccount(id: "account-a", label: "主帳號")
+        let storage = try managedStorage([managed])
+
+        let all = CodexProfile.discoverAll(home: home, storage: storage)
+        XCTAssertEqual(all.map(\.id), ["codex", "codex-work", "codex-account-a"])
+
+        // The same directory reached both ways must still produce one ring:
+        // a duplicate id traps when the store publishes.
+        let overlapping = QuotaAccountConfig(id: "account-dup", label: "Dup",
+                                             codexHome: home.appendingPathComponent(".codex").path,
+                                             stateDir: home.appendingPathComponent("m").path)
+        let overlapStorage = try managedStorage([overlapping])
+        let deduped = CodexProfile.discoverAll(home: home, storage: overlapStorage)
+        XCTAssertEqual(deduped.map(\.id), ["codex", "codex-work"])
+        XCTAssertEqual(Set(deduped.map(\.id)).count, deduped.count)
+    }
+
     func testDefaultIdentityAndPathsStayCompatible() {
         let profile = CodexProfile.default(home: URL(fileURLWithPath: "/Users/test"))
         XCTAssertEqual(profile.id, "codex")

@@ -54,6 +54,10 @@ final class NotchFleet {
     var onRefreshProvider: ((String) async -> Void)?
     var onOpenSettings: (() -> Void)?
     var signInItems: [(title: String, action: () -> Void)] = []
+    /// Accounts whose five-hour countdown the user can start from here. Empty
+    /// when there is no quota engine or no managed account, in which case the
+    /// menu shows nothing about it.
+    var fiveHourItems: [(title: String, action: () -> Void)] = []
     /// An ⌥-drag on any one panel settled at a new offset. Persisting it is
     /// Preferences' job, same division `apply(edge:)` already keeps.
     var onReposition: ((CGFloat) -> Void)?
@@ -311,6 +315,7 @@ final class NotchFleet {
         controller.model.onOpenSettings = onOpenSettings
         controller.onReposition = onReposition
         controller.signInItems = signInItems
+        controller.fiveHourItems = fiveHourItems
         controller.model.updateSnapshots(snapshots)
         controller.model.thinkingModels = thinkingModels
         controller.model.setLocalMetricsEnabled(localMetricsEnabled)

@@ -171,6 +171,9 @@ struct SettingsView: View {
     @ObservedObject var updater: Updater
     var ollamaRelay: OllamaActivityRelay? = nil
     var usageStore: UsageStore? = nil
+    /// Absent when there is no quota engine — no `codex` binary, or no managed
+    /// accounts. The rows show no five-hour button in that case.
+    var quota: QuotaController? = nil
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
 
     var body: some View {
@@ -440,6 +443,7 @@ struct SettingsView: View {
                                signOut: signOut, signIn: signIn,
                                switchAccount: switchAccount, retry: retry,
                                isOrderable: true,
+                               quota: quota,
                                drag: drag,
                                cursorRefresh: cursorRefresh,
                                onDrop: { cursorRefresh += 1 },
@@ -474,6 +478,7 @@ struct SettingsView: View {
                                    signOut: signOut, signIn: signIn,
                                    switchAccount: switchAccount, retry: retry,
                                    isOrderable: false,
+                                   quota: quota,
                                    drag: drag,
                                    cursorRefresh: cursorRefresh,
                                    onDrop: {},
@@ -1109,6 +1114,8 @@ private struct AccountRow: View {
     /// Whether this row has a place in the notch to argue about. A provider
     /// switched off draws no ring, so there is nothing for a drag to arrange.
     let isOrderable: Bool
+    /// Only rows for accounts the quota engine manages get a five-hour button.
+    let quota: QuotaController?
     /// The provider in flight, shared with every other row: this one has to
     /// know what is being dragged the moment the pointer arrives, not once it
     /// is released.
@@ -1247,6 +1254,13 @@ private struct AccountRow: View {
                     Button(destination.title) { open(destination) }
                         .controlSize(.small)
                         .help(destination.help)
+                }
+
+                // The one control in this app that spends quota. Placed last
+                // before the switch so it reads as the row's heaviest action,
+                // and shown only for accounts the engine actually manages.
+                if isConnected, let quota, quota.canStartFiveHour(provider.id) {
+                    FiveHourButton(quota: quota, providerID: provider.id)
                 }
 
                 Toggle(provider.name, isOn: binding)
@@ -1404,6 +1418,9 @@ private struct AccountRow: View {
 
     @ViewBuilder
     private var accountDetail: some View {
+        if isConnected, let quota, quota.canStartFiveHour(provider.id) {
+            FiveHourReport(quota: quota, providerID: provider.id)
+        }
         if let model = provider.localModel {
             Text(isConnected ? L10n.t("\(model.memoryText) \(model.memoryLabel) · via Ollama")
                  : L10n.t("Hidden from the notch · Loaded in Ollama"))
