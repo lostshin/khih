@@ -50,9 +50,41 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(notchEdge.rawValue, forKey: Keys.edge) }
     }
 
-    /// How large the notch is drawn.
+    /// How large the notch is drawn, as one of three named sizes.
+    ///
+    /// Ignored while `usesCustomNotchScale` is on — the two are kept apart
+    /// rather than collapsed into one number so that switching back to the
+    /// presets returns to the preset you last chose, instead of to whichever
+    /// preset happens to sit nearest the slider.
     @Published var notchSize: NotchSize {
         didSet { defaults.set(notchSize.rawValue, forKey: Keys.size) }
+    }
+
+    /// Whether the slider decides the size rather than the three presets.
+    @Published var usesCustomNotchScale: Bool {
+        didSet { defaults.set(usesCustomNotchScale, forKey: Keys.usesCustomSize) }
+    }
+
+    /// The slider's own multiplier, honoured only when the slider is in
+    /// charge. Clamped on the way in: a value typed straight into `defaults`
+    /// could otherwise shrink the notch to nothing or blow it off the screen.
+    @Published var customNotchScale: Double {
+        didSet {
+            let clamped = min(max(customNotchScale, Self.customScaleRange.lowerBound),
+                              Self.customScaleRange.upperBound)
+            if clamped != customNotchScale { customNotchScale = clamped; return }
+            defaults.set(customNotchScale, forKey: Keys.customSize)
+        }
+    }
+
+    /// Where the slider may go. Wider than the presets at both ends, but not
+    /// unbounded: below about three quarters the percentage under each ring
+    /// stops being readable, which is the one thing the notch exists for.
+    static let customScaleRange: ClosedRange<Double> = 0.75...1.5
+
+    /// What the notch is actually drawn at, whichever control is in charge.
+    var notchScale: CGFloat {
+        usesCustomNotchScale ? CGFloat(customNotchScale) : notchSize.scale
     }
 
     /// The display the notch stays on, or the original focus-following behaviour.
@@ -197,6 +229,8 @@ final class Preferences: ObservableObject {
         static let edge = "notchEdge"
         // A new key, so there is nothing under the old app name to migrate.
         static let size = "notchSize"
+        static let usesCustomSize = "usesCustomNotchScale"
+        static let customSize = "customNotchScale"
         static let display = "notchDisplay"
         static let resetTimeFormat = "resetTimeFormat"
         static let scope = "notchScope"
@@ -282,6 +316,13 @@ final class Preferences: ObservableObject {
         // choice keeps exactly the notch it already had.
         self.notchSize = defaults.string(forKey: Keys.size)
             .flatMap(NotchSize.init(rawValue:)) ?? .medium
+        // Absent means never chosen, and the presets are what every earlier
+        // version had — so the slider is opt-in rather than the default.
+        self.usesCustomNotchScale = defaults.bool(forKey: Keys.usesCustomSize)
+        let stored = defaults.object(forKey: Keys.customSize) as? Double
+        self.customNotchScale = stored.map {
+            min(max($0, Self.customScaleRange.lowerBound), Self.customScaleRange.upperBound)
+        } ?? 1
         self.displayPreference = defaults.string(forKey: Keys.display)
             .map(DisplayPreference.display) ?? .followActiveWindow
         self.resetTimeFormat = defaults.string(forKey: Keys.resetTimeFormat)

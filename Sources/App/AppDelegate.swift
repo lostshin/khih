@@ -184,9 +184,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 .store(in: &cancellables)
 
+            // Three inputs, one answer: which control is in charge, and the
+            // value each of them holds. Any of them changing has to re-ask
+            // `notchScale` rather than trust the value it was handed, since
+            // the preset and the slider each keep their own.
             preferences.$notchSize
                 .receive(on: RunLoop.main)
-                .sink { [weak fleet] in fleet?.apply(size: $0) }
+                .sink { [weak fleet, weak preferences] _ in
+                    guard let preferences else { return }
+                    fleet?.apply(scale: preferences.notchScale)
+                }
+                .store(in: &cancellables)
+
+            preferences.$usesCustomNotchScale
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet, weak preferences] _ in
+                    guard let preferences else { return }
+                    fleet?.apply(scale: preferences.notchScale)
+                }
+                .store(in: &cancellables)
+
+            preferences.$customNotchScale
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet, weak preferences] _ in
+                    guard let preferences else { return }
+                    fleet?.apply(scale: preferences.notchScale)
+                }
                 .store(in: &cancellables)
 
             preferences.$notchScope
@@ -329,7 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // so this has to be the very last thing that can create one.
         fleet.apply(displayPreference: preferences.displayPreference)
         fleet.apply(alongOffset: preferences.offset(for: preferences.notchEdge))
-        fleet.apply(size: preferences.notchSize)
+        fleet.apply(scale: preferences.notchScale)
         fleet.apply(resetTimeFormat: preferences.resetTimeFormat)
         fleet.apply(accentColor: preferences.accentColor)
         fleet.show()

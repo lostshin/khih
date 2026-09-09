@@ -38,7 +38,7 @@ final class NotchFleet {
     private var alongOffset: CGFloat = 0
     /// One size for the whole fleet, for the same reason the edge is: a notch
     /// that were larger on one display than another would read as a bug.
-    private var size: NotchSize = .medium
+    private var scale: CGFloat = 1
 
     /// Hooked up by the app delegate; driven by the notch's own chrome.
     var onRefresh: (() -> Void)?
@@ -147,10 +147,10 @@ final class NotchFleet {
     /// Through `controller.apply(size:)` rather than by setting the model
     /// directly, because the panel has to be rebuilt around the new size —
     /// the same division `apply(edge:)` keeps.
-    func apply(size: NotchSize) {
-        self.size = size
+    func apply(scale: CGFloat) {
+        self.scale = scale
         for controller in controllers.values {
-            controller.apply(size: size)
+            controller.apply(scale: scale)
         }
     }
 
@@ -281,7 +281,7 @@ final class NotchFleet {
         controller.model.alongOffset = alongOffset
         // Set before `show()`, so a display plugged in later builds its panel
         // at the current size rather than at medium and resizing a beat later.
-        controller.model.sizeScale = size.scale
+        controller.model.sizeScale = scale
         controller.model.resetTimeFormat = resetTimeFormat
         controller.model.accentColor = accentColor
         controller.onRefresh = onRefresh

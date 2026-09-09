@@ -550,9 +550,9 @@ final class NotchWindowController {
     /// because `@Published` fires in `willSet` — a sink here would recompute
     /// the panel from the size that is being replaced. `apply(edge:)` is the
     /// same shape for the same reason.
-    func apply(size: NotchSize) {
-        guard model.sizeScale != size.scale else { return }
-        model.sizeScale = size.scale
+    func apply(scale: CGFloat) {
+        guard model.sizeScale != scale else { return }
+        model.sizeScale = scale
         relocate()
         updateInteractiveRects()
     }

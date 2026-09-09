@@ -84,4 +84,75 @@ final class PreferencesMigrationTests: XCTestCase {
     func testMediumIsTheSizeEveryEarlierVersionDrew() {
         XCTAssertEqual(NotchSize.medium.scale, 1)
     }
+
+    // MARK: The slider, and which control is in charge
+
+    /// The presets stay in charge until the slider is explicitly chosen, so
+    /// an install that predates it draws exactly the notch it always drew.
+    func testThePresetsAreStillInChargeByDefault() {
+        let (defaults, _) = makeDefaults()
+        let preferences = Preferences(defaults: defaults)
+
+        XCTAssertFalse(preferences.usesCustomNotchScale)
+        XCTAssertEqual(preferences.notchScale, NotchSize.medium.scale)
+    }
+
+    /// Whichever control is in charge is the one `notchScale` answers with —
+    /// that resolution is the whole point of keeping the two apart.
+    func testTheScaleFollowsWhicheverControlIsInCharge() {
+        let (defaults, _) = makeDefaults()
+        let preferences = Preferences(defaults: defaults)
+        preferences.notchSize = .large
+        preferences.customNotchScale = 0.9
+
+        XCTAssertEqual(preferences.notchScale, NotchSize.large.scale)
+        preferences.usesCustomNotchScale = true
+        XCTAssertEqual(preferences.notchScale, 0.9, accuracy: 0.0001)
+    }
+
+    /// Switching back to the presets returns to the preset that was chosen,
+    /// not to whichever one happens to sit nearest the slider.
+    func testLeavingTheSliderReturnsToTheChosenPreset() {
+        let (defaults, _) = makeDefaults()
+        let preferences = Preferences(defaults: defaults)
+        preferences.notchSize = .small
+        preferences.usesCustomNotchScale = true
+        preferences.customNotchScale = 1.5
+        preferences.usesCustomNotchScale = false
+
+        XCTAssertEqual(preferences.notchScale, NotchSize.small.scale)
+    }
+
+    /// A value written straight into `defaults` could otherwise shrink the
+    /// notch to nothing or blow it off the screen, so it is clamped on the
+    /// way in as well as on the way out of the slider.
+    func testAnOutOfRangeScaleIsClamped() {
+        let (defaults, name) = makeDefaults()
+        let preferences = Preferences(defaults: defaults)
+
+        preferences.customNotchScale = 12
+        XCTAssertEqual(preferences.customNotchScale,
+                       Preferences.customScaleRange.upperBound, accuracy: 0.0001)
+
+        preferences.customNotchScale = -3
+        XCTAssertEqual(preferences.customNotchScale,
+                       Preferences.customScaleRange.lowerBound, accuracy: 0.0001)
+
+        UserDefaults(suiteName: name)!.set(99.0, forKey: "customNotchScale")
+        XCTAssertEqual(Preferences(defaults: UserDefaults(suiteName: name)!).customNotchScale,
+                       Preferences.customScaleRange.upperBound, accuracy: 0.0001)
+    }
+
+    /// Both halves of the choice have to outlive the launch that made it.
+    func testTheSliderChoiceSurvivesARelaunch() {
+        let (fresh, name) = makeDefaults()
+        let preferences = Preferences(defaults: fresh)
+        preferences.usesCustomNotchScale = true
+        preferences.customNotchScale = 1.35
+
+        let reloaded = Preferences(defaults: UserDefaults(suiteName: name)!)
+        XCTAssertTrue(reloaded.usesCustomNotchScale)
+        XCTAssertEqual(reloaded.customNotchScale, 1.35, accuracy: 0.0001)
+        XCTAssertEqual(reloaded.notchScale, 1.35, accuracy: 0.0001)
+    }
 }

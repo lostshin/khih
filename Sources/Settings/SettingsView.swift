@@ -505,15 +505,50 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Picker("Size", selection: $preferences.notchSize) {
-                    ForEach(NotchSize.allCases) { Text($0.title).tag($0) }
+                // Two ways to answer the same question, because they suit
+                // different people: three named sizes for anyone who wants a
+                // decision made for them, and a slider for anyone who has a
+                // particular size in mind and will not be talked out of it.
+                Picker("Size", selection: Binding(
+                    get: { preferences.usesCustomNotchScale },
+                    set: { preferences.usesCustomNotchScale = $0 }
+                )) {
+                    Text("Preset").tag(false)
+                    Text("Custom").tag(true)
                 }
                 .pickerStyle(.segmented)
 
-                Text(preferences.notchSize.explanation)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if preferences.usesCustomNotchScale {
+                    HStack(spacing: 10) {
+                        Slider(value: $preferences.customNotchScale,
+                               in: Preferences.customScaleRange,
+                               step: 0.05)
+                        // Monospaced digits, so the number does not jitter
+                        // sideways while the slider is being dragged.
+                        Text(Self.scalePercent(preferences.customNotchScale))
+                            .font(.callout.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 46, alignment: .trailing)
+                    }
+
+                    Text("Scales the whole surface — rings, text and tooltip "
+                         + "together — so the proportions stay as drawn. "
+                         + "100% is the size the notch was designed at.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Picker("Preset size", selection: $preferences.notchSize) {
+                        ForEach(NotchSize.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+
+                    Text(preferences.notchSize.explanation)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 // The nudge has been draggable since the edge picker existed,
                 // and nothing on screen has ever said so — the only way to
@@ -758,6 +793,12 @@ struct SettingsView: View {
         }
     }
 
+
+    /// The slider's multiplier as a percentage, which is how people think
+    /// about "a bit bigger" — 1.15 means nothing, 115% is immediate.
+    static func scalePercent(_ scale: Double) -> String {
+        "\(Int((scale * 100).rounded()))%"
+    }
 
     static let authorURL = URL(string: "https://x.com/hivinz_")!
 
