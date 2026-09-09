@@ -123,6 +123,102 @@ final class AntigravityActivityTests: XCTestCase {
 
     private let noon = ISO8601DateFormatter().date(from: "2026-08-31T12:00:00Z")!
 
+    /// A second install, so the roots can be tested the way they actually
+    /// occur: several directories, only one of them in use.
+    private func makeRoot() throws -> URL {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("antigravity-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+        return url
+    }
+
+    private func write(_ lines: [String], to root: URL, trajectory: String) throws {
+        let dir = root.appendingPathComponent("\(trajectory)/.system_generated/logs")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try lines.joined(separator: "\n")
+            .write(to: dir.appendingPathComponent("transcript.jsonl"),
+                   atomically: true, encoding: .utf8)
+    }
+
+    // MARK: - More than one install
+
+    /// The bug this fixes. Leaving a flavour of Antigravity behind leaves its
+    /// directory behind, so a machine that has run the IDE and moved to the CLI
+    /// has both — and reading only the first one found reported nothing while
+    /// the transcripts sat one directory over.
+    func testAnEmptyInstallBesideAUsedOneDoesNotHideIt() throws {
+        let empty = try makeRoot()
+        let used = try makeRoot()
+        try write([step("2026-08-31T09:00:00Z", source: "MODEL")], to: used, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [empty, used], now: noon).requestsToday, 1)
+    }
+
+    /// One person, one account, one number for the day.
+    func testTwoInstallsAddUp() throws {
+        let ide = try makeRoot()
+        let cli = try makeRoot()
+        try write([step("2026-08-31T09:00:00Z", source: "MODEL")], to: ide, trajectory: "a")
+        try write([step("2026-08-31T10:00:00Z", source: "MODEL"),
+                   step("2026-08-31T11:00:00Z", source: "MODEL")], to: cli, trajectory: "b")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [ide, cli], now: noon).requestsToday, 3)
+    }
+
+    func testTheNewestRequestWinsAcrossInstalls() throws {
+        let older = try makeRoot()
+        let newer = try makeRoot()
+        try write([step("2026-08-31T09:00:00Z", source: "MODEL")], to: older, trajectory: "a")
+        try write([step("2026-08-31T11:00:00Z", source: "MODEL")], to: newer, trajectory: "b")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [older, newer], now: noon).lastRequest,
+                       ISO8601DateFormatter().date(from: "2026-08-31T11:00:00Z"))
+    }
+
+    func testNoInstallsAtAllIsNotAnError() {
+        XCTAssertEqual(AntigravityActivity.read(roots: [], now: noon).requestsToday, 0)
+    }
+
+    /// The bug itself, at the point it was made: choosing between the
+    /// directories rather than reading all of them.
+    ///
+    /// All four exist on a machine that has run more than one flavour — nothing
+    /// removes the old one — so "the first that exists" is not a choice between
+    /// a real install and a missing one. It picked an empty directory while the
+    /// transcripts sat in the next.
+    func testEveryInstallsBrainIsFoundNotJustTheFirst() throws {
+        let home = try makeRoot()
+        let gemini = home.appendingPathComponent(".gemini")
+        for name in ["antigravity", "antigravity-backup", "antigravity-cli", "antigravity-ide"] {
+            try FileManager.default.createDirectory(
+                at: gemini.appendingPathComponent("\(name)/brain"),
+                withIntermediateDirectories: true
+            )
+        }
+        // Something else living under `.gemini` is not an Antigravity install.
+        try FileManager.default.createDirectory(
+            at: gemini.appendingPathComponent("history"), withIntermediateDirectories: true
+        )
+
+        let roots = AntigravityActivity.transcriptRoots(home: home)
+
+        XCTAssertEqual(roots.count, 4, "found \(roots.map(\.path))")
+        XCTAssertTrue(roots.allSatisfy { $0.lastPathComponent == "brain" })
+        XCTAssertTrue(roots.contains { $0.path.contains("antigravity-cli") })
+    }
+
+    /// A directory without a `brain` is not one to read from.
+    func testAnInstallWithNoBrainIsSkipped() throws {
+        let home = try makeRoot()
+        try FileManager.default.createDirectory(
+            at: home.appendingPathComponent(".gemini/antigravity-cli"),
+            withIntermediateDirectories: true
+        )
+
+        XCTAssertTrue(AntigravityActivity.transcriptRoots(home: home).isEmpty)
+    }
+
     /// The real transcript interleaves user input and system checkpoints with
     /// model answers. Counting those would inflate the figure with work the
     /// model never did.
