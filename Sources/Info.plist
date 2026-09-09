@@ -15,7 +15,7 @@
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>
-		<string>zh-Hans</string>
+		<string>zh-Hant-TW</string>
 	</array>
 	<key>CFBundleName</key>
 	<string>Codenotch</string>

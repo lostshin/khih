@@ -4,10 +4,10 @@
     "just now": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刚刚"
+            "value": "剛剛"
           }
         }
       }
@@ -15,10 +15,10 @@
     "%lld min": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 分钟"
+            "value": "%lld 分鐘"
           }
         }
       }
@@ -26,10 +26,10 @@
     "%lld hr": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 小时"
+            "value": "%lld 小時"
           }
         }
       }
@@ -37,10 +37,10 @@
     "%lld hr %lld min": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 小时 %lld 分钟"
+            "value": "%lld 小時 %lld 分鐘"
           }
         }
       }
@@ -48,7 +48,7 @@
     "%@ ago": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "%@前"
@@ -59,7 +59,7 @@
     "Resetting…": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "正在重置…"
@@ -70,10 +70,10 @@
     "Resets in %lld min": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 分钟后重置"
+            "value": "%lld 分鐘後重置"
           }
         }
       }
@@ -81,7 +81,7 @@
     "Resets %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ 重置"
@@ -92,10 +92,10 @@
     "%lld%% Used · %lld%% left": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld%% 已用 · %lld%% 剩余"
+            "value": "%lld%% 已用 · %lld%% 剩餘"
           }
         }
       }
@@ -103,10 +103,10 @@
     "1 left": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "剩余 1"
+            "value": "剩餘 1"
           }
         }
       }
@@ -114,10 +114,10 @@
     "%lld left": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "剩余 %lld"
+            "value": "剩餘 %lld"
           }
         }
       }
@@ -125,7 +125,7 @@
     "1 used": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "已用 1"
@@ -136,7 +136,7 @@
     "%lld used": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "已用 %lld"
@@ -147,10 +147,10 @@
     "No reading": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "暂无读数"
+            "value": "尚無讀值"
           }
         }
       }
@@ -158,7 +158,7 @@
     "%@ until %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "%@，直到 %@"
@@ -169,10 +169,10 @@
     "Sign in to Claude Code to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录 Claude Code 以读取用量"
+            "value": "登入 Claude Code 以讀取用量"
           }
         }
       }
@@ -180,10 +180,10 @@
     "Sign in to Claude Code in ~/.claude-%@ to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 ~/.claude-%@ 登录 Claude Code 以读取用量"
+            "value": "在 ~/.claude-%@ 登入 Claude Code 以讀取用量"
           }
         }
       }
@@ -191,10 +191,10 @@
     "Sign in to Cursor in the editor": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 Cursor 编辑器中登录以读取用量"
+            "value": "在 Cursor 編輯器中登入以讀取用量"
           }
         }
       }
@@ -202,10 +202,10 @@
     "Sign in to Codex to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录 Codex 以读取用量"
+            "value": "登入 Codex 以讀取用量"
           }
         }
       }
@@ -213,10 +213,10 @@
     "Sign in to Antigravity to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录 Antigravity 以读取用量"
+            "value": "登入 Antigravity 以讀取用量"
           }
         }
       }
@@ -224,10 +224,10 @@
     "Set up a GLM Coding Plan key for a coding tool to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "为某个编程工具配置 GLM Coding Plan 密钥以读取用量"
+            "value": "為某個程式開發工具配置 GLM Coding Plan 金鑰以讀取用量"
           }
         }
       }
@@ -235,10 +235,10 @@
     "Connect the Go plan in OpenCode to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 OpenCode 中开通 Go 套餐以读取用量"
+            "value": "在 OpenCode 中開通 Go 方案以讀取用量"
           }
         }
       }
@@ -246,10 +246,10 @@
     "Sign in to %@ to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录 %@ 以读取用量"
+            "value": "登入 %@ 以讀取用量"
           }
         }
       }
@@ -257,10 +257,10 @@
     "Codenotch was refused access to %@'s saved login. Click this ring to ask again, and choose Always Allow.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 未能读取 %@ 已保存的登录信息。点击这个圆环再试一次，并选择「始终允许」。"
+            "value": "Codenotch 未能讀取 %@ 已儲存的登入資訊。點選這個圓環再試一次，並選擇「一律允許」。"
           }
         }
       }
@@ -268,10 +268,10 @@
     "Couldn't read usage — %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法读取用量 — %@"
+            "value": "無法讀取用量 — %@"
           }
         }
       }
@@ -279,10 +279,10 @@
     "Waiting for the first reading…": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在等待首次读数…"
+            "value": "正在等待首次讀值…"
           }
         }
       }
@@ -290,10 +290,10 @@
     "Current session": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "当前会话"
+            "value": "目前工作階段"
           }
         }
       }
@@ -301,7 +301,7 @@
     "All models": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "全部模型"
@@ -312,7 +312,7 @@
     "Opus": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Opus"
@@ -323,7 +323,7 @@
     "Sonnet": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Sonnet"
@@ -334,10 +334,10 @@
     "Included usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "套餐用量"
+            "value": "方案用量"
           }
         }
       }
@@ -345,7 +345,7 @@
     "API usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "API 用量"
@@ -356,10 +356,10 @@
     "On demand": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "按需用量"
+            "value": "隨用隨付用量"
           }
         }
       }
@@ -367,10 +367,10 @@
     "5h limit": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "5 小时额度"
+            "value": "5 小時額度"
           }
         }
       }
@@ -378,10 +378,10 @@
     "Weekly limit": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每周额度"
+            "value": "每週額度"
           }
         }
       }
@@ -389,10 +389,10 @@
     "Monthly limit": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每月额度"
+            "value": "每月額度"
           }
         }
       }
@@ -400,10 +400,10 @@
     "Daily quota": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每日额度"
+            "value": "每日額度"
           }
         }
       }
@@ -411,10 +411,10 @@
     "Longer window": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "更长周期"
+            "value": "更長週期"
           }
         }
       }
@@ -422,10 +422,10 @@
     "%lldm limit": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 分钟额度"
+            "value": "%lld 分鐘額度"
           }
         }
       }
@@ -433,10 +433,10 @@
     "%lldh limit": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 小时额度"
+            "value": "%lld 小時額度"
           }
         }
       }
@@ -444,10 +444,10 @@
     "%lldd limit": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 天额度"
+            "value": "%lld 天額度"
           }
         }
       }
@@ -455,10 +455,10 @@
     "Weekly": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每周"
+            "value": "每週"
           }
         }
       }
@@ -466,10 +466,10 @@
     "MCP (1 month)": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "MCP（1 个月）"
+            "value": "MCP（1 個月）"
           }
         }
       }
@@ -477,10 +477,10 @@
     "Usage (%lld h)": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用量（%lld 小时）"
+            "value": "用量（%lld 小時）"
           }
         }
       }
@@ -488,10 +488,10 @@
     "Usage (%lld wk)": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用量（%lld 周）"
+            "value": "用量（%lld 週）"
           }
         }
       }
@@ -499,7 +499,7 @@
     "Usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "用量"
@@ -510,10 +510,10 @@
     "Pro searches": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pro 搜索"
+            "value": "Pro 搜尋"
           }
         }
       }
@@ -521,7 +521,7 @@
     "Research": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "研究"
@@ -532,10 +532,10 @@
     "Agentic research": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "智能体研究"
+            "value": "代理研究"
           }
         }
       }
@@ -543,7 +543,7 @@
     "Labs": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Labs"
@@ -554,10 +554,10 @@
     "Free queries": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "免费查询"
+            "value": "免費查詢"
           }
         }
       }
@@ -565,10 +565,10 @@
     "Requests today · no limit published": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日请求 · 未公布额度"
+            "value": "今日請求 · 未公布額度"
           }
         }
       }
@@ -576,10 +576,10 @@
     "no requests today": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日暂无请求"
+            "value": "今日暫無請求"
           }
         }
       }
@@ -587,10 +587,10 @@
     "~%lld request today": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日约 %lld 次请求"
+            "value": "今日約 %lld 次請求"
           }
         }
       }
@@ -598,10 +598,10 @@
     "~%lld requests today": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日约 %lld 次请求"
+            "value": "今日約 %lld 次請求"
           }
         }
       }
@@ -609,7 +609,7 @@
     "Grok Build": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Grok Build"
@@ -620,7 +620,7 @@
     "%@ Usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ 用量"
@@ -631,10 +631,10 @@
     "and %lld more": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "还有 %lld 个"
+            "value": "還有 %lld 個"
           }
         }
       }
@@ -642,7 +642,7 @@
     "working": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "工作中"
@@ -653,7 +653,7 @@
     "waiting": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "等待中"
@@ -664,10 +664,10 @@
     "idle": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "空闲"
+            "value": "閒置"
           }
         }
       }
@@ -675,7 +675,7 @@
     "Working": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "工作中"
@@ -686,10 +686,10 @@
     "Desktop": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "桌面端"
+            "value": "桌面版"
           }
         }
       }
@@ -697,7 +697,7 @@
     "VS Code": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "VS Code"
@@ -708,7 +708,7 @@
     "Agent": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Agent"
@@ -719,10 +719,10 @@
     "Terminal": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "终端"
+            "value": "終端機"
           }
         }
       }
@@ -730,10 +730,10 @@
     "Untitled chat": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "未命名对话"
+            "value": "未命名對話"
           }
         }
       }
@@ -741,10 +741,10 @@
     "Always show": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "始终显示"
+            "value": "一律顯示"
           }
         }
       }
@@ -752,10 +752,10 @@
     "Show on hover": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "悬停时显示"
+            "value": "游標停留時顯示"
           }
         }
       }
@@ -763,10 +763,10 @@
     "Hide": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "隐藏"
+            "value": "隱藏"
           }
         }
       }
@@ -774,10 +774,10 @@
     "The notch stays open with every reading visible.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刘海保持展开，所有读数都看得见。"
+            "value": "瀏海保持展開，所有讀值都看得見。"
           }
         }
       }
@@ -785,10 +785,10 @@
     "A small pill at the screen edge that opens when you reach it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "屏幕边缘一颗小胶囊，指针移过去就会展开。"
+            "value": "螢幕邊緣一顆小膠囊，游標移過去就會展開。"
           }
         }
       }
@@ -796,10 +796,10 @@
     "Nothing on screen. Open Codenotch again from Applications to bring these settings back.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "屏幕上什么都没有。从「应用程序」再打开 Codenotch，才能回到这些设置。"
+            "value": "螢幕上不顯示任何內容。從「應用程式」重新開啟 Codenotch，即可回到設定。"
           }
         }
       }
@@ -807,10 +807,10 @@
     "Dock": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "程序坞"
+            "value": "Dock"
           }
         }
       }
@@ -818,10 +818,10 @@
     "Menu bar": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "菜单栏"
+            "value": "選單列"
           }
         }
       }
@@ -829,10 +829,10 @@
     "Neither": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "都不显示"
+            "value": "都不顯示"
           }
         }
       }
@@ -840,10 +840,10 @@
     "A normal app icon in the Dock while Codenotch is running.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 运行时，程序坞里有一个普通应用图标。"
+            "value": "Codenotch 執行時，在 Dock 顯示 App 圖像。"
           }
         }
       }
@@ -851,10 +851,10 @@
     "A small icon in the menu bar instead, and nothing in the Dock.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "改在菜单栏放一个小图标，程序坞里没有。"
+            "value": "在選單列顯示小圖像，Dock 則不顯示。"
           }
         }
       }
@@ -862,10 +862,10 @@
     "No icon anywhere. Open Codenotch again from Applications to bring these settings back.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "哪里都没有图标。从「应用程序」再打开 Codenotch，才能回到这些设置。"
+            "value": "不顯示任何圖像。從「應用程式」重新開啟 Codenotch，即可回到設定。"
           }
         }
       }
@@ -873,10 +873,10 @@
     "Right": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "右侧"
+            "value": "右側"
           }
         }
       }
@@ -884,10 +884,10 @@
     "Left": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "左侧"
+            "value": "左側"
           }
         }
       }
@@ -895,10 +895,10 @@
     "Top": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "顶部"
+            "value": "頂部"
           }
         }
       }
@@ -906,7 +906,7 @@
     "Bottom": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "底部"
@@ -917,10 +917,10 @@
     "Down the right-hand edge, clear of a Dock on that side.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "沿右边缘，避开那一侧的程序坞。"
+            "value": "沿右邊緣，避開那一側的 Dock。"
           }
         }
       }
@@ -928,10 +928,10 @@
     "Down the left-hand edge, clear of a Dock on that side.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "沿左边缘，避开那一侧的程序坞。"
+            "value": "沿左邊緣，避開那一側的 Dock。"
           }
         }
       }
@@ -939,10 +939,10 @@
     "A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "顶部一条横栏，读数并排。有硬件刘海的 Mac 上会贴上去，看起来像同一块。"
+            "value": "頂部一條橫欄，讀值並排。有硬體瀏海的 Mac 上會貼上去，看起來像同一塊。"
           }
         }
       }
@@ -950,10 +950,10 @@
     "A wide bar resting on top of the Dock, readings side by side.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "一条横栏压在程序坞上方，读数并排。"
+            "value": "一條橫欄壓在 Dock 上方，讀值並排。"
           }
         }
       }
@@ -961,10 +961,10 @@
     "Integrations": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "集成"
+            "value": "整合"
           }
         }
       }
@@ -972,10 +972,10 @@
     "Appearance": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "外观"
+            "value": "外觀"
           }
         }
       }
@@ -983,10 +983,10 @@
     "General": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "通用"
+            "value": "一般"
           }
         }
       }
@@ -994,10 +994,10 @@
     "Show": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示"
+            "value": "顯示"
           }
         }
       }
@@ -1005,10 +1005,10 @@
     "Edge": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "边缘"
+            "value": "邊緣"
           }
         }
       }
@@ -1016,10 +1016,10 @@
     "App icon": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "应用图标"
+            "value": "App 圖像"
           }
         }
       }
@@ -1027,10 +1027,10 @@
     "Open Codenotch at login": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录时打开 Codenotch"
+            "value": "登入時開啟 Codenotch"
           }
         }
       }
@@ -1038,10 +1038,10 @@
     "Install updates automatically": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "自动安装更新"
+            "value": "自動安裝更新"
           }
         }
       }
@@ -1049,10 +1049,10 @@
     "Check now": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "立即检查"
+            "value": "立即檢查"
           }
         }
       }
@@ -1060,10 +1060,10 @@
     "App designed and developed by": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "应用设计与开发"
+            "value": "App 設計與開發"
           }
         }
       }
@@ -1071,10 +1071,10 @@
     "Connect an assistant to get started": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "连接一个助手以开始使用"
+            "value": "連結一個助理，即可開始使用"
           }
         }
       }
@@ -1082,10 +1082,10 @@
     "Codenotch never signs in — each reading is borrowed from the tool that already holds the account. Signing out here stops the credential being read and forgets the numbers, but leaves you signed in to that tool. macOS asks once per tool the first time, and again whenever you sign in to a different account; Always Allow keeps it quiet.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 从不自己登录 — 每条读数都借自已经持有该账号的工具。在这里退出只会停止读取凭证并忘掉数字，你在那个工具里仍然是登录状态。macOS 每种工具第一次会问一次，换账号再登录时还会再问；选「始终允许」就不会再打扰。"
+            "value": "Codenotch 從不自己登入 — 每條讀值都借自已經持有該帳號的工具。在這裡登出只會停止讀取憑證並忘掉數字，你在那個工具裡仍然是登入狀態。macOS 每種工具第一次會問一次，換帳號再登入時還會再問；選「一律允許」就不會再打擾。"
           }
         }
       }
@@ -1093,10 +1093,10 @@
     "Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor, Codex, Antigravity, GLM, Grok or OpenCode, and its ring appears in the notch.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 读取这台 Mac 上已经登录的工具的用量 — 从不问你的密码。安装并登录 Claude Code（终端工具，不是 Claude 应用）、Cursor、Codex、Antigravity、GLM、Grok 或 OpenCode 中的任意一个，刘海里就会出现对应的圆环。"
+            "value": "Codenotch 讀取這台 Mac 上已經登入的工具的用量 — 從不問你的密碼。安裝並登入 Claude Code（終端機工具，不是 Claude App）、Cursor、Codex、Antigravity、GLM、Grok 或 OpenCode 中的任意一個，瀏海裡就會出現對應的圓環。"
           }
         }
       }
@@ -1104,10 +1104,10 @@
     "macOS will ask once for permission to read Claude Code's and Antigravity's saved logins. Choose Always Allow — plain Allow makes it ask again every time.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS 会询问一次，是否允许读取 Claude Code 和 Antigravity 已保存的登录信息。请选「始终允许」— 只选「允许」的话，每次都会再问。"
+            "value": "macOS 會詢問一次，是否允許讀取 Claude Code 和 Antigravity 已儲存的登入資訊。請選「一律允許」— 只選「允許」的話，每次都會再問。"
           }
         }
       }
@@ -1115,10 +1115,10 @@
     "Version %@. Updates install in the background and apply next time Codenotch starts.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "版本 %@。更新在后台安装，下次启动 Codenotch 时生效。"
+            "value": "版本 %@。更新在背景安裝，下次啟動 Codenotch 時生效。"
           }
         }
       }
@@ -1126,10 +1126,10 @@
     "Signed out — nothing is read, and no readings are kept.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "已退出 — 不再读取，也不再保存读数。"
+            "value": "已登出 — 不再讀取，也不再儲存讀值。"
           }
         }
       }
@@ -1137,10 +1137,10 @@
     "Allow access…": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "允许访问…"
+            "value": "允許存取…"
           }
         }
       }
@@ -1148,10 +1148,10 @@
     "Switch…": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "切换…"
+            "value": "切換…"
           }
         }
       }
@@ -1159,10 +1159,10 @@
     "Asks macOS for %@'s saved login again. Choose Always Allow and it will stop asking.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "再次向 macOS 请求 %@ 已保存的登录信息。选「始终允许」就不会再问。"
+            "value": "再次向 macOS 請求 %@ 已儲存的登入資訊。選「一律允許」就不會再問。"
           }
         }
       }
@@ -1170,10 +1170,10 @@
     "Switch off to stop reading %@ and forget its readings. %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "关闭后停止读取 %@ 并忘掉它的读数。%@"
+            "value": "關閉後停止讀取 %@，並清除已儲存的讀值。%@"
           }
         }
       }
@@ -1181,10 +1181,10 @@
     "Switch on to sign in and read %@ again.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开以重新登录并读取 %@。"
+            "value": "開啟以重新登入並讀取 %@。"
           }
         }
       }
@@ -1192,10 +1192,10 @@
     "macOS is not letting Codenotch read %@'s saved login. Choose Allow access… above, then Always Allow.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS 不让 Codenotch 读取 %@ 已保存的登录信息。点上面的「允许访问…」，然后选「始终允许」。"
+            "value": "macOS 不讓 Codenotch 讀取 %@ 已儲存的登入資訊。點上面的「允許存取…」，然後選「一律允許」。"
           }
         }
       }
@@ -1203,10 +1203,10 @@
     "Open %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开 %@"
+            "value": "開啟 %@"
           }
         }
       }
@@ -1214,10 +1214,10 @@
     "Opens %@, which is where this account is signed in.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开 %@，这个账号就是在那里登录的。"
+            "value": "開啟 %@，這個帳號就是在那裡登入的。"
           }
         }
       }
@@ -1225,10 +1225,10 @@
     "Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在浏览器打开 %@。那个网站有自己的登录，和这里读取的凭证不是一回事。"
+            "value": "在瀏覽器開啟 %@。那個網站有自己的登入，和這裡讀取的憑證不是一回事。"
           }
         }
       }
@@ -1236,10 +1236,10 @@
     "Codenotch Settings": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 设置"
+            "value": "Codenotch 設定"
           }
         }
       }
@@ -1247,10 +1247,10 @@
     "What's New": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "新变化"
+            "value": "更新內容"
           }
         }
       }
@@ -1258,10 +1258,10 @@
     "What's new in Codenotch": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 新变化"
+            "value": "Codenotch 更新內容"
           }
         }
       }
@@ -1269,7 +1269,7 @@
     "Version %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "版本 %@"
@@ -1280,10 +1280,10 @@
     "Continue": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "继续"
+            "value": "繼續"
           }
         }
       }
@@ -1291,10 +1291,10 @@
     "macOS refused this — try moving Codenotch to /Applications.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS 拒绝了 — 试着把 Codenotch 移到「应用程序」。"
+            "value": "macOS 拒絕了 — 試著把 Codenotch 移到「應用程式」。"
           }
         }
       }
@@ -1302,10 +1302,10 @@
     "via %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "来自 %@"
+            "value": "來自 %@"
           }
         }
       }
@@ -1313,10 +1313,10 @@
     "Sign in to %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录 %@"
+            "value": "登入 %@"
           }
         }
       }
@@ -1324,10 +1324,10 @@
     "Sign in to %@ to read this account.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录 %@ 以读取此账号。"
+            "value": "登入 %@ 以讀取此帳號。"
           }
         }
       }
@@ -1335,10 +1335,10 @@
     "Sign in with %@ to read this account.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用 %@ 登录以读取此账号。"
+            "value": "用 %@ 登入以讀取此帳號。"
           }
         }
       }
@@ -1346,10 +1346,10 @@
     "Sign out in the %@ window to use another account.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 %@ 窗口里退出，才能换另一个账号。"
+            "value": "在 %@ 視窗裡登出，才能換另一個帳號。"
           }
         }
       }
@@ -1357,10 +1357,10 @@
     "Switch accounts in %@; the notch follows.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 %@ 里切换账号，刘海会跟上。"
+            "value": "在 %@ 裡切換帳號，瀏海會跟上。"
           }
         }
       }
@@ -1368,10 +1368,10 @@
     "Switch accounts in the tool that owns it; the notch follows.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在持有该账号的工具里切换，刘海会跟上。"
+            "value": "在持有該帳號的工具裡切換，瀏海會跟上。"
           }
         }
       }
@@ -1379,10 +1379,10 @@
     "Signs out of %@ — the session belongs to Codenotch.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "会退出 %@ — 这个会话属于 Codenotch。"
+            "value": "會登出 %@ — 這個工作階段屬於 Codenotch。"
           }
         }
       }
@@ -1390,10 +1390,10 @@
     "You stay signed in to %@ — end that session in %@ itself.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "你在 %@ 里仍然是登录状态 — 要结束会话，去 %@ 里操作。"
+            "value": "你在 %@ 裡仍然是登入狀態 — 要結束工作階段，去 %@ 裡操作。"
           }
         }
       }
@@ -1401,10 +1401,10 @@
     "You stay signed in to the tool that owns the account.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "你在持有该账号的工具里仍然是登录状态。"
+            "value": "你在持有該帳號的工具裡仍然是登入狀態。"
           }
         }
       }
@@ -1412,10 +1412,10 @@
     "Sign in with the tool that owns this account.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用持有此账号的工具登录。"
+            "value": "用持有此帳號的工具登入。"
           }
         }
       }
@@ -1423,10 +1423,10 @@
     "Sign in to %@…": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录 %@…"
+            "value": "登入 %@…"
           }
         }
       }
@@ -1434,10 +1434,10 @@
     "Run grok login — it signs in and refreshes the token this reads.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "运行 grok login — 它会登录并刷新这里读取的令牌。"
+            "value": "執行 grok login，完成登入並更新此處使用的權杖。"
           }
         }
       }
@@ -1445,10 +1445,10 @@
     "Usage rides on the opencode-go key OpenCode stores on sign-in — connect Go inside OpenCode (`opencode auth login`) and the notch reads it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用量走的是 OpenCode 登录时保存的 opencode-go 密钥 — 在 OpenCode 里接通 Go（`opencode auth login`），刘海就会读到。"
+            "value": "用量走的是 OpenCode 登入時儲存的 opencode-go 金鑰 — 在 OpenCode 裡接通 Go（`opencode auth login`），瀏海就會讀到。"
           }
         }
       }
@@ -1456,10 +1456,10 @@
     "Usage rides on a Z.ai GLM Coding Plan key held by a coding tool — Claude Code's settings.json, ZCode or OpenCode. Set one up there and the notch reads it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用量走的是某个编程工具里的 Z.ai GLM Coding Plan 密钥 — Claude Code 的 settings.json、ZCode 或 OpenCode。在那边配好，刘海就会读到。"
+            "value": "用量走的是某個程式開發工具裡的 Z.ai GLM Coding Plan 金鑰 — Claude Code 的 settings.json、ZCode 或 OpenCode。在那邊配好，瀏海就會讀到。"
           }
         }
       }
@@ -1467,10 +1467,10 @@
     "Run `%@` once — it signs in and refreshes the token this reads. Use /login there to change account.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "先运行一次 `%@` — 它会登录并刷新这里读取的令牌。要换账号，在那里用 /login。"
+            "value": "執行一次 `%@`，完成登入並更新此處使用的權杖。若要切換帳號，請在該工具中使用 /login。"
           }
         }
       }
@@ -1478,10 +1478,10 @@
     "Unlimited on the %@ plan — nothing to meter": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 套餐无限制 — 没有可计量的额度"
+            "value": "%@ 方案無限制 — 沒有可計量的額度"
           }
         }
       }
@@ -1489,10 +1489,10 @@
     "The %@ plan has nothing for Cursor to meter yet": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 套餐目前还没有可供 Cursor 计量的额度"
+            "value": "%@ 方案目前還沒有可供 Cursor 計量的額度"
           }
         }
       }
@@ -1500,10 +1500,10 @@
     "Codex reported no usage windows": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex 没有返回任何用量窗口"
+            "value": "Codex 未回報任何用量週期"
           }
         }
       }
@@ -1511,10 +1511,10 @@
     "No OpenCode Go subscription on this key": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个密钥上没有 OpenCode Go 订阅"
+            "value": "這個金鑰上沒有 OpenCode Go 訂閱"
           }
         }
       }
@@ -1522,10 +1522,10 @@
     "Grok has nothing metered on this account yet": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个 Grok 账号目前没有可计量的额度"
+            "value": "這個 Grok 帳號目前沒有可計量的額度"
           }
         }
       }
@@ -1533,10 +1533,10 @@
     "Settings…": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "设置…"
+            "value": "設定…"
           }
         }
       }
@@ -1544,10 +1544,10 @@
     "Quit Codenotch": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "退出 Codenotch"
+            "value": "結束 Codenotch"
           }
         }
       }
@@ -1555,10 +1555,10 @@
     "Keep open": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "保持展开"
+            "value": "保持展開"
           }
         }
       }
@@ -1566,10 +1566,10 @@
     "Refresh now": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "立即刷新"
+            "value": "立即重新整理"
           }
         }
       }
@@ -1577,10 +1577,10 @@
     "Codenotch is set to Always show. Change it in Settings.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 已设为「始终显示」。请在设置里更改。"
+            "value": "Codenotch 已設為「一律顯示」。請在設定裡更改。"
           }
         }
       }
@@ -1588,10 +1588,10 @@
     "Checking…": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在检查…"
+            "value": "正在檢查…"
           }
         }
       }
@@ -1599,7 +1599,7 @@
     "Codenotch is up to date.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Codenotch 已是最新版本。"
@@ -1610,10 +1610,10 @@
     "Version %@ is available and will install shortly.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "版本 %@ 可用，即将安装。"
+            "value": "版本 %@ 可用，即將安裝。"
           }
         }
       }
@@ -1621,10 +1621,10 @@
     "Couldn't reach the update server. Codenotch will try again on its own — nothing is wrong with this copy.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "连不上更新服务器。Codenotch 会自己再试 — 这份安装没有问题。"
+            "value": "連不上更新伺服器。Codenotch 會自己再試 — 這份安裝沒有問題。"
           }
         }
       }
@@ -1632,10 +1632,10 @@
     "Two more providers, and a live account plan that was silently dropped.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "又多了两个服务，以及一个被悄悄丢掉的真实账号套餐。"
+            "value": "又多了兩個服務，以及一個被悄悄丟掉的真實帳號方案。"
           }
         }
       }
@@ -1643,10 +1643,10 @@
     "Grok is a new ring": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Grok 成了新的圆环"
+            "value": "Grok 成了新的圓環"
           }
         }
       }
@@ -1654,10 +1654,10 @@
     "SuperGrok's weekly Grok Build allowance, read from the same billing endpoint the CLI uses, with the session in ~/.grok/auth.json.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "SuperGrok 的每周 Grok Build 额度，读取 CLI 所用的同一个计费接口，会话来自 ~/.grok/auth.json。"
+            "value": "SuperGrok 的每週 Grok Build 額度，讀取 CLI 所用的同一個計費端點，工作階段來自 ~/.grok/auth.json。"
           }
         }
       }
@@ -1665,10 +1665,10 @@
     "OpenCode's Go plan is a new ring": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "OpenCode 的 Go 套餐成了新的圆环"
+            "value": "OpenCode 的 Go 方案成了新的圓環"
           }
         }
       }
@@ -1676,10 +1676,10 @@
     "Reads the Go plan's official usage endpoint with the key OpenCode itself stores on sign-in — no second sign-in.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用 OpenCode 登录时自己存下的密钥读取 Go 套餐官方用量接口 — 不用再登一次。"
+            "value": "用 OpenCode 登入時自己存下的金鑰讀取 Go 方案官方用量端點 — 不用再登一次。"
           }
         }
       }
@@ -1687,10 +1687,10 @@
     "A real Codex account went unmetered": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "一个真实的 Codex 账号变成了未计量"
+            "value": "一個真實的 Codex 帳號變成了未計量"
           }
         }
       }
@@ -1698,10 +1698,10 @@
     "Codex's live reading only recognised a 5-hour and a 7-day window. A free-plan account's real limit was a 30-day one, which fell through unnoticed and showed as nothing metered on an account that was genuinely tracked.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex 的实时读数只认 5 小时和 7 天窗口。免费套餐账号真正的额度是 30 天，被悄悄漏掉，一个确实在计量的账号显示成没有可计量的额度。"
+            "value": "Codex 的即時讀值只認 5 小時和 7 天視窗。免費方案帳號真正的額度是 30 天，被悄悄漏掉，一個確實在計量的帳號顯示成沒有可計量的額度。"
           }
         }
       }
@@ -1709,10 +1709,10 @@
     "Switching a provider off now really stops it": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "关掉某个服务现在真的会停掉"
+            "value": "關掉某個服務現在真的會停掉"
           }
         }
       }
@@ -1720,10 +1720,10 @@
     "Opening Settings could still read a switched-off provider's account, and a reply already in flight could restore a reading you had just asked it to forget.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开设置仍可能读取已关闭服务的账号，一次还在路上的回复也可能把你刚让它忘掉的读数加回来。"
+            "value": "開啟設定仍可能讀取已關閉服務的帳號，一次還在路上的回覆也可能把你剛讓它忘掉的讀值加回來。"
           }
         }
       }
@@ -1731,10 +1731,10 @@
     "Contributors can build without a certificate": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "贡献者可以在没有证书的情况下构建"
+            "value": "貢獻者可以在沒有憑證的情況下建置"
           }
         }
       }
@@ -1742,10 +1742,10 @@
     "make build and make test now sign themselves automatically when the maintainer's Developer ID isn't present — no Apple account needed to work on this.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "维护者的 Developer ID 不在时，make build 和 make test 会自动签名 — 参与开发不需要 Apple 账号。"
+            "value": "維護者的 Developer ID 不在時，make build 和 make test 會自動簽署 — 參與開發不需要 Apple 帳號。"
           }
         }
       }
@@ -1753,10 +1753,10 @@
     "Waking from sleep no longer erases a reading.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "从睡眠唤醒不再抹掉读数。"
+            "value": "從睡眠喚醒不再抹掉讀值。"
           }
         }
       }
@@ -1764,10 +1764,10 @@
     "A ring survives waking your Mac": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "唤醒 Mac 后圆环还在"
+            "value": "喚醒 Mac 後圓環還在"
           }
         }
       }
@@ -1775,10 +1775,10 @@
     "A brief window right after sleep, where macOS won't allow a keychain prompt yet, was mistaken for being signed out — which erased the reading and left \"waiting for the first reading\" on screen. It now ages the number instead of throwing it away, and picks back up on its own.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刚睡醒的一小段时间里 macOS 还不允许钥匙串提示，这被误当成已退出 — 读数被抹掉，屏幕上只剩「正在等待首次读数」。现在会让数字变旧而不是扔掉，并自己恢复。"
+            "value": "剛睡醒的一小段時間裡 macOS 還不允許鑰匙圈提示，這被誤當成已登出 — 讀值被抹掉，螢幕上只剩「正在等待首次讀值」。現在會讓數字變舊而不是扔掉，並自己恢復。"
           }
         }
       }
@@ -1786,10 +1786,10 @@
     "Two more accounts, four community fixes, and honest duplicates.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "又多了两个账号，四个社区修复，以及诚实的重复项。"
+            "value": "又多了兩個帳號，四個社群修復，以及誠實的重複項。"
           }
         }
       }
@@ -1797,10 +1797,10 @@
     "Multiple Claude Code accounts": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "多个 Claude Code 账号"
+            "value": "多個 Claude Code 帳號"
           }
         }
       }
@@ -1808,10 +1808,10 @@
     "Keep a work login apart with CLAUDE_CONFIG_DIR? It now gets its own ring, its own limits, and its own row in Settings, beside your personal one.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用 CLAUDE_CONFIG_DIR 把工作登录分开？它现在有自己的圆环、自己的额度，以及设置里自己的一行，就在个人账号旁边。"
+            "value": "用 CLAUDE_CONFIG_DIR 把工作登入分開？它現在有自己的圓環、自己的額度，以及設定裡自己的一行，就在個人帳號旁邊。"
           }
         }
       }
@@ -1819,7 +1819,7 @@
     "GLM added": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "加入了 GLM"
@@ -1830,10 +1830,10 @@
     "Z.ai's Coding Plan reads live now too, with a key borrowed from whichever tool already holds one.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Z.ai 的 Coding Plan 现在也实时读取，密钥借自已经持有它的那个工具。"
+            "value": "Z.ai 的 Coding Plan 現在也即時讀取，金鑰借自已經持有它的那個工具。"
           }
         }
       }
@@ -1841,10 +1841,10 @@
     "A stuck Claude ring recovers on its own": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "卡住的 Claude 圆环会自己恢复"
+            "value": "卡住的 Claude 圓環會自己恢復"
           }
         }
       }
@@ -1852,10 +1852,10 @@
     "One momentary failure — the Mac waking from sleep, most often — used to lock the ring until the app restarted. It now clears itself on the next check.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "一次短暂失败 — 多半是 Mac 从睡眠唤醒 — 以前会把圆环锁死直到重启应用。现在下次检查会自己解开。"
+            "value": "一次短暫失敗 — 多半是 Mac 從睡眠喚醒 — 以前會把圓環鎖死直到重啟 App。現在下次檢查會自己解開。"
           }
         }
       }
@@ -1863,10 +1863,10 @@
     "Cursor sessions stop reporting work that already ended": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cursor 会话不再把已经结束的工作报成还在进行"
+            "value": "Cursor 工作階段不再把已經結束的工作報成還在進行"
           }
         }
       }
@@ -1874,10 +1874,10 @@
     "A crashed or abandoned chat could read as \"still working\" for a day or more. It now notices when the writing has actually stopped.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "崩溃或弃掉的对话可能一整天都显示「仍在工作」。现在会发现写入其实已经停了。"
+            "value": "崩潰或棄掉的對話可能一整天都顯示「仍在工作」。現在會發現寫入其實已經停了。"
           }
         }
       }
@@ -1885,10 +1885,10 @@
     "A months-old duplicate can no longer win": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "几个月前的重复项再也抢不赢"
+            "value": "幾個月前的重複項再也搶不贏"
           }
         }
       }
@@ -1896,10 +1896,10 @@
     "Claude Code files a new keychain entry on every token rotation. An account signed in for a while could pick an old, expired one at random and show \"waiting for the first reading\" forever.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claude Code 每次轮换令牌都会写一条新的钥匙串。登录较久的账号可能随机拿到过期的那条，然后永远显示「正在等待首次读数」。"
+            "value": "Claude Code 每次輪換權杖都會寫一條新的鑰匙圈。登入較久的帳號可能隨機拿到過期的那條，然後永遠顯示「正在等待首次讀值」。"
           }
         }
       }
@@ -1907,10 +1907,10 @@
     "A stray click no longer pins the notch open": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "误点不再把刘海钉在展开状态"
+            "value": "誤點不再把瀏海釘在展開狀態"
           }
         }
       }
@@ -1918,10 +1918,10 @@
     "Clicking near the screen edge before the notch had even opened could leave it stuck open with nothing on screen explaining why.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刘海还没展开时点到屏幕边缘，可能让它卡在打开状态，屏幕上却没有任何解释。"
+            "value": "瀏海還沒展開時點到螢幕邊緣，可能讓它卡在開啟狀態，螢幕上卻沒有任何解釋。"
           }
         }
       }
@@ -1929,10 +1929,10 @@
     "Codex reads live, and Always show stays on.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex 改为实时读取，「始终显示」会保持打开。"
+            "value": "Codex 改為即時讀取，「一律顯示」會保持開啟。"
           }
         }
       }
@@ -1940,10 +1940,10 @@
     "Codex is read live instead of from a log": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex 改为实时读取，而不再读日志"
+            "value": "Codex 改為即時讀取，而不再讀紀錄"
           }
         }
       }
@@ -1951,10 +1951,10 @@
     "The figure came from a file Codex writes during a turn, so it was as old as the last time you used it — three days stale in one case. Codenotch now asks Codex itself, and matches its own panel.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "数字来自 Codex 在一轮对话里写的文件，所以有多旧取决于你上次用它是什么时候 — 有一次旧了三天。Codenotch 现在直接问 Codex，并与它自己的面板一致。"
+            "value": "數字來自 Codex 在一輪對話裡寫的檔案，所以有多舊取決於你上次用它是什麼時候 — 有一次舊了三天。Codenotch 現在直接問 Codex，並與它自己的面板一致。"
           }
         }
       }
@@ -1962,10 +1962,10 @@
     "The Codex ring notices the desktop app": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codex 圆环会注意到桌面应用"
+            "value": "Codex 圓環會注意到桌面 App"
           }
         }
       }
@@ -1973,10 +1973,10 @@
     "It only ever watched the files the CLI and the VS Code extension write, so work done in the desktop app never made it spin.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "以前只盯 CLI 和 VS Code 扩展写的文件，桌面应用里的工作从不会让它转起来。"
+            "value": "以前只盯 CLI 和 VS Code 擴充功能寫的檔案，桌面 App 裡的工作從不會讓它轉起來。"
           }
         }
       }
@@ -1984,10 +1984,10 @@
     "Always show no longer turns itself off": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "「始终显示」不再自己关掉"
+            "value": "「一律顯示」不再自己關掉"
           }
         }
       }
@@ -1995,10 +1995,10 @@
     "Clicking the notch toggled the same flag the setting used, so a stray click quietly put it back to showing on hover.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "点击刘海会拨动设置用的同一个开关，一次误点就会悄悄变回悬停时显示。"
+            "value": "點選瀏海會撥動設定用的同一個開關，一次誤點就會悄悄變回游標停留時顯示。"
           }
         }
       }
@@ -2006,10 +2006,10 @@
     "Far fewer keychain prompts": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "钥匙串提示少得多"
+            "value": "鑰匙圈提示少得多"
           }
         }
       }
@@ -2017,10 +2017,10 @@
     "Once a token expired, every check went back to the keychain — a prompt a minute. It now reads the secret only when the owning app has changed it, and never retries a refusal on a timer.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "令牌一过期，每次检查都回到钥匙串 — 一分钟弹一次。现在只在所属应用改过密钥时才读，并且不会按定时器重试一次拒绝。"
+            "value": "權杖一過期，每次檢查都回到鑰匙圈 — 一分鐘彈一次。現在只在所屬 App 改過金鑰時才讀，並且不會按定時器重試一次拒絕。"
           }
         }
       }
@@ -2028,10 +2028,10 @@
     "A paused limit is shown as paused": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "暂停的额度会显示为暂停"
+            "value": "暫停的額度會顯示為暫停"
           }
         }
       }
@@ -2039,10 +2039,10 @@
     "Some limits are reached while the headline still shows room. The ring reads as spent and says when it lifts.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "有些额度已经用尽，标题却还显示有余量。圆环会显示用完，并说明何时解除。"
+            "value": "有些額度已經用盡，標題卻還顯示有餘量。圓環會顯示用完，並說明何時解除。"
           }
         }
       }
@@ -2050,10 +2050,10 @@
     "Long messages are no longer cut off": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "长消息不再被截断"
+            "value": "長訊息不再被截斷"
           }
         }
       }
@@ -2061,10 +2061,10 @@
     "A tooltip with something to explain reserved one line for it however much it said.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "有话要说的提示只给它留了一行，不管它写了多少。"
+            "value": "有話要說的提示只給它留了一行，不管它寫了多少。"
           }
         }
       }
@@ -2072,10 +2072,10 @@
     "Every session, and a tooltip that fits on the screen.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每一个会话，以及一张能放进屏幕的提示卡。"
+            "value": "每一個工作階段，以及一張能放進螢幕的提示卡。"
           }
         }
       }
@@ -2083,10 +2083,10 @@
     "Tooltips are no longer cut off": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示卡不再被截断"
+            "value": "提示卡不再被截斷"
           }
         }
       }
@@ -2094,10 +2094,10 @@
     "A card is centred on the ring it belongs to, so the first and last providers threw half of it past the end of the panel — and what fell off was the title. The panel now keeps room for it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "卡片以所属圆环为中心，第一个和最后一个服务会把一半甩出面板 — 掉出去的还是标题。面板现在会给它留位置。"
+            "value": "卡片以所屬圓環為中心，第一個和最後一個服務會把一半甩出面板 — 掉出去的還是標題。面板現在會給它留位置。"
           }
         }
       }
@@ -2105,10 +2105,10 @@
     "As many sessions as your screen can hold": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "屏幕能放下多少会话就显示多少"
+            "value": "螢幕能放下多少工作階段就顯示多少"
           }
         }
       }
@@ -2116,10 +2116,10 @@
     "The list was capped at four whatever you were running on. It is now solved for the display: ten on a large one, and \"and N more\" only when there is genuinely no room for the rest.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "不论你在跑什么，列表以前最多四条。现在按屏幕算：大屏幕十条，只有真的放不下时才出现「还有 N 个」。"
+            "value": "不論你在跑什麼，清單以前最多四條。現在按螢幕算：大螢幕十條，只有真的放不下時才出現「還有 N 個」。"
           }
         }
       }
@@ -2127,7 +2127,7 @@
     "The ones that need you come first": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "需要你的排在前面"
@@ -2138,10 +2138,10 @@
     "Waiting, then busy, then idle — so if anything is summarised away, it is what matters least.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "等待中，然后工作中，然后空闲 — 被收进「还有 N 个」的，是最不要紧的。"
+            "value": "等待中，然後工作中，然後閒置 — 被收進「還有 N 個」的，是最不要緊的。"
           }
         }
       }
@@ -2149,10 +2149,10 @@
     "Antigravity's real numbers, and a switch that stays off.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Antigravity 的真实数字，以及一个会保持关闭的开关。"
+            "value": "Antigravity 的真實數字，以及一個會保持關閉的開關。"
           }
         }
       }
@@ -2160,10 +2160,10 @@
     "Antigravity shows its actual quota": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Antigravity 显示真实配额"
+            "value": "Antigravity 顯示真實配額"
           }
         }
       }
@@ -2171,10 +2171,10 @@
     "Google will not answer Codenotch directly, so it asks Antigravity's own language server instead — the same place Antigravity's usage panel gets its figure.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Google 不会直接回答 Codenotch，所以改问 Antigravity 自己的语言服务器 — 也就是 Antigravity 用量面板取数字的地方。"
+            "value": "Google 不會直接回答 Codenotch，所以改問 Antigravity 自己的語言伺服器 — 也就是 Antigravity 用量面板取數字的地方。"
           }
         }
       }
@@ -2182,10 +2182,10 @@
     "Usage reads both ways": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用量从两头都能读懂"
+            "value": "用量從兩頭都能讀懂"
           }
         }
       }
@@ -2193,10 +2193,10 @@
     "\"12% used · 88% left\", so a reading lines up with whichever end your vendor happens to show.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "「12% 已用 · 88% 剩余」，读数能对上供应商碰巧展示的那一端。"
+            "value": "「12% 已用 · 88% 剩餘」，讀值能對上供應商碰巧展示的那一端。"
           }
         }
       }
@@ -2204,10 +2204,10 @@
     "A way back from a declined keychain prompt": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "拒绝钥匙串提示之后还有退路"
+            "value": "拒絕鑰匙圈提示之後還有退路"
           }
         }
       }
@@ -2215,10 +2215,10 @@
     "Declining no longer looks like being signed out, and Allow access… asks macOS again.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "拒绝不再看起来像已退出，「允许访问…」会再问一次 macOS。"
+            "value": "拒絕不再看起來像已登出，「允許存取…」會再問一次 macOS。"
           }
         }
       }
@@ -2226,10 +2226,10 @@
     "Switching a provider off now sticks": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "关掉某个服务现在会记住"
+            "value": "關掉某個服務現在會記住"
           }
         }
       }
@@ -2237,10 +2237,10 @@
     "It stopped being read but its last reading was kept, so the ring came back at the next launch.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "不再读取，但上次读数还留着，所以下次启动圆环又回来了。"
+            "value": "不再讀取，但上次讀值還留著，所以下次啟動圓環又回來了。"
           }
         }
       }
@@ -2248,10 +2248,10 @@
     "Distant resets show a date": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "很远的重置会显示日期"
+            "value": "很遠的重置會顯示日期"
           }
         }
       }
@@ -2259,10 +2259,10 @@
     "A limit renewing in four weeks said \"Mon\", which read as this Monday. It says \"28 Sep\".": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "四周后才更新的额度以前写「Mon」，读起来像本周一。现在写「9月28日」。"
+            "value": "四週後才更新的額度以前寫「Mon」，讀起來像本週一。現在寫「9月28日」。"
           }
         }
       }
@@ -2270,10 +2270,10 @@
     "The first release.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "首个版本。"
+            "value": "首個版本。"
           }
         }
       }
@@ -2281,10 +2281,10 @@
     "Put the notch anywhere": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刘海可以放在任意一边"
+            "value": "瀏海可以放在任意一邊"
           }
         }
       }
@@ -2292,10 +2292,10 @@
     "Right, left, top or bottom. It keeps clear of the Dock and the menu bar, and follows when the Dock moves.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "右、左、上或下。会避开程序坞和菜单栏，程序坞移动时跟着走。"
+            "value": "右、左、上或下。會避開 Dock 和選單列，Dock 移動時跟著走。"
           }
         }
       }
@@ -2303,10 +2303,10 @@
     "It joins your Mac's own notch": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "它会接上 Mac 自己的刘海"
+            "value": "它會接上 Mac 自己的瀏海"
           }
         }
       }
@@ -2314,10 +2314,10 @@
     "On the top edge it takes the hardware's shape, so the two read as one rather than as a bar parked underneath.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "放在顶部时会采用硬件的形状，两者读起来是一块，而不是停在下面的一条。"
+            "value": "放在頂部時會採用硬體的形狀，兩者讀起來是一塊，而不是停在下面的一條。"
           }
         }
       }
@@ -2325,7 +2325,7 @@
     "Claude, Cursor, Codex and Gemini": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Claude、Cursor、Codex 和 Gemini"
@@ -2336,10 +2336,10 @@
     "Each read from the tool already signed in on this Mac. Codenotch never asks for a password.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "各自读取这台 Mac 上已经登录的工具。Codenotch 从不问密码。"
+            "value": "各自讀取這台 Mac 上已經登入的工具。Codenotch 從不問密碼。"
           }
         }
       }
@@ -2347,10 +2347,10 @@
     "Choose where Codenotch appears": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择 Codenotch 出现在哪里"
+            "value": "選擇 Codenotch 出現在哪裡"
           }
         }
       }
@@ -2358,10 +2358,10 @@
     "In the Dock, in the menu bar, or nowhere at all.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在程序坞、在菜单栏，或者哪里都不出现。"
+            "value": "在 Dock、在選單列，或者哪裡都不出現。"
           }
         }
       }
@@ -2369,7 +2369,7 @@
     "Codenotch": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Codenotch"
@@ -2380,10 +2380,10 @@
     "%@%% Used · %@%% left": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@%% 已用 · %@%% 剩余"
+            "value": "%@%% 已用 · %@%% 剩餘"
           }
         }
       }
@@ -2391,10 +2391,10 @@
     "%@ left": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "剩余 %@"
+            "value": "剩餘 %@"
           }
         }
       }
@@ -2402,7 +2402,7 @@
     "%@ used": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "已用 %@"
@@ -2413,10 +2413,10 @@
     "Sign in with GitHub CLI to read your Copilot usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用 GitHub CLI 登录以读取 Copilot 用量"
+            "value": "用 GitHub CLI 登入以讀取 Copilot 用量"
           }
         }
       }
@@ -2424,10 +2424,10 @@
     "Sign in with GitHub CLI using `gh auth login`, then enable GitHub Copilot.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用 `gh auth login` 登录 GitHub CLI，然后启用 GitHub Copilot。"
+            "value": "用 `gh auth login` 登入 GitHub CLI，然後啟用 GitHub Copilot。"
           }
         }
       }
@@ -2435,10 +2435,10 @@
     "GitHub Copilot reported no metered quotas": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "GitHub Copilot 没有返回可计量的配额"
+            "value": "GitHub Copilot 沒有回報可計量的配額"
           }
         }
       }
@@ -2446,10 +2446,10 @@
     "There is nothing to sign in to: the count is added up from what Gemini CLI, OpenCode and Hermes recorded about their own calls. Your API key is never read.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有需要登录的地方：次数是从 Gemini CLI、OpenCode 和 Hermes 自己记录的调用加总的。不会读取你的 API 密钥。"
+            "value": "沒有需要登入的地方：次數是從 Gemini CLI、OpenCode 和 Hermes 自己記錄的呼叫加總的。不會讀取你的 API 金鑰。"
           }
         }
       }
@@ -2457,10 +2457,10 @@
     "No Gemini CLI, OpenCode or Hermes sessions found": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有找到 Gemini CLI、OpenCode 或 Hermes 会话"
+            "value": "沒有找到 Gemini CLI、OpenCode 或 Hermes 工作階段"
           }
         }
       }
@@ -2468,10 +2468,10 @@
     "Run `%@` once — it signs in and is what these readings come from. Use /login there to change account.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "先运行一次 `%@` — 它会登录，读数就来自那里。要换账号，在那里用 /login。"
+            "value": "先執行一次 `%@` — 它會登入，讀值就來自那裡。要換帳號，在那裡用 /login。"
           }
         }
       }
@@ -2479,10 +2479,10 @@
     "Scoped": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "限定范围"
+            "value": "限定範圍"
           }
         }
       }
@@ -2490,7 +2490,7 @@
     "Auto usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "Auto 用量"
@@ -2501,10 +2501,10 @@
     "Team on demand": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "团队按需用量"
+            "value": "團隊隨用隨付用量"
           }
         }
       }
@@ -2512,10 +2512,10 @@
     "Refresh all": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "全部刷新"
+            "value": "全部重新整理"
           }
         }
       }
@@ -2523,7 +2523,7 @@
     "Reset date": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "重置日期"
@@ -2534,10 +2534,10 @@
     "Time remaining": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "剩余时间"
+            "value": "剩餘時間"
           }
         }
       }
@@ -2545,10 +2545,10 @@
     "Minutes under an hour; otherwise the reset date and time.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "不足一小时显示分钟；否则显示重置日期和时间。"
+            "value": "不足一小時顯示分鐘；否則顯示重置日期和時間。"
           }
         }
       }
@@ -2556,10 +2556,10 @@
     "Time until usage resets, such as 3 Days 3h or 3h 20m.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "距离用量重置还有多久，例如 3 Days 3h 或 3h 20m。"
+            "value": "顯示距離用量重置的時間，例如 3 天 3 小時或 3 小時 20 分鐘。"
           }
         }
       }
@@ -2567,10 +2567,10 @@
     "Resets in %lld Day %lldh": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 天 %lld 小时后重置"
+            "value": "%lld 天 %lld 小時後重置"
           }
         }
       }
@@ -2578,10 +2578,10 @@
     "Resets in %lld Days %lldh": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 天 %lld 小时后重置"
+            "value": "%lld 天 %lld 小時後重置"
           }
         }
       }
@@ -2589,10 +2589,10 @@
     "Resets in %lldh %lldm": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 小时 %lld 分钟后重置"
+            "value": "%lld 小時 %lld 分鐘後重置"
           }
         }
       }
@@ -2600,10 +2600,10 @@
     "Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Codenotch again from Applications to bring these settings back.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "屏幕上什么都没有。应用图标选「菜单栏」时，读数仍在菜单栏菜单里。否则，从「应用程序」再打开 Codenotch，才能回到这些设置。"
+            "value": "螢幕上不顯示瀏海。「App 圖像」設為「選單列」時，仍可從選單查看讀值；否則，請從「應用程式」重新開啟 Codenotch，回到設定。"
           }
         }
       }
@@ -2611,10 +2611,10 @@
     "Main display": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "主显示器"
+            "value": "主顯示器"
           }
         }
       }
@@ -2622,10 +2622,10 @@
     "All displays": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "所有显示器"
+            "value": "所有顯示器"
           }
         }
       }
@@ -2633,10 +2633,10 @@
     "The notch appears only on the display with the menu bar.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刘海只出现在有菜单栏的显示器上。"
+            "value": "瀏海只出現在有選單列的顯示器上。"
           }
         }
       }
@@ -2644,10 +2644,10 @@
     "Each display gets its own notch, and hovering one opens only that one.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每个显示器各有一个刘海，悬停只会打开那一个。"
+            "value": "每個顯示器各有一個瀏海，游標停留只會開啟那一個。"
           }
         }
       }
@@ -2655,7 +2655,7 @@
     "3 seconds": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "3 秒"
@@ -2666,7 +2666,7 @@
     "5 seconds": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "5 秒"
@@ -2677,7 +2677,7 @@
     "10 seconds": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "10 秒"
@@ -2688,10 +2688,10 @@
     "Long enough to notice, short enough to ignore.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "够注意到，也够被忽略。"
+            "value": "短暫顯示，讓你留意動態，又不造成干擾。"
           }
         }
       }
@@ -2699,10 +2699,10 @@
     "Long enough to read the session's name and reach for it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "够读完会话名称并伸手过去。"
+            "value": "留出足夠時間，讓你看清工作階段名稱並點選。"
           }
         }
       }
@@ -2710,10 +2710,10 @@
     "Stays until you have had a chance to look up.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "会一直留到你有机会抬头看。"
+            "value": "多停留一會兒，讓你有時間抬頭查看。"
           }
         }
       }
@@ -2721,10 +2721,10 @@
     "Device accent color": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "设备强调色"
+            "value": "裝置強調色"
           }
         }
       }
@@ -2732,10 +2732,10 @@
     "Connected": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "已连接"
+            "value": "已連線"
           }
         }
       }
@@ -2743,10 +2743,10 @@
     "Not connected": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "未连接"
+            "value": "未連線"
           }
         }
       }
@@ -2754,10 +2754,10 @@
     "Accounts": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "账号"
+            "value": "帳號"
           }
         }
       }
@@ -2765,7 +2765,7 @@
     "Notifications": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "通知"
@@ -2776,10 +2776,10 @@
     "Nothing is connected, so the notch has no rings to draw.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有已连接的服务，刘海里没有圆环可画。"
+            "value": "沒有已連線的服務，瀏海裡沒有圓環可畫。"
           }
         }
       }
@@ -2787,10 +2787,10 @@
     "The notch draws these in this order. Drag one by its handle to move it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刘海按这个顺序画。拖动一行的手柄即可改顺序。"
+            "value": "瀏海依照此順序顯示圓環。拖曳各列的控制點即可調整順序。"
           }
         }
       }
@@ -2798,10 +2798,10 @@
     "These have no ring to place. Switch one on and it joins the end of the list above.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "这些没有圆环可放。打开其中一个，它会接到上面列表的末尾。"
+            "value": "這些服務尚未顯示圓環。啟用後會加入上方清單的最後一列。"
           }
         }
       }
@@ -2809,10 +2809,10 @@
     "Notch": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刘海"
+            "value": "瀏海"
           }
         }
       }
@@ -2820,10 +2820,10 @@
     "Reset time": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "重置时间"
+            "value": "重置時間"
           }
         }
       }
@@ -2831,10 +2831,10 @@
     "Displays": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示器"
+            "value": "顯示器"
           }
         }
       }
@@ -2842,10 +2842,10 @@
     "Display": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示器"
+            "value": "顯示器"
           }
         }
       }
@@ -2853,10 +2853,10 @@
     "Follow active window": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "跟随活动窗口"
+            "value": "跟隨使用中的視窗"
           }
         }
       }
@@ -2864,10 +2864,10 @@
     "Unavailable display": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "不可用的显示器"
+            "value": "無法使用的顯示器"
           }
         }
       }
@@ -2875,10 +2875,10 @@
     "App": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "应用"
+            "value": "App"
           }
         }
       }
@@ -2886,10 +2886,10 @@
     "Accent color": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "强调色"
+            "value": "強調色"
           }
         }
       }
@@ -2897,10 +2897,10 @@
     "When a session ends": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "会话结束时"
+            "value": "工作階段結束時"
           }
         }
       }
@@ -2908,10 +2908,10 @@
     "Open the notch for a moment": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "短暂打开刘海"
+            "value": "短暫開啟瀏海"
           }
         }
       }
@@ -2919,10 +2919,10 @@
     "For": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "持续"
+            "value": "持續"
           }
         }
       }
@@ -2930,10 +2930,10 @@
     "Play a sound": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "播放声音"
+            "value": "播放聲音"
           }
         }
       }
@@ -2941,7 +2941,7 @@
     "Finished": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "已完成"
@@ -2952,7 +2952,7 @@
     "Waiting on you": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "在等你"
@@ -2963,10 +2963,10 @@
     "Threshold alerts": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "额度提醒"
+            "value": "額度提醒"
           }
         }
       }
@@ -2974,10 +2974,10 @@
     "Hide Sidebar": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "隐藏边栏"
+            "value": "隱藏邊欄"
           }
         }
       }
@@ -2985,10 +2985,10 @@
     "Show Sidebar": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示边栏"
+            "value": "顯示邊欄"
           }
         }
       }
@@ -2996,10 +2996,10 @@
     "Selected": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "已选中"
+            "value": "已選取"
           }
         }
       }
@@ -3007,10 +3007,10 @@
     "Not selected": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "未选中"
+            "value": "未選取"
           }
         }
       }
@@ -3018,7 +3018,7 @@
     "%@ (missing)": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "%@（缺失）"
@@ -3029,7 +3029,7 @@
     "Play %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "播放 %@"
@@ -3040,10 +3040,10 @@
     "Monthly budget": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每月预算"
+            "value": "每月預算"
           }
         }
       }
@@ -3051,10 +3051,10 @@
     "None": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "无"
+            "value": "無"
           }
         }
       }
@@ -3062,7 +3062,7 @@
     "tokens": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "token"
@@ -3073,10 +3073,10 @@
     "%@ limit reached": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 额度已用尽"
+            "value": "%@ 額度已用盡"
           }
         }
       }
@@ -3084,7 +3084,7 @@
     "%@ is at %lld%%": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ 已用 %lld%%"
@@ -3095,10 +3095,10 @@
     "Its %@ limit is spent.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "它的 %@ 额度已用完。"
+            "value": "它的 %@ 額度已用完。"
           }
         }
       }
@@ -3106,10 +3106,10 @@
     "Its %@ limit is spent — resets %@": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "它的 %@ 额度已用完 — %@ 重置"
+            "value": "它的 %@ 額度已用完 — %@ 重置"
           }
         }
       }
@@ -3117,10 +3117,10 @@
     "%lld%% of its %@ limit used.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "已用其 %@ 额度的 %lld%%。"
+            "value": "已使用 %lld%% 的 %@ 額度。"
           }
         }
       }
@@ -3128,10 +3128,10 @@
     "Moves to the display containing the window receiving keyboard input.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "移到正在接收键盘输入的窗口所在的显示器。"
+            "value": "移到正在接收鍵盤輸入的視窗所在的顯示器。"
           }
         }
       }
@@ -3139,7 +3139,7 @@
     "Pinned to %@.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "固定在 %@。"
@@ -3150,10 +3150,10 @@
     "That display is disconnected. Codenotch follows the active window until it returns.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "那台显示器已断开。Codenotch 会跟随活动窗口，直到它回来。"
+            "value": "該顯示器已中斷連線。重新連接前，Codenotch 會跟隨使用中的視窗。"
           }
         }
       }
@@ -3161,10 +3161,10 @@
     "Drag to reorder. The notch draws the rings in this order.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "拖动以改顺序。刘海按这个顺序画圆环。"
+            "value": "拖曳以改順序。瀏海按這個順序畫圓環。"
           }
         }
       }
@@ -3172,10 +3172,10 @@
     "Switch this on to give it a ring in the notch.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开后，刘海里会出现它的圆环。"
+            "value": "開啟後，瀏海裡會出現它的圓環。"
           }
         }
       }
@@ -3183,10 +3183,10 @@
     "Alerts for %@ are muted. Click to unmute.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 的提醒已静音。点击取消静音。"
+            "value": "%@ 的提醒已靜音。點選取消靜音。"
           }
         }
       }
@@ -3194,10 +3194,10 @@
     "Alert when %@ crosses 80% and 100% of a limit.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "当 %@ 的额度越过 80% 和 100% 时提醒。"
+            "value": "當 %@ 的額度越過 80% 和 100% 時提醒。"
           }
         }
       }
@@ -3205,10 +3205,10 @@
     "Fills the ring against a ceiling you choose; Google publishes none for an API key.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "按你设定的上限填充圆环；Google 不为 API 密钥公布额度。"
+            "value": "按你設定的上限填充圓環；Google 不為 API 金鑰公布額度。"
           }
         }
       }
@@ -3216,10 +3216,10 @@
     "Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, GitHub Copilot or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 读取这台 Mac 上已经登录的工具的用量 — 从不问你的密码。安装并登录 Claude Code（终端工具，不是 Claude 应用）、Cursor（编辑器或 cursor-agent）、Codex、Antigravity、GLM、Grok、OpenCode、GitHub Copilot 或 Gemini API 密钥（经由 Gemini CLI、OpenCode 或 Hermes）中的任意一个，刘海里就会出现对应的圆环。"
+            "value": "Codenotch 讀取這台 Mac 上已經登入的工具的用量 — 從不問你的密碼。安裝並登入 Claude Code（終端機工具，不是 Claude App）、Cursor（編輯器或 cursor-agent）、Codex、Antigravity、GLM、Grok、OpenCode、GitHub Copilot 或 Gemini API 金鑰（經由 Gemini CLI、OpenCode 或 Hermes）中的任意一個，瀏海裡就會出現對應的圓環。"
           }
         }
       }
@@ -3227,10 +3227,10 @@
     "macOS will ask once for permission to read Claude Code's, Antigravity's and cursor-agent's saved logins. Choose Always Allow — plain Allow makes it ask again every time.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS 会询问一次，是否允许读取 Claude Code、Antigravity 和 cursor-agent 已保存的登录信息。请选「始终允许」— 只选「允许」的话，每次都会再问。"
+            "value": "macOS 會詢問一次，是否允許讀取 Claude Code、Antigravity 和 cursor-agent 已儲存的登入資訊。請選「一律允許」— 只選「允許」的話，每次都會再問。"
           }
         }
       }
@@ -3238,10 +3238,10 @@
     "Reorder the rings, pick a display, and get told when a limit is close.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "可以重排圆环、选择显示器，额度快用尽时会通知你。"
+            "value": "可以重排圓環、選擇顯示器，額度快用盡時會通知你。"
           }
         }
       }
@@ -3249,10 +3249,10 @@
     "Drag to reorder the rings": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "拖动以重排圆环"
+            "value": "拖曳以重排圓環"
           }
         }
       }
@@ -3260,10 +3260,10 @@
     "Settings splits into Connected and Not connected; drag a connected row by its handle to change the order the notch draws them in.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "设置分成「已连接」和「未连接」；拖动已连接行的手柄，即可改变刘海绘制顺序。"
+            "value": "設定分成「已連線」和「未連線」；拖曳已連線行的控制點，即可改變瀏海繪製順序。"
           }
         }
       }
@@ -3271,10 +3271,10 @@
     "Pin the notch to one display, or show it on every one": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "把刘海钉在一台显示器上，或在每一台上显示"
+            "value": "把瀏海釘在一台顯示器上，或在每一台上顯示"
           }
         }
       }
@@ -3282,10 +3282,10 @@
     "A Displays picker in Appearance offers the main display or all of them; a second picker pins a single notch to a named screen.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "外观里的「显示器」可选主显示器或全部；第二个选择器把单个刘海钉在指定屏幕上。"
+            "value": "外觀裡的「顯示器」可選主顯示器或全部；第二個選擇器把單個瀏海釘在指定螢幕上。"
           }
         }
       }
@@ -3293,10 +3293,10 @@
     "A ring says when it crosses 80% and 100%": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "圆环越过 80% 和 100% 时会说明"
+            "value": "圓環越過 80% 和 100% 時會說明"
           }
         }
       }
@@ -3304,10 +3304,10 @@
     "A system notification once per crossing, muted per provider from its own settings row.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每次越过发一条系统通知，可在该服务自己的设置行里静音。"
+            "value": "每次越過發一條系統通知，可在該服務自己的設定行裡靜音。"
           }
         }
       }
@@ -3315,10 +3315,10 @@
     "GitHub Copilot is a new ring": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "GitHub Copilot 成了新的圆环"
+            "value": "GitHub Copilot 成了新的圓環"
           }
         }
       }
@@ -3326,10 +3326,10 @@
     "Reads GitHub's Copilot quota endpoint using the GitHub CLI session already on the Mac.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用这台 Mac 上已有的 GitHub CLI 会话读取 Copilot 配额接口。"
+            "value": "用這台 Mac 上已有的 GitHub CLI 工作階段讀取 Copilot 配額端點。"
           }
         }
       }
@@ -3337,10 +3337,10 @@
     "Say when a session ends": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "会话结束时会告诉你"
+            "value": "工作階段結束時會告訴你"
           }
         }
       }
@@ -3348,10 +3348,10 @@
     "The notch opens itself for a few seconds and sounds a chime when an agent stops working or starts waiting on you; a click jumps to it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "助手停止工作或开始等你时，刘海会自己打开几秒并响一声；点击会跳过去。"
+            "value": "助手停止工作或開始等你時，瀏海會自己開啟幾秒並響一聲；點選會跳過去。"
           }
         }
       }
@@ -3359,10 +3359,10 @@
     "⌥-drag the pill along its edge": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "按住 ⌥ 沿边缘拖动胶囊"
+            "value": "按住 ⌥ 沿邊緣拖曳膠囊"
           }
         }
       }
@@ -3370,10 +3370,10 @@
     "Nudge it clear of another menu-bar app anchored to the same spot; remembered per edge.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "把它挪开，避开钉在同一位置的其他菜单栏应用；按边缘记住。"
+            "value": "把它挪開，避開釘在同一位置的其他選單列 App；按邊緣記住。"
           }
         }
       }
@@ -3381,10 +3381,10 @@
     "Choose an accent colour": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择强调色"
+            "value": "選擇強調色"
           }
         }
       }
@@ -3392,10 +3392,10 @@
     "The device accent by default, or a fixed colour for the ring's positive state — the amber and red warning colours stay fixed regardless.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "默认用设备强调色，也可以给圆环的正常状态固定一个颜色 — 琥珀和红色警告色始终不变。"
+            "value": "預設用裝置強調色，也可以給圓環的正常狀態固定一個顏色 — 琥珀和紅色警告色一律不變。"
           }
         }
       }
@@ -3403,10 +3403,10 @@
     "A countdown instead of a reset date": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用倒计时代替重置日期"
+            "value": "用倒數計時代替重置日期"
           }
         }
       }
@@ -3414,10 +3414,10 @@
     "Appearance's Reset time picker can show \"Resets in 3h 20m\" instead of a date and time.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "外观里的「重置时间」可以显示「3 小时 20 分钟后重置」，而不是日期和时间。"
+            "value": "外觀裡的「重置時間」可以顯示「3 小時 20 分鐘後重置」，而不是日期和時間。"
           }
         }
       }
@@ -3425,10 +3425,10 @@
     "Read Cursor from cursor-agent, and enterprise plans correctly": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "可以从 cursor-agent 读取 Cursor，企业套餐也能读对"
+            "value": "可以從 cursor-agent 讀取 Cursor，企業方案也能讀對"
           }
         }
       }
@@ -3436,10 +3436,10 @@
     "A CLI-only Cursor login now gets a ring, and enterprise/team plans read their real usage instead of reporting nothing to meter.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "只用 CLI 登录的 Cursor 现在也有圆环；企业/团队套餐会读到真实用量，而不再显示没有可计量的额度。"
+            "value": "只用 CLI 登入的 Cursor 現在也有圓環；企業/團隊方案會讀到真實用量，而不再顯示沒有可計量的額度。"
           }
         }
       }
@@ -3447,10 +3447,10 @@
     "Fewer keychain prompts for Claude and Antigravity": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claude 和 Antigravity 的钥匙串提示更少"
+            "value": "Claude 和 Antigravity 的鑰匙圈提示更少"
           }
         }
       }
@@ -3458,10 +3458,10 @@
     "Claude reads its own CLI's /usage first, touching the keychain only as a fallback; Antigravity's language server is asked before it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claude 先读自己 CLI 的 /usage，只有退路才碰钥匙串；Antigravity 会先问它的语言服务器。"
+            "value": "Claude 優先讀取自身 CLI 的 /usage，無法取得時才讀取鑰匙圈；Antigravity 則優先向自身的語言伺服器查詢。"
           }
         }
       }
@@ -3469,10 +3469,10 @@
     "Sub-1% usage no longer reads as 0%": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "不到 1% 的用量不再显示成 0%"
+            "value": "不到 1% 的用量不再顯示成 0%"
           }
         }
       }
@@ -3480,10 +3480,10 @@
     "A reading under one percent shows a tenth (\"<0.1%\") instead of rounding to nothing.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "不到百分之一的读数会显示到十分位（「<0.1%」），而不是四舍五入成没有。"
+            "value": "不到百分之一的讀值會顯示到十分位（「<0.1%」），而不是四捨五入成零。"
           }
         }
       }
@@ -3491,10 +3491,10 @@
     "Contributors can build without Xcode signing": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "贡献者可以在没有 Xcode 签名的情况下构建"
+            "value": "貢獻者可以在沒有 Xcode 簽署的情況下建置"
           }
         }
       }
@@ -3502,10 +3502,10 @@
     "make build and make test sign themselves automatically when the maintainer's certificate isn't present, and CI now runs the suite on every push and pull request.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "维护者证书不在时，make build 和 make test 会自动签名；CI 现在会在每次 push 和 pull request 上跑测试套件。"
+            "value": "維護者憑證不在時，make build 和 make test 會自動簽署；CI 現在會在每次 push 和 pull request 上跑測試套件。"
           }
         }
       }
@@ -3513,10 +3513,10 @@
     "Follow System": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "跟随系统"
+            "value": "跟隨系統"
           }
         }
       }
@@ -3524,10 +3524,10 @@
     "Matches the Mac's preferred language.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "与 Mac 的首选语言一致。"
+            "value": "使用 Mac 的偏好語言。"
           }
         }
       }
@@ -3535,10 +3535,10 @@
     "Codenotch uses this language even if the Mac does not.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "即使 Mac 不是这种语言，Codenotch 也使用它。"
+            "value": "Codenotch 固定使用此語言，不受 Mac 的語言設定影響。"
           }
         }
       }
@@ -3546,10 +3546,10 @@
     "Language": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "语言"
+            "value": "語言"
           }
         }
       }
@@ -3557,10 +3557,10 @@
     "Show usage pace": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示用量节奏"
+            "value": "顯示用量節奏"
           }
         }
       }
@@ -3568,10 +3568,10 @@
     "Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "把每段有时限的额度与距离重置的时间比较，显示透支还是留有余量。"
+            "value": "把每段有時限的額度與距離重置的時間比較，顯示透支還是留有餘量。"
           }
         }
       }
@@ -3579,7 +3579,7 @@
     "Size": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "大小"
@@ -3590,7 +3590,7 @@
     "Small": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "小"
@@ -3601,7 +3601,7 @@
     "Medium": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "中"
@@ -3612,7 +3612,7 @@
     "Large": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "大"
@@ -3623,10 +3623,10 @@
     "Takes the least room on the edge. Readable, but not from across the desk.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "边缘上占得最少。能读，但隔着桌子就不行。"
+            "value": "占用最少的螢幕邊緣空間，適合近距離閱讀。"
           }
         }
       }
@@ -3634,10 +3634,10 @@
     "The size the notch was drawn at.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "刘海绘制时的尺寸。"
+            "value": "瀏海的原始設計尺寸。"
           }
         }
       }
@@ -3645,10 +3645,10 @@
     "Easier to read at a glance, and harder to ignore.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "一眼更好读，也更难忽视。"
+            "value": "文字更清楚，動態也更醒目。"
           }
         }
       }
@@ -3656,10 +3656,10 @@
     "Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "按住 ⌥ 拖动刘海，沿边缘滑动。每条边都会记住你放的位置。"
+            "value": "按住 ⌥ 拖曳瀏海，沿邊緣滑動。每條邊都會記住你放的位置。"
           }
         }
       }
@@ -3667,10 +3667,10 @@
     "Recentre": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "重新居中"
+            "value": "重新置中"
           }
         }
       }
@@ -3678,7 +3678,7 @@
     "%@% deficit": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "%@% 透支"
@@ -3689,10 +3689,10 @@
     "%@% reserved": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@% 预留"
+            "value": "%@% 預留"
           }
         }
       }
@@ -3700,10 +3700,10 @@
     "Idle": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "空闲"
+            "value": "閒置"
           }
         }
       }
@@ -3711,10 +3711,10 @@
     "Sign in to Codex in ~/.codex-%@ to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 ~/.codex-%@ 登录 Codex 以读取用量"
+            "value": "在 ~/.codex-%@ 登入 Codex 以讀取用量"
           }
         }
       }
@@ -3722,10 +3722,10 @@
     "Sign in with the Command Code app to read your usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用 Command Code 应用登录以读取用量"
+            "value": "用 Command Code App 登入以讀取用量"
           }
         }
       }
@@ -3733,10 +3733,10 @@
     "Enter an Ollama API key in Settings, or export OLLAMA_API_KEY": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在设置里填写 Ollama API 密钥，或导出 OLLAMA_API_KEY"
+            "value": "在設定中輸入 Ollama API 金鑰，或設定 OLLAMA_API_KEY 環境變數"
           }
         }
       }
@@ -3744,10 +3744,10 @@
     "Start Ollama to monitor your local models": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "启动 Ollama 以监视本地模型"
+            "value": "啟動 Ollama 以監測本機模型"
           }
         }
       }
@@ -3755,10 +3755,10 @@
     "Enter an Ollama API key below, or export OLLAMA_API_KEY in your shell.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "在下方填写 Ollama API 密钥，或在 shell 里导出 OLLAMA_API_KEY。"
+            "value": "在下方輸入 Ollama API 金鑰，或在 shell 中設定 OLLAMA_API_KEY 環境變數。"
           }
         }
       }
@@ -3766,10 +3766,10 @@
     "Sign in with the Command Code app — it writes ~/.commandcode/auth.json and the notch reads it.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "用 Command Code 应用登录 — 它会写入 ~/.commandcode/auth.json，刘海会读它。"
+            "value": "用 Command Code App 登入 — 它會寫入 ~/.commandcode/auth.json，瀏海會讀它。"
           }
         }
       }
@@ -3777,10 +3777,10 @@
     "Command Code has nothing metered on this account yet": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个 Command Code 账号目前没有可计量的额度"
+            "value": "這個 Command Code 帳號目前沒有可計量的額度"
           }
         }
       }
@@ -3788,7 +3788,7 @@
     "Monthly usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
             "value": "每月用量"
@@ -3799,10 +3799,10 @@
     "Session usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "会话用量"
+            "value": "工作階段用量"
           }
         }
       }
@@ -3810,10 +3810,10 @@
     "Weekly usage": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "每周用量"
+            "value": "每週用量"
           }
         }
       }
@@ -3821,10 +3821,10 @@
     "Local Models": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "本地模型"
+            "value": "本機模型"
           }
         }
       }
@@ -3832,10 +3832,10 @@
     "Localhost": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "本机"
+            "value": "本機"
           }
         }
       }
@@ -3843,10 +3843,395 @@
     "Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.": {
       "extractionState": "manual",
       "localizations": {
-        "zh-Hans": {
+        "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codenotch 读取这台 Mac 上已经登录的工具的用量 — 从不问你的密码。安装并登录 Claude Code（终端工具，不是 Claude 应用）、Cursor（编辑器或 cursor-agent）、Codex、Antigravity、GLM、Grok、OpenCode、Command Code、GitHub Copilot 或 Gemini API 密钥（经由 Gemini CLI、OpenCode 或 Hermes）中的任意一个，刘海里就会出现对应的圆环。"
+            "value": "Codenotch 讀取這台 Mac 上已經登入的工具的用量 — 從不問你的密碼。安裝並登入 Claude Code（終端機工具，不是 Claude App）、Cursor（編輯器或 cursor-agent）、Codex、Antigravity、GLM、Grok、OpenCode、Command Code、GitHub Copilot 或 Gemini API 金鑰（經由 Gemini CLI、OpenCode 或 Hermes）中的任意一個，瀏海裡就會出現對應的圓環。"
+          }
+        }
+      }
+    },
+    "A ready-made download, no Xcode needed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "直接下載使用，不需要 Xcode"
+          }
+        }
+      }
+    },
+    "A session launched from Claude for Mac now reaches the notch like any other. The sign-in also renews itself in the background, so a ring stops ageing out after a week of use.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從 Claude for Mac 啟動的工作階段，現在也會顯示在瀏海中。登入憑證也會在背景更新，避免使用一週後圓環的資料便不再更新。"
+          }
+        }
+      }
+    },
+    "A system notification the moment a provider's headline limit crosses 80%, and again at 100% — once per crossing, and again only after the window rolls over. Mute one from the bell beside its row in Accounts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服務的主要額度用量達到 80% 和 100% 時，各發送一次系統通知；下一個用量週期才會再次通知。可點選「帳號」中各列旁的鈴鐺，關閉該服務的通知。"
+          }
+        }
+      }
+    },
+    "An install with no desktop app is a real account rather than a missing one, and its daily quota is read directly.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "即使只安裝 CLI，也能辨識帳號並直接讀取每日額度。"
+          }
+        }
+      }
+    },
+    "Antigravity reads a CLI-only install": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity 支援僅安裝 CLI 的環境"
+          }
+        }
+      }
+    },
+    "Attached to the bottom screen edge. Option-drag to move left or right.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "貼齊螢幕下緣。按住 Option 拖曳，即可左右移動。"
+          }
+        }
+      }
+    },
+    "Attached to the left-hand screen edge. Option-drag to move up or down.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "貼齊螢幕左緣。按住 Option 拖曳，即可上下移動。"
+          }
+        }
+      }
+    },
+    "Attached to the right-hand screen edge. Option-drag to move up or down.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "貼齊螢幕右緣。按住 Option 拖曳，即可上下移動。"
+          }
+        }
+      }
+    },
+    "Claude Code sessions started from the desktop app are counted": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "納入從桌面 App 啟動的 Claude Code 工作階段"
+          }
+        }
+      }
+    },
+    "Codenotch already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "代理完成工作或停下來詢問你時，Codenotch 就會得知。瀏海展開時，點選即可將該工作階段的 App 帶到最前方；只有部分終端機允許外部程式切換分頁，因此提示卡會顯示工作階段名稱，方便你找到它。"
+          }
+        }
+      }
+    },
+    "Cursor stops showing work that finished months ago": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cursor 不再顯示幾個月前就已完成的工作"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自訂"
+          }
+        }
+      }
+    },
+    "Each loaded model gets its own cell, with the tokens per second of its last response and a mark while it is thinking. The measurement is taken locally and nothing about a prompt leaves the machine.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每個已載入的模型都有獨立區塊，顯示上次回覆每秒產生的 token 數，並在思考時顯示標記。效能在本機測量，提示內容不會傳出電腦。"
+          }
+        }
+      }
+    },
+    "Every build now produces an app bundle you can run, so trying Codenotch no longer starts with a developer setup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每次建置都會產生可直接執行的 App，試用 Codenotch 不必先準備開發環境。"
+          }
+        }
+      }
+    },
+    "Finished background agents were leaving the ring amber indefinitely. Only a real, current chat counts as waiting now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成的背景代理曾讓圓環一直呈現琥珀色。現在只有仍在進行、確實需要回應的對話才會顯示為等待中。"
+          }
+        }
+      }
+    },
+    "Hidden from the notch · Loaded in Ollama": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "瀏海中已隱藏 · Ollama 中仍已載入"
+          }
+        }
+      }
+    },
+    "It turns and presses in as it is clicked, and a second click closes Settings rather than doing nothing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "點選時，齒輪會旋轉並下壓；再次點選則會關閉設定。"
+          }
+        }
+      }
+    },
+    "No Ollama usage recorded yet for this period.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這段期間尚無 Ollama 用量紀錄。"
+          }
+        }
+      }
+    },
+    "No hairline of wallpaper behind it at any size, and it stays anchored while the size slider is dragged instead of drifting and catching up at the end.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任何尺寸都會緊貼邊緣，不再露出桌布細縫。拖曳尺寸滑桿時也會維持位置，不會先偏移、放開後才對齊。"
+          }
+        }
+      }
+    },
+    "Ollama models show thinking and generation speed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama 模型可顯示思考狀態與生成速度"
+          }
+        }
+      }
+    },
+    "Preset": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預設尺寸"
+          }
+        }
+      }
+    },
+    "Set the size by slider as well as by preset": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可用滑桿或預設尺寸調整大小"
+          }
+        }
+      }
+    },
+    "Show or hide this model in the notch. It stays loaded in Ollama.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在瀏海中顯示或隱藏此模型，不影響 Ollama 中的載入狀態。"
+          }
+        }
+      }
+    },
+    "Speaks Chinese, watches local models think, and stays welded to the edge.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新增中文介面、本機模型思考狀態，並讓瀏海緊貼螢幕邊緣。"
+          }
+        }
+      }
+    },
+    "The notch folds away for a full-screen app": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用全螢幕 App 時自動收起瀏海"
+          }
+        }
+      }
+    },
+    "The notch is welded to the screen edge": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "瀏海緊貼螢幕邊緣"
+          }
+        }
+      }
+    },
+    "The settings gear is a toggle": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定齒輪可切換開關"
+          }
+        }
+      }
+    },
+    "Thinking": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "思考中"
+          }
+        }
+      }
+    },
+    "Three named sizes for a decision made for you, or a slider when you have a particular size in mind.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可直接選擇三種預設尺寸，也能使用滑桿調整到想要的大小。"
+          }
+        }
+      }
+    },
+    "Whatever is frontmost and full-screen gets the whole screen; the notch comes back when you leave it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最前方的 App 進入全螢幕時，瀏海會隱藏；離開全螢幕後便會恢復。"
+          }
+        }
+      }
+    },
+    "%@ %@ · via Ollama": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %@ · 透過 Ollama"
+          }
+        }
+      }
+    },
+    "%@ · Local": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 本機"
+          }
+        }
+      }
+    },
+    "The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with “Play user interface sound effects” switched off in System Settings → Sound.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提示音透過一般音訊輸出播放，因此即使關閉「系統設定 → 聲音」中的「播放使用者介面音效」，仍然聽得到。"
+          }
+        }
+      }
+    },
+    "Traditional Chinese (Taiwan)": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "繁體中文（台灣）"
+          }
+        }
+      }
+    },
+    "Choose English, Traditional Chinese (Taiwan), or follow your Mac in Appearance.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在「外觀」選擇英文、繁體中文（台灣），或跟隨 Mac 的語言設定。"
           }
         }
       }

@@ -19,6 +19,21 @@ final class CatalogCoverageTests: XCTestCase {
         )
     }
 
+    func testTaiwanTranslationsPreserveFormatArguments() throws {
+        let pattern = try NSRegularExpression(pattern: #"%(?:lld|@|%)"#)
+        func arguments(_ text: String) -> [String] {
+            pattern.matches(in: text, range: NSRange(text.startIndex..., in: text)).map {
+                String(text[Range($0.range, in: text)!])
+            }
+        }
+        for (key, entry) in try loadCatalog().json.strings {
+            // Future untranslated copy may still fall back to English.
+            guard let value = entry.localizations?["zh-Hant-TW"]?.stringUnit?.value else { continue }
+            XCTAssertFalse(value.isEmpty, key)
+            XCTAssertEqual(arguments(key), arguments(value), key)
+        }
+    }
+
     // MARK: - Loading
 
     /// Repo `Tests/`, so the catalog is `../Sources/Localizable.xcstrings`.
