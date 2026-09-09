@@ -449,17 +449,32 @@ actor AntigravityProvider: UsageProvider {
             }
         }
 
+        let standardSlots: [(id: String, group: String, label: String, isWeekly: Bool)] = [
+            ("gemini-hourly", "Gemini Models", "5-hour Limit", false),
+            ("gemini-weekly", "Gemini Models", "Weekly Limit", true),
+            ("3p-hourly", "Claude and GPT models", "5-hour Limit", false),
+            ("3p-weekly", "Claude and GPT models", "Weekly Limit", true)
+        ]
+
         var windows: [LimitWindow] = []
-        let order = ["gemini-hourly", "gemini-weekly", "3p-hourly", "3p-weekly"]
-        for key in order {
-            if let item = latestByID[key] {
+        for slot in standardSlots {
+            if let item = latestByID[slot.id] {
                 windows.append(LimitWindow(
-                    id: key,
+                    id: slot.id,
                     group: item.group,
                     label: item.label,
                     usedFraction: item.used,
                     resetsAt: item.resets,
-                    duration: key.contains("weekly") ? 7 * 86400 : nil
+                    duration: slot.isWeekly ? 7 * 86400 : nil
+                ))
+            } else {
+                windows.append(LimitWindow(
+                    id: slot.id,
+                    group: slot.group,
+                    label: slot.label,
+                    usedFraction: 0.0,
+                    resetsAt: nil,
+                    duration: slot.isWeekly ? 7 * 86400 : nil
                 ))
             }
         }
