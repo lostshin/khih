@@ -19,6 +19,26 @@ Hover a ring for its limit windows and when they reset. Claude's ring shows the
 same **current session** window Claude Code's own `/usage` leads with, so the
 two never disagree.
 
+## Download
+
+[**Latest release**](../../releases/latest) — signed, notarized, and updating
+itself from then on. Take this one unless you have a reason not to.
+
+To try unreleased `main` without an Xcode install, the [preview
+build](../../releases/tag/preview) is rebuilt from every commit, and the
+Package workflow keeps a per-commit disk image on each of its
+[runs](../../actions/workflows/package.yml). Neither is notarized — they are
+ad-hoc signed, because the Developer ID certificate exists on one machine — so
+macOS quarantines the download. Clear the flag once, after dragging the app to
+Applications:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Codenotch.app
+```
+
+Universal binary. macOS 15 or later. To build and install a copy from source
+instead, see [Building](#building).
+
 ## Windows
 
 A Windows port — Rust/Tauri 2, same design and providers — lives in [`windows/`](windows/README.md).

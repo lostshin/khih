@@ -14,6 +14,10 @@ on:
 jobs:
   package:
     name: Unsigned app bundle
+    # Only the preview release step writes anything; the token is read-only by
+    # default on this repository, and `gh release create` fails without this.
+    permissions:
+      contents: write
     # Same reason as the test job: an older image ships an Xcode that cannot
     # read the project at all — `objectVersion 77` is a format it does not
     # know — whatever the deployment target happens to be.
@@ -72,3 +76,59 @@ jobs:
             echo "Universal binary — Apple Silicon and Intel. Requires macOS 15 or later."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # --- Preview release ---------------------------------------------------
+      # An artifact is only reachable by someone signed in to GitHub, from a
+      # run page, for 90 days. A release is a plain URL that anyone can click
+      # and that the repository's own sidebar advertises, which is what the
+      # README can honestly point at.
+      #
+      # A single rolling `preview` tag, never `v*`: those belong to `make
+      # publish` and carry the notarized dmg. An unsigned file sitting on the
+      # same release as a signed one is how somebody ends up running the wrong
+      # download and clearing quarantine flags they never needed to.
+      #
+      # Marked a prerelease so GitHub keeps the "Latest" badge on the real
+      # release, and refreshed in place rather than deleted and recreated, so
+      # watchers are notified once rather than on every merge.
+      - name: Publish the preview release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          TAG=preview
+          DMG=$(ls build/ci/*.dmg)
+
+          cat > notes.md <<EOF
+          Built from \`main\` at ${GITHUB_SHA}.
+
+          A build of unreleased \`main\`, so the app can be tried without
+          installing Xcode and compiling it. It is ad-hoc signed rather than
+          notarized, so macOS quarantines the download. After dragging it to
+          Applications, clear the flag once:
+
+              xattr -dr com.apple.quarantine /Applications/Codenotch.app
+
+          For a signed and notarized build, take the latest release instead.
+
+          Universal binary. Requires macOS 15 or later.
+          EOF
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # The tag has to follow, or the release keeps advertising the
+            # commit it was first cut from while serving a newer build.
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" \
+              -f sha="${GITHUB_SHA}" -F force=true >/dev/null
+            # By name, not --clobber: the filename carries the version, so the
+            # release would otherwise accumulate one stale dmg per release.
+            gh release view "$TAG" --json assets -q '.assets[].name' \
+              | while read -r asset; do gh release delete-asset "$TAG" "$asset" --yes; done
+            gh release edit "$TAG" --prerelease \
+              --title "Preview — ${VERSION} (${GITHUB_SHA:0:7})" --notes-file notes.md >/dev/null
+            gh release upload "$TAG" "$DMG"
+          else
+            gh release create "$TAG" "$DMG" --prerelease --target "${GITHUB_SHA}" \
+              --title "Preview — ${VERSION} (${GITHUB_SHA:0:7})" --notes-file notes.md
+          fi
+          rm -f notes.md
