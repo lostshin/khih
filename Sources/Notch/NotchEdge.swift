@@ -66,15 +66,15 @@ enum NotchEdge: String, CaseIterable, Identifiable {
     var explanation: String {
         switch self {
         case .right:
-            return "Down the right-hand edge, clear of a Dock on that side."
+            return "Attached to the right-hand screen edge. Option-drag to move up or down."
         case .left:
-            return "Down the left-hand edge, clear of a Dock on that side."
+            return "Attached to the left-hand screen edge. Option-drag to move up or down."
         case .top:
             return "A wide bar across the top, readings side by side. On a Mac "
                  + "with a notch of its own it runs up to meet it, so the two "
                  + "read as one shape."
         case .bottom:
-            return "A wide bar resting on top of the Dock, readings side by side."
+            return "Attached to the bottom screen edge. Option-drag to move left or right."
         }
     }
 }

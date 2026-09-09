@@ -220,6 +220,57 @@ final class PanelEdgeTests: XCTestCase {
     }
 }
 
+/// Use an offset monitor and reserve desktop space on every side so accidental
+/// dependencies on the primary display or visibleFrame are caught together.
+final class ScreenAnchorRegressionTests: XCTestCase {
+    func testEveryEdgeIgnoresDesktopReservationsAtEveryDragPosition() {
+        let full = CGRect(x: -1920, y: -300, width: 1920, height: 1080)
+        let shown = FakeScreen(frameValue: full,
+                               visibleFrameValue: full.insetBy(dx: 90, dy: 70))
+        let hidden = FakeScreen(frameValue: full, visibleFrameValue: full)
+        for edge in NotchEdge.allCases {
+            let size = NotchPlacement.panelSize(edge: edge, length: 800, depth: 300)
+            for offset: CGFloat in [-10000, -230, 0, 310, 10000] {
+                let frame = NotchGeometry.panelFrame(for: shown, panelSize: size,
+                                                     edge: edge, alongOffset: offset, slack: 200)
+                XCTAssertEqual(frame, NotchGeometry.panelFrame(for: hidden, panelSize: size,
+                                                                edge: edge, alongOffset: offset, slack: 200))
+                switch edge {
+                case .left: XCTAssertEqual(frame.minX, full.minX)
+                case .right: XCTAssertEqual(frame.maxX, full.maxX)
+                case .top: XCTAssertEqual(frame.maxY, full.maxY)
+                case .bottom: XCTAssertEqual(frame.minY, full.minY)
+                }
+            }
+        }
+    }
+
+    @MainActor func testCornerTooltipsStayInsideTheVisiblePartOfThePanel() {
+        for size in NotchSize.allCases {
+            for edge in NotchEdge.allCases {
+                let model = NotchViewModel()
+                model.edge = edge
+                model.sizeScale = size.scale
+                let length: CGFloat = edge.isVertical ? 300 : NotchLayout.cardWidth
+                let ring = model.slack + model.ringCenter(index: 0) * size.scale
+                XCTAssertEqual(model.tooltipAlong(index: 0, length: length), ring)
+                // Both ends of the screen: the ring remains on screen, while a
+                // card centred on it would lose its heading or its right edge.
+                for range in [(ring - 45)...(ring + 900), (ring - 900)...(ring + 45)] {
+                    model.visibleAlongRange = range
+                    let centre = model.tooltipAlong(index: 0, length: length)
+                    XCTAssertGreaterThanOrEqual(centre - length / 2, range.lowerBound - 0.0001)
+                    XCTAssertLessThanOrEqual(centre + length / 2, range.upperBound + 0.0001)
+                    XCTAssertNotEqual(centre, ring)
+                    XCTAssertLessThanOrEqual(abs(ring - centre), length / 2 - NotchLayout.tailHeight / 2)
+                }
+                model.visibleAlongRange = (ring - 900)...(ring + 900)
+                XCTAssertEqual(model.tooltipAlong(index: 0, length: length), ring)
+            }
+        }
+    }
+}
+
 /// The size choice reaches the screen in the notch's own measurements, never
 /// in the tooltip's. These pin the seam between the two.
 final class ScaledMeasurementTests: XCTestCase {

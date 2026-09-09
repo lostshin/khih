@@ -263,7 +263,7 @@ final class EdgeCrossfadeTests: XCTestCase {
                        "the notch never came back")
         guard let screen = NotchGeometry.preferredScreen(from: NSScreen.screens) else { return }
         XCTAssertEqual(controller.panelFrameForTesting?.minY ?? -1,
-                       screen.visibleFrame.minY, accuracy: 1,
+                       screen.frame.minY, accuracy: 1,
                        "it did not end up on the edge it was sent to")
     }
 
@@ -555,5 +555,41 @@ final class StaleAfterMarginTests: XCTestCase {
     func testTheShippedDefaultsKeepTheSameMargin() {
         let store = UsageStore(providers: [])
         XCTAssertGreaterThan(store.staleAfterForTesting, store.idleRefreshIntervalForTesting)
+    }
+}
+
+@MainActor
+final class PhysicalPanelIntegrationTests: XCTestCase {
+    func testActualPanelsStayOnTheBezelAndKeepCornerCardsVisible() throws {
+        let screen = try XCTUnwrap(NSScreen.main)
+        for size in NotchSize.allCases {
+            for edge in NotchEdge.allCases {
+                let controller = NotchWindowController()
+                controller.assignedScreen = screen
+                controller.model.edge = edge
+                controller.model.sizeScale = size.scale
+                controller.model.snapshots = Array(Fixtures.snapshots().prefix(2))
+                controller.show()
+                defer { controller.stop() }
+                for offset: CGFloat in [-10000, 0, 10000] {
+                    controller.model.alongOffset = offset
+                    controller.relocate()
+                    let frame = try XCTUnwrap(controller.panelFrameForTesting)
+                    switch edge {
+                    case .left: XCTAssertEqual(frame.minX, screen.frame.minX, accuracy: 1)
+                    case .right: XCTAssertEqual(frame.maxX, screen.frame.maxX, accuracy: 1)
+                    case .top: XCTAssertEqual(frame.maxY, screen.frame.maxY, accuracy: 1)
+                    case .bottom: XCTAssertEqual(frame.minY, screen.frame.minY, accuracy: 1)
+                    }
+                    let range = try XCTUnwrap(controller.model.visibleAlongRange)
+                    let length: CGFloat = edge.isVertical ? 260 : NotchLayout.cardWidth
+                    for index in 0..<2 {
+                        let centre = controller.model.tooltipAlong(index: index, length: length)
+                        XCTAssertGreaterThanOrEqual(centre - length / 2, range.lowerBound)
+                        XCTAssertLessThanOrEqual(centre + length / 2, range.upperBound)
+                    }
+                }
+            }
+        }
     }
 }

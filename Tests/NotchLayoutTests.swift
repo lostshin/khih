@@ -1076,7 +1076,6 @@ final class SessionCapTests: XCTestCase {
             let model = NotchViewModel()
             model.edge = .right
             model.screenSize = CGSize(width: 1512, height: height)
-            model.screenUsableSize = CGSize(width: 1512, height: height - 37)
             XCTAssertLessThanOrEqual(
                 model.panelSize(cellCount: 4).height, height,
                 "the panel runs off a \(height)pt screen"
@@ -1085,17 +1084,15 @@ final class SessionCapTests: XCTestCase {
     }
 
     /// A top or bottom notch spends the card's height reaching inward instead,
-    /// against the usable screen — it starts below the menu bar, so the menu
-    /// bar is room it never had.
-    @MainActor func testAHorizontalNotchStaysWithinTheUsableScreen() {
+    /// against the full screen, starting at the physical bezel.
+    @MainActor func testAHorizontalNotchStaysWithinThePhysicalScreen() {
         for height in stride(from: CGFloat(900), through: 2000, by: 23) {
             for edge in [NotchEdge.top, .bottom] {
                 let model = NotchViewModel()
                 model.edge = edge
                 model.screenSize = CGSize(width: 1512, height: height)
-                model.screenUsableSize = CGSize(width: 1512, height: height - 37)
                 XCTAssertLessThanOrEqual(
-                    model.panelSize(cellCount: 4).height, height - 37,
+                    model.panelSize(cellCount: 4).height, height,
                     "\(edge): the panel runs off a \(height)pt screen"
                 )
             }

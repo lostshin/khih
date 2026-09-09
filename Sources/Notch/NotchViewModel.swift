@@ -81,12 +81,17 @@ final class NotchViewModel: ObservableObject {
     /// the controller says otherwise, which reads as "no screen known yet".
     @Published var screenSize: CGSize = .zero
 
-    /// The same screen minus the menu bar and the Dock.
-    ///
-    /// A horizontal notch starts at the *usable* edge and grows inward from
-    /// there, so those two are room it never had. A side notch is centred on
-    /// the whole screen and floats over both, so for that one they are not.
-    @Published var screenUsableSize: CGSize = .zero
+    /// Visible slice of the panel along its edge, in local stack coordinates.
+    @Published var visibleAlongRange: ClosedRange<CGFloat>?
+
+    func tooltipAlong(index: Int, length: CGFloat) -> CGFloat {
+        let centre = slack + ringCenter(index: index) * sizeScale
+        guard let range = visibleAlongRange else { return centre }
+        let lower = range.lowerBound + length / 2
+        let upper = range.upperBound - length / 2
+        guard lower <= upper else { return (range.lowerBound + range.upperBound) / 2 }
+        return min(max(centre, lower), upper)
+    }
 
     /// Take the notch geometry of whichever screen the panel is on.
     func adopt(screen: ScreenDescribing) {
@@ -96,8 +101,6 @@ final class NotchViewModel: ObservableObject {
         // and may sit under the menu bar, so the menu bar is not room lost.
         let size = screen.frameValue.size
         if screenSize != size { screenSize = size }
-        let usable = screen.visibleFrameValue.size
-        if screenUsableSize != usable { screenUsableSize = usable }
     }
 
     /// How far in from the bezel the notch's contents start.
@@ -358,7 +361,7 @@ final class NotchViewModel: ObservableObject {
                 - shapeLength(cellCount: cellCount)
                 - 2 * NotchLayout.cardCorner
         }
-        return screenUsableSize.height / sizeScale
+        return screenSize.height / sizeScale
             - contentInset
             - NotchLayout.bodyDepth(for: edge)
             - NotchLayout.tailLength

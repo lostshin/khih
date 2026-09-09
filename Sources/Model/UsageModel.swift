@@ -212,6 +212,9 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// a dash rather than an authoritative-looking 0%.
     var hasReading: Bool { !windows.isEmpty }
 
+    /// Group headings occupy space in both the card and its hover region.
+    var windowGroupCount: Int { Set(windows.compactMap(\.group)).count }
+
     /// How many windows are count-only (no fraction, no bar) — they render as
     /// single-line rows and take less vertical space than full bar rows.
     var compactRowCount: Int {

@@ -130,8 +130,9 @@ is asked on the first real alert rather than at launch.
 
 The notch lives on any of the four screen edges. Right and left keep a
 vertical column; top and bottom lay the readings out side by side. It pins
-itself to the *usable* edge, so a bottom notch rests on the Dock and follows
-when the Dock hides or moves. On a Mac with a hardware notch, the top
+itself to the physical screen edge, so showing or hiding the Dock does not
+move it. Hold Option and drag to move along the selected edge; each edge
+remembers its position. On a Mac with a hardware notch, the top
 placement takes its exact shape, so the two read as one rather than as a bar
 parked underneath it.
 

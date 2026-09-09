@@ -73,14 +73,6 @@ final class NotchWindowController {
     private var visibility: NotchVisibility = .onHover
     /// Whether we have pushed the pointing hand onto the cursor stack.
     private var isPointing = false
-    /// The usable area the panel was last placed against.
-    ///
-    /// The notch is pinned to `visibleFrame` so it rests on the Dock rather than
-    /// under it — but an auto-hiding Dock revealing or concealing itself fires
-    /// no screen-parameter notification, so nothing would tell us the space had
-    /// come back. The cursor poll is already running; noticing there costs one
-    /// rect comparison every 0.3s and needs no new machinery.
-    private var lastVisibleFrame: CGRect?
 
     func show() {
         relocate()
@@ -154,7 +146,6 @@ final class NotchWindowController {
             alongOffset: model.alongOffset, slack: model.slack,
             trailingExtent: model.trailingExtent
         )
-        lastVisibleFrame = screen.visibleFrame
 
         if let panel {
             panel.setFrame(frame, display: true)
@@ -194,6 +185,16 @@ final class NotchWindowController {
             self.panel = panel
             self.hostingView = hosting
         }
+        // Use the actual panel origin: near a corner its transparent padding
+        // can extend offscreen, while the tooltip itself must stay visible.
+        if let panel {
+            let visible = panel.frame.intersection(screen.frame)
+            let range: ClosedRange<CGFloat> = model.edge.isVertical
+                ? (panel.frame.maxY - visible.maxY)...(panel.frame.maxY - visible.minY)
+                : (visible.minX - panel.frame.minX)...(visible.maxX - panel.frame.minX)
+            if model.visibleAlongRange != range { model.visibleAlongRange = range }
+        }
+
         // The frame AppKit actually gave us, which is what the flush right-hand
         // edge depends on.
         if let panel {
@@ -294,6 +295,7 @@ final class NotchWindowController {
         let snapshot = model.snapshots[index]
         let cardHeight = NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
+            groupCount: snapshot.windowGroupCount,
             sessionCount: model.activity(for: snapshot.id)?.sessions.count ?? 0,
             sessionCap: model.sessionCap,
             statusMessage: snapshot.statusMessage,
@@ -305,7 +307,7 @@ final class NotchWindowController {
         // pointer has to cross. Along it, the card's own extent.
         let cardAcross = model.edge.isVertical ? NotchLayout.cardWidth : cardHeight
         let cardAlong = model.edge.isVertical ? cardHeight : NotchLayout.cardWidth
-        let centre = model.slack + model.ringCenter(index: index) * model.sizeScale
+        let centre = model.tooltipAlong(index: index, length: cardAlong)
         return placement.rect(
             along: centre - cardAlong / 2,
             // The card's own extent does not scale, and it begins where the
@@ -339,10 +341,6 @@ final class NotchWindowController {
     private func startWatchingCursor() {
         let poll = Timer(timeInterval: 0.3, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                // Only on the poll, not on every mouse-moved event: this reads
-                // the screen list, and doing that per event would be work at
-                // 60Hz to answer a question that changes twice a minute.
-                self?.followUsableAreaIfItMoved()
                 self?.cursorMoved()
             }
         }
@@ -367,14 +365,6 @@ final class NotchWindowController {
     private func localCursor(in frame: CGRect) -> CGPoint {
         let mouse = NSEvent.mouseLocation
         return CGPoint(x: mouse.x - frame.minX, y: frame.maxY - mouse.y)
-    }
-
-    /// Has the Dock appeared, gone away, moved or resized since we last placed
-    /// the panel? Nothing notifies us, so this is asked rather than told.
-    private func followUsableAreaIfItMoved() {
-        guard let screen = currentScreen() else { return }
-        guard screen.visibleFrame != lastVisibleFrame else { return }
-        relocate()
     }
 
     private func cursorMoved() {
