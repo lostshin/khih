@@ -108,6 +108,9 @@ extension UsageProvider {
 
 /// A provider as the settings sheet needs it.
 struct ProviderSummary: Identifiable, Equatable {
+    var kind: ProviderKind = .usage
+    var localModel: LocalRuntimeReading.Model? = nil
+    var sourceProviderID: String? = nil
     /// Whether this provider's credential lives in the keychain, and so can be
     /// refused. Codex still reads an ordinary file and never prompts. Cursor
     /// does too when the editor is signed in, but `cursor-agent` files its

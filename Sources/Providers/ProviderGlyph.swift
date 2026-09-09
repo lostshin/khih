@@ -18,6 +18,11 @@ enum ProviderGlyph: String, Codable, Equatable {
     /// sparkle gets a key of its own instead.
     case geminiSpark = "gemini-spark"
     case glm
+    case qwen
+    case gemma
+    case meta
+    case deepseek
+    case mistral
     case grok
     case opencode
     case commandcode
@@ -27,7 +32,7 @@ enum ProviderGlyph: String, Codable, Equatable {
 
     /// If an asset with this name is in the bundle it wins over the traced
     /// outline — drop a PDF/SVG export from Figma in and it is picked up.
-    var assetName: String { "glyph-\(rawValue)" }
+    var assetName: String { self == .ollamaLocal ? "glyph-ollama" : "glyph-\(rawValue)" }
 
     /// How much to scale this mark so it reads the same size as the others.
     ///
@@ -54,7 +59,8 @@ enum ProviderGlyph: String, Codable, Equatable {
         case .copilot: return 0.96
         case .ollama: return 0.95
         case .third:  return 1.0
-        case .ollama, .ollamaLocal: return 0.98
+        case .ollamaLocal: return 0.98
+        case .qwen, .gemma, .meta, .deepseek, .mistral: return 1.0
         }
     }
 
@@ -67,6 +73,7 @@ enum ProviderGlyph: String, Codable, Equatable {
         case .antigravity: return GlyphOutline.antigravity
         case .geminiSpark: return GlyphOutline.gemini
         case .glm:    return GlyphOutline.glm
+        case .qwen, .gemma, .meta, .deepseek, .mistral: return []
         case .grok:   return GlyphOutline.grok
         case .opencode: return GlyphOutline.opencode
         case .commandcode: return GlyphOutline.commandcode

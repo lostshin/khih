@@ -21,7 +21,7 @@ final class NotchWindowController {
     /// One "Sign in to …" item per provider that needs a browser session.
     var signInItems: [(title: String, action: () -> Void)] = []
     /// Refetch a single provider, asked for by clicking its ring.
-    var onRefreshProvider: ((String) -> Void)?
+    var onRefreshProvider: ((String) async -> Void)?
     /// Open the settings window, asked for by clicking the handle.
     var onOpenSettings: (() -> Void)?
     /// An ⌥-drag on the pill settled at a new `model.alongOffset`. The
@@ -101,17 +101,12 @@ final class NotchWindowController {
             }
             .store(in: &cancellables)
 
-        // The notch is as tall as the provider list, so gaining or losing one
-        // has to resize the panel, not just redraw inside it.
+        // A model can gain speed rows without changing the cell count. Read
+        // after Published's willSet so sizing sees the new card contents too.
         model.$snapshots
-            .map(\.count)
             .removeDuplicates()
-            .sink { [weak self] count in
-                // The count comes from the emission, not from re-reading the
-                // model: `@Published` fires in `willSet`, so `model.snapshots`
-                // is still the previous array at this point.
-                MainActor.assumeIsolated { self?.relocate(cellCount: count) }
-            }
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.relocate() }
             .store(in: &cancellables)
     }
 
@@ -162,7 +157,7 @@ final class NotchWindowController {
             let panel = NotchPanel(contentRect: frame)
             let hosting = NotchHostingView(rootView: NotchRootView(model: model))
             panel.contextMenuProvider = { [weak self] in self?.contextMenu() }
-            panel.onClick = { [weak self] in self?.handleClick() }
+            panel.onClick = { [weak self] point in self?.handleClick(at: point) }
             panel.onDrag = { [weak self] dx, dy in self?.dragged(dx: dx, dy: dy) }
             panel.onDragEnd = { [weak self] in
                 guard let self else { return }
@@ -294,11 +289,14 @@ final class NotchWindowController {
         let snapshot = model.snapshots[index]
         let cardHeight = NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
-            sessionCount: model.activity(for: snapshot.id)?.sessions.count ?? 0,
+            groupCount: Set(snapshot.windows.compactMap(\.group)).count,
+            sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot)?.sessions.count ?? 0) : 0,
             sessionCap: model.sessionCap,
             statusMessage: snapshot.statusMessage,
             blockMessage: snapshot.block?.summary(now: model.now),
             hasTokenUsage: snapshot.tokenUsage != nil,
+            localModelName: snapshot.localModel?.name,
+            showsLocalPerformance: snapshot.showsLocalPerformance,
             compactRowCount: snapshot.compactRowCount
         )
         // Across the stack the region is the card, its tail, and the gap the
@@ -477,12 +475,13 @@ final class NotchWindowController {
 
     /// A click on a ring refetches that provider; a click anywhere else on the
     /// open notch pins it. The ring is the more specific target, so it wins.
-    func handleClick() {
+    func handleClick(at locationInWindow: CGPoint) {
         guard let panel else {
             setExpanded(true)
             return
         }
-        let local = localCursor(in: panel.frame)
+        // Use the event position even if the pointer has moved since the click.
+        let local = CGPoint(x: locationInWindow.x, y: panel.frame.height - locationInWindow.y)
 
         // The handle sits inside the notch, so it has to be tested before the
         // cells — otherwise the cell band nearest the foot of the stack swallows
@@ -526,7 +525,10 @@ final class NotchWindowController {
         if notchRect.contains(local),
            let index = cellIndex(along: placement.along(of: local)),
            model.snapshots.indices.contains(index) {
-            onRefreshProvider?(model.snapshots[index].id)
+            if let onRefreshProvider {
+                let snapshot = model.snapshots[index]
+                Task { await model.refresh(snapshot, using: onRefreshProvider) }
+            }
             return
         }
         togglePinned()
@@ -753,11 +755,8 @@ final class NotchWindowController {
         updateInteractiveRects()
     }
 
-    /// `along` arrives in panel points, so the cells it is compared against
-    /// have to be where they are drawn rather than where they are measured —
-    /// pitch included, or a large notch would match the wrong ring at the ends.
-    private func cellIndex(along: CGFloat) -> Int? {
-        let pitch = NotchLayout.cellPitch(for: model.edge) * model.sizeScale
+    func cellIndex(along: CGFloat) -> Int? {
+        let pitch = model.cellPitch * model.sizeScale
         for index in model.snapshots.indices {
             let centre = model.slack + model.ringCenter(index: index) * model.sizeScale
             if abs(along - centre) <= pitch / 2 { return index }

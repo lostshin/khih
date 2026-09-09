@@ -19,8 +19,7 @@ struct NotchRootView: View {
                 // Outside the notch and outside its clip: the orb hangs past
                 // the end of the shape, tucked into the corner the far flare
                 // makes.
-                if !model.snapshots.isEmpty {
-                    SettingsOrb(isHovered: model.isHoveringSettings, edge: model.edge,
+                SettingsOrb(isHovered: model.isHoveringSettings, edge: model.edge,
                                     convex: model.orbHugsCorner,
                                     arcRadius: model.orbArcRadius,
                                     arcOffset: model.orbArcOffset)
@@ -53,13 +52,12 @@ struct NotchRootView: View {
                         // sees the arc leave by.
                         .opacity(model.isExpanded ? 1 : 0)
                         .animation(motion(orbMotion), value: model.isExpanded)
-                }
 
                 if let snapshot = model.hoveredSnapshot, let index = model.hoveredIndex,
                    model.isExpanded {
                     TooltipCard(
                         snapshot: snapshot,
-                        activity: model.activity(for: snapshot.id),
+                        activity: model.activity(for: snapshot),
                         now: model.now,
                         direction: model.edge.tooltipDirection,
                         sessionCap: model.sessionCap,
@@ -134,8 +132,8 @@ struct NotchRootView: View {
         let stack = ForEach(Array(model.snapshots.enumerated()), id: \.element.id) { index, snapshot in
             ProviderCell(
                 snapshot: snapshot,
-                activity: model.activity(for: snapshot.id),
-                isRefreshing: model.refreshing.contains(snapshot.id)
+                activity: model.activity(for: snapshot),
+                isRefreshing: model.isRefreshing(snapshot)
             )
                 // Pinned to what the cell claims along the stack, or the drawn
                 // rings stop lining up with the centres `ringCenter` hands to
@@ -152,17 +150,21 @@ struct NotchRootView: View {
                     y: model.isExpanded ? 0 : model.edge.outward.y * Design.px(28)
                 )
                 .animation(motion(NotchMotion.stagger(index: index)), value: model.isExpanded)
+                .transition(.opacity.combined(with: .offset(
+                    x: model.edge.outward.x * Design.px(28),
+                    y: model.edge.outward.y * Design.px(28)
+                )).animation(motion(NotchMotion.unfold)))
         }
 
         Group {
             if model.edge.isVertical {
-                VStack(spacing: NotchLayout.cellSpacing) { stack }
+                VStack(spacing: model.cellSpacing) { stack }
                     .padding(.top, leadIn)
                     // The contents keep the expanded layout while folding, so
                     // the stack does not reflow on its way out; the shape clips it.
                     .frame(width: NotchLayout.bodyDepth(for: model.edge))
             } else {
-                HStack(spacing: NotchLayout.cellSpacing) { stack }
+                HStack(spacing: model.cellSpacing) { stack }
                     .padding(.leading, leadIn)
                     .frame(height: NotchLayout.bodyDepth(for: model.edge))
             }
@@ -223,10 +225,14 @@ struct NotchRootView: View {
             ? NotchLayout.cardWidth
             : NotchLayout.cardHeight(
                 windowCount: snapshot.windows.count,
-                sessionCount: model.activity(for: snapshot.id)?.sessions.count ?? 0,
+                groupCount: Set(snapshot.windows.compactMap(\.group)).count,
+                sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot)?.sessions.count ?? 0) : 0,
                 sessionCap: model.sessionCap,
                 statusMessage: snapshot.statusMessage,
                 blockMessage: snapshot.block?.summary(now: model.now),
+                hasTokenUsage: snapshot.tokenUsage != nil,
+                localModelName: snapshot.localModel?.name,
+                showsLocalPerformance: snapshot.showsLocalPerformance,
                 compactRowCount: snapshot.compactRowCount
             )
         // The ring it points at has moved with the notch, so the tail follows

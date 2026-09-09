@@ -20,6 +20,15 @@ final class NotchFleet {
     private var edge: NotchEdge
     private var visibility: NotchVisibility = .onHover
     private var snapshots: [ProviderSnapshot] = []
+    private(set) var thinkingModels: [String: Date] = [:]
+    private var performances: [String: LocalModelPerformance] = [:]
+    private var localMetricsEnabled = false
+
+    func setLocalMetricsEnabled(_ enabled: Bool) {
+        localMetricsEnabled = enabled
+        if !enabled { performances = [:]; thinkingModels = [:] }
+        for controller in controllers.values { controller.model.setLocalMetricsEnabled(enabled) }
+    }
     private var refreshing: Set<String> = []
     /// Exposed read-only rather than private: completion-watching needs the
     /// merged dict after a fan-out, the same way it read `controller.model
@@ -42,7 +51,7 @@ final class NotchFleet {
 
     /// Hooked up by the app delegate; driven by the notch's own chrome.
     var onRefresh: (() -> Void)?
-    var onRefreshProvider: ((String) -> Void)?
+    var onRefreshProvider: ((String) async -> Void)?
     var onOpenSettings: (() -> Void)?
     var signInItems: [(title: String, action: () -> Void)] = []
     /// An ⌥-drag on any one panel settled at a new offset. Persisting it is
@@ -160,10 +169,22 @@ final class NotchFleet {
         self.snapshots = snapshots
         let now = Date()
         for controller in controllers.values {
-            withAnimation(NotchMotion.unfold) {
-                controller.model.snapshots = snapshots
-            }
+            controller.model.updateSnapshots(snapshots)
             controller.model.now = now
+        }
+    }
+
+    func setThinkingModels(_ models: [String: Date]) {
+        thinkingModels = models
+        for controller in controllers.values {
+            controller.model.thinkingModels = models
+        }
+    }
+
+    func setPerformances(_ measurements: [String: LocalModelPerformance]) {
+        performances = measurements
+        for controller in controllers.values {
+            controller.model.updatePerformances(measurements)
         }
     }
 
@@ -290,7 +311,10 @@ final class NotchFleet {
         controller.model.onOpenSettings = onOpenSettings
         controller.onReposition = onReposition
         controller.signInItems = signInItems
-        controller.model.snapshots = snapshots
+        controller.model.updateSnapshots(snapshots)
+        controller.model.thinkingModels = thinkingModels
+        controller.model.setLocalMetricsEnabled(localMetricsEnabled)
+        controller.model.updatePerformances(performances)
         controller.model.refreshing = refreshing
         controller.model.sessions = sessions
         controller.model.now = Date()

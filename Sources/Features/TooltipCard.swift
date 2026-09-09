@@ -325,6 +325,7 @@ private struct LimitWindowRow: View {
 }
 
 private struct ProviderTooltip: View {
+    var isThinking = false
     let snapshot: ProviderSnapshot
     let now: Date
     let resetTimeFormat: ResetTimeFormat
@@ -359,7 +360,10 @@ private struct ProviderTooltip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TooltipHeader(title: "\(snapshot.displayName) Usage", note: readingAge) {
+            TooltipHeader(title: snapshot.kind == .localRuntime
+                          ? "\(snapshot.localModel?.brand?.displayName ?? snapshot.displayName) · Local"
+                          : "\(snapshot.displayName) Usage",
+                          note: isThinking ? "Thinking" : (snapshot.localModel?.brand != nil ? snapshot.displayName : readingAge)) {
                 ProviderGlyphView(glyph: snapshot.glyph)
                     .foregroundStyle(Palette.textPrimary)
             }
@@ -375,6 +379,8 @@ private struct ProviderTooltip: View {
                     .foregroundStyle(Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, NotchLayout.headerToBlock)
+            } else if let localModel = snapshot.localModel {
+                RuntimeModelDetails(model: localModel, performance: snapshot.localPerformance, showsPerformance: snapshot.showsLocalPerformance, now: now)
             } else {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(groupedWindows.enumerated()), id: \.element.id) { groupIndex, group in
@@ -385,7 +391,7 @@ private struct ProviderTooltip: View {
                                     .fontWeight(.semibold)
                                     .foregroundStyle(Palette.textPrimary)
                                     .padding(.leading, Design.px(4))
-                                
+
                                 VStack(alignment: .leading, spacing: NotchLayout.blockSpacing) {
                                     ForEach(Array(group.windows.enumerated()), id: \.element.id) { windowIndex, window in
                                         LimitWindowRow(window: window, inset: 2 * Design.px(16), fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat, showsUsagePace: showUsagePace)
@@ -410,6 +416,42 @@ private struct ProviderTooltip: View {
                 .padding(.bottom, groupedWindows.contains(where: { $0.title != nil }) ? Design.px(8) : 0)
             }
         }
+    }
+}
+
+private struct RuntimeModelDetails: View {
+    let model: LocalRuntimeReading.Model
+    let performance: LocalModelPerformance?
+    let showsPerformance: Bool
+    let now: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(model.name)
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .frame(height: NotchLayout.modelNameHeight(model.name), alignment: .topLeading)
+                .padding(.top, NotchLayout.headerToBlock)
+                .accessibilityLabel(model.name)
+            VStack(spacing: NotchLayout.sessionRowGap) {
+                if showsPerformance {
+                    SplitRow(leading: "Last speed (derived)", trailing: performance?.speedText ?? "Not measured",
+                             trailingColor: performance?.band.color ?? Palette.textSecondary)
+                    SplitRow(leading: "Speed band", trailing: performance?.band.label ?? "—")
+                }
+                SplitRow(leading: model.memoryLabel, trailing: model.displayedMemoryBytes == nil ? "Unavailable" : model.memoryText)
+                SplitRow(leading: "Context limit", trailing: model.contextText)
+                SplitRow(leading: "Quantization", trailing: model.quantizationText)
+                SplitRow(leading: "Unloads", trailing: model.unloadText(now: now))
+                if showsPerformance {
+                    SplitRow(leading: "Measured", trailing: performance.map { ElapsedCopy.ago(since: $0.measuredAt, now: now) } ?? "—")
+                }
+            }
+            .padding(.top, NotchLayout.blockSpacing)
+        }
+        .font(Typography.cardBody)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -715,11 +757,13 @@ struct TooltipCard: View {
         NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
             groupCount: groupCount,
-            sessionCount: activity?.sessions.count ?? 0,
+            sessionCount: snapshot.localModel == nil ? (activity?.sessions.count ?? 0) : 0,
             sessionCap: sessionCap,
             statusMessage: snapshot.statusMessage,
             blockMessage: snapshot.block?.summary(now: now),
             hasTokenUsage: snapshot.tokenUsage != nil,
+            localModelName: snapshot.localModel?.name,
+            showsLocalPerformance: snapshot.showsLocalPerformance,
             compactRowCount: snapshot.compactRowCount
         )
     }
@@ -732,12 +776,12 @@ struct TooltipCard: View {
             // drifts while the card resizes around them.
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ProviderTooltip(snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat,
+                    ProviderTooltip(isThinking: snapshot.localModel != nil && activity?.state == .working, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat,
                                     showUsagePace: showUsagePace)
                     if let tokenUsage = snapshot.tokenUsage {
                         CodexUsageSection(usage: tokenUsage, now: now)
                     }
-                    if let activity {
+                    if let activity, snapshot.localModel == nil {
                         SessionList(summary: activity, now: now, cap: sessionCap)
                     }
                 }

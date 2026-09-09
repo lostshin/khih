@@ -176,6 +176,26 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// Set when something is blocked right now. Deliberately separate from the
     /// windows: it is not a measurement, it is a door being shut.
     var block: UsageBlock?
+    var kind: ProviderKind = .usage
+    var localRuntime: LocalRuntimeReading?
+    var localModel: LocalRuntimeReading.Model?
+    var localPerformance: LocalModelPerformance?
+    var showsLocalPerformance = false
+    /// A model cell has its own display preference, but polling belongs to the
+    /// runtime that supplied it.
+    var sourceProviderID: String?
+
+    var providerID: String { sourceProviderID ?? id }
+
+    var notchSnapshots: [ProviderSnapshot] {
+        guard kind == .localRuntime, localModel == nil else { return [self] }
+        return (localRuntime?.models ?? []).map { model in
+            ProviderSnapshot(id: "\(id):model:\(model.id)", displayName: displayName,
+                             glyph: model.brand?.glyph ?? glyph,
+                             fidelity: fidelity, status: status, windows: [],
+                             kind: kind, localModel: model, sourceProviderID: id)
+        }
+    }
     /// Codex's account-wide token activity, when its profile endpoint returned
     /// it. The optional top model is an enrichment from the desktop breakdown
     /// endpoint; it never changes the profile token buckets. Other providers
@@ -202,15 +222,19 @@ struct ProviderSnapshot: Identifiable, Equatable {
 
     /// What the cell prints under the ring.
     var headlineText: String {
+        if kind == .localRuntime {
+            return showsLocalPerformance ? (localPerformance?.headlineText ?? "— tok/s")
+                : (localModel?.memoryText ?? "—")
+        }
         if let usedFraction { return Percent.text(for: usedFraction) + "%" }
         if let remaining = headline?.remaining { return LimitWindow.compact(remaining) }
         if let used = headline?.used { return LimitWindow.compact(used) }
         return "—"
     }
 
-    /// True when there is no reading to show — the cell draws an empty ring and
-    /// a dash rather than an authoritative-looking 0%.
-    var hasReading: Bool { !windows.isEmpty }
+    /// An empty local inventory still confirms server connectivity; an absent
+    /// reading must not be shown as measured zero usage.
+    var hasReading: Bool { localRuntime != nil || localModel != nil || !windows.isEmpty }
 
     /// How many windows are count-only (no fraction, no bar) — they render as
     /// single-line rows and take less vertical space than full bar rows.
@@ -251,6 +275,14 @@ struct ProviderSnapshot: Identifiable, Equatable {
 
     /// What the tooltip says instead of limit rows when there is nothing to show.
     var statusMessage: String? {
+        if kind == .localRuntime {
+            if localModel != nil { return nil }
+            if let localRuntime {
+                return localRuntime.models.isEmpty ? localRuntime.summary : nil
+            }
+            if case .error(let why) = status { return why }
+            return "Connecting to \(displayName)…"
+        }
         if hasReading { return nil }
         switch status {
         case .needsAuth:      return authPrompt

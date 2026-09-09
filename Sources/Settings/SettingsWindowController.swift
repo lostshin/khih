@@ -19,6 +19,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let switchAccount: (String) -> Bool
     private let retry: (String) -> Void
     private let updater: Updater
+    private let ollamaRelay: OllamaActivityRelay?
+    private let usageStore: UsageStore?
     private let resetPosition: () -> Void
 
     init(preferences: Preferences,
@@ -28,7 +30,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
          signIn: @escaping (String) -> Bool,
          switchAccount: @escaping (String) -> Bool,
          retry: @escaping (String) -> Void,
-         resetPosition: @escaping () -> Void) {
+         resetPosition: @escaping () -> Void,
+         usageStore: UsageStore? = nil,
+         ollamaRelay: OllamaActivityRelay? = nil) {
+        self.ollamaRelay = ollamaRelay
+        self.usageStore = usageStore
         self.resetPosition = resetPosition
         self.switchAccount = switchAccount
         self.retry = retry
@@ -147,7 +153,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                                    switchAccount: switchAccount,
                                    retry: retry,
                                    resetPosition: resetPosition,
-                                   updater: updater)
+                                   updater: updater,
+                                   ollamaRelay: ollamaRelay, usageStore: usageStore)
         )
         window.center()
         window.isReleasedWhenClosed = false

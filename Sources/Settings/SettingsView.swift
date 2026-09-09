@@ -1,6 +1,7 @@
 import AppKit
 import CoreTransferable
 import SwiftUI
+import Combine
 
 /// A Liquid Glass background that falls back to a regular material on macOS
 /// 15, where `glassEffect` does not exist. The visual difference is minor — the
@@ -25,13 +26,14 @@ extension View {
 /// crossing-and-notification machinery it switches is Notifications' to
 /// explain.
 private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
-    case accounts, appearance, notifications, general
+    case accounts, ollama, appearance, notifications, general
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .accounts:      return "Accounts"
+        case .ollama:        return "Ollama"
         case .appearance:    return "Appearance"
         case .notifications: return "Notifications"
         case .general:       return "General"
@@ -41,6 +43,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     var icon: String {
         switch self {
         case .accounts:      return "person.crop.circle.fill"
+        case .ollama:        return "desktopcomputer"
         case .appearance:    return "paintbrush.fill"
         case .notifications: return "bell.badge.fill"
         case .general:       return "gearshape.fill"
@@ -53,6 +56,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     var tint: Color {
         switch self {
         case .accounts:      return .blue
+        case .ollama:        return .teal
         case .appearance:    return .indigo
         case .notifications: return .red
         case .general:       return .gray
@@ -165,6 +169,8 @@ struct SettingsView: View {
     /// effect the next time the edge changed.
     let resetPosition: () -> Void
     @ObservedObject var updater: Updater
+    var ollamaRelay: OllamaActivityRelay? = nil
+    var usageStore: UsageStore? = nil
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
 
     var body: some View {
@@ -225,6 +231,18 @@ struct SettingsView: View {
         .onReceive(NotificationCenter.default.publisher(
             for: NSApplication.didChangeScreenParametersNotification
         )) { _ in displays = DisplayOption.connected }
+        .onReceive((usageStore?.$notchSnapshots.eraseToAnyPublisher()
+                    ?? Empty<[ProviderSnapshot], Never>().eraseToAnyPublisher())
+            .receive(on: RunLoop.main)) { _ in
+                // The sheet stays open while models load and unload. Update
+                // those rows without re-reading cloud credentials on each poll.
+                guard let usageStore else { return }
+                let models = usageStore.localModelSummaries
+                let updated = accounts.filter { $0.localModel == nil }.flatMap { account in
+                    [account] + models.filter { $0.sourceProviderID == account.id }
+                }
+                accounts = ProviderOrder.arrange(updated, by: preferences.providerOrder, id: \.id)
+            }
     }
 
     /// The subject list, drawn as a card floating inside the window rather
@@ -381,6 +399,15 @@ struct SettingsView: View {
     private func paneContent(for section: SettingsSection) -> some View {
         switch section {
         case .accounts:      accountsPane
+        case .ollama:
+            if let usageStore {
+                Form {
+                    Section("Connection") {
+                        OllamaSettingsRow(preferences: preferences, store: usageStore, relay: ollamaRelay)
+                    }
+                }
+                .formStyle(.grouped)
+            }
         case .appearance:    appearancePane
         case .notifications: notificationsPane
         case .general:       generalPane
@@ -410,7 +437,7 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
-                } else {
+                } else if !connected.isEmpty {
                     Text("The notch draws these in this order. Drag one by its "
                          + "handle to move it.")
                         .font(.caption)
@@ -794,21 +821,28 @@ struct SettingsView: View {
 
     /// The rows the notch actually draws, in the order it draws them.
     ///
-    /// Filtered out of `accounts` rather than kept as a list of its own, so the
-    /// stored order stays one list: a provider switched off keeps its place in
-    /// it, and switching it back on returns it there instead of to the end.
+    /// Model switches control visibility; their shared runtime has its own
+    /// connection row and must remain enabled for its models to appear.
+    private var ringAccounts: [ProviderSummary] {
+        accounts.filter {
+            $0.kind == .usage || ($0.localModel != nil && preferences.isConnected($0.sourceProviderID ?? $0.id))
+        }
+    }
+
     private var connected: [ProviderSummary] {
-        accounts.filter { preferences.isConnected($0.id) }
+        ringAccounts.filter { preferences.isConnected($0.id) }
     }
 
     private var notConnected: [ProviderSummary] {
-        accounts.filter { !preferences.isConnected($0.id) }
+        ringAccounts.filter { !preferences.isConnected($0.id) }
     }
 
     /// Nothing to read from anywhere. On a first launch that is the normal
     /// state, and it is the only moment the sheet has something to explain.
     private var needsSetup: Bool {
-        !accounts.isEmpty && accounts.allSatisfy { $0.account == nil }
+        guard !connected.contains(where: { $0.localModel != nil }) else { return false }
+        let usageAccounts = accounts.filter { $0.kind == .usage }
+        return !usageAccounts.isEmpty && usageAccounts.allSatisfy { $0.account == nil }
     }
 
     /// Names the tools rather than saying "tools already signed in on this
@@ -1131,7 +1165,7 @@ private struct AccountRow: View {
                 // Per-provider threshold alerts, muted here rather than in a
                 // separate notifications pane — the thing being muted is this
                 // row's reading, so the control belongs on the row.
-                if isConnected {
+                if isConnected, provider.kind == .usage {
                     Button {
                         preferences.setAlertsMuted(!isMuted, for: provider.id)
                     } label: {
@@ -1175,11 +1209,13 @@ private struct AccountRow: View {
                         .help(destination.help)
                 }
 
-                Toggle("", isOn: binding)
+                Toggle(provider.name, isOn: binding)
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .labelsHidden()
-                    .help(isConnected
+                    .help(provider.localModel != nil
+                          ? "Show or hide this model in the notch. It stays loaded in Ollama."
+                          : isConnected
                           ? "Switch off to stop reading \(provider.name) and forget its "
                             + "readings. " + provider.signIn.signOutCaveat
                           : "Switch on to sign in and read \(provider.name) again.")
@@ -1298,7 +1334,11 @@ private struct AccountRow: View {
 
     @ViewBuilder
     private var accountDetail: some View {
-        if !isConnected {
+        if let model = provider.localModel {
+            Text(isConnected ? "\(model.memoryText) \(model.memoryLabel) · via Ollama"
+                 : "Hidden from the notch · Loaded in Ollama")
+                .foregroundStyle(.secondary)
+        } else if !isConnected {
             Text("Signed out — nothing is read, and no readings are kept.")
                 .foregroundStyle(.tertiary)
         } else if let account = provider.account {
@@ -1418,9 +1458,9 @@ private struct AccountRow: View {
                     didConnect()
                     // Nothing to open for Claude Code — but then there is no
                     // account either, so `detail` is already showing what to do.
-                    _ = signIn(provider.id)
+                    if provider.localModel == nil { _ = signIn(provider.id) }
                 } else {
-                    signOut(provider.id)
+                    if provider.localModel == nil { signOut(provider.id) }
                     preferences.setConnected(false, for: provider.id)
                 }
             }

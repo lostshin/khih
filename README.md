@@ -32,16 +32,32 @@ A Windows port — Rust/Tauri 2, same design and providers — lives in [`window
 | **Codex** | official | ChatGPT's usage endpoint, using the local Codex sign-in. Shows the 5-hour and weekly limits when available. |
 | **Antigravity** | official where licensed, otherwise a request count | Antigravity's local language server first, then Google's quota endpoint; a plain count when neither will answer for the account. |
 | **GLM** | official | Z.ai's Coding Plan monitor endpoint, with a key borrowed from whichever coding tool already holds one — Claude Code's `settings.json`, ZCode, or OpenCode. |
+| **Ollama (Local)** | local runtime | Automatically detected local models, RAM/VRAM, unload time and context. Optional response capture adds thinking and generation speed. |
 | **Grok** | official | The Grok CLI session in `~/.grok/auth.json`, against the same credits billing endpoint `/usage` uses. |
 | **OpenCode** | official | The Go plan's official usage endpoint, with the `opencode-go` key OpenCode itself stores on sign-in. |
 | **Command Code** | official | The GOAT plan's `/alpha` billing endpoints, with the key the Command Code app writes to `~/.commandcode/auth.json`. |
 | **GitHub Copilot** | official | GitHub's Copilot quota endpoint, authenticated with the GitHub CLI session already on the Mac (`gh auth login`). |
 
-Codenotch never signs in anywhere. Every reading is borrowed from a credential
-or session a tool on your Mac already holds — install and sign in to any of
-them, and its ring appears. Switching a provider off in Settings stops its
-credential being read at all and forgets the readings taken from it; it does
-not sign you out of the tool that owns the account, and the row says so.
+Most providers borrow a credential or session from a tool already on your Mac.
+Ollama Cloud accepts an API key in Settings. Switching a provider off stops its
+usage polling and forgets its readings; borrowed accounts stay signed in to
+the tools that own them.
+
+**Local Ollama is detected automatically.** Configure its address or stop monitoring in **Settings → Ollama**.
+Each loaded model gets a notch cell; reorder or hide it in **Settings → Accounts**.
+Hover for RAM/VRAM, unload time, context limit and quantization.
+
+For generation speed (**tok/s**) and live **Thinking**, enable **Measure speed and thinking**
+in Settings → Ollama, keep Codenotch open and connect through its local relay:
+
+```sh
+OLLAMA_HOST=http://127.0.0.1:11435 ollama run gemma4:e4b --think
+```
+
+Speed updates after completed native Ollama responses; thinking requires streamed
+reasoning. Direct requests to Ollama's default port (`11434`) only provide model
+detection. Monitoring never initiates inference or saves prompts, reasoning or replies.
+See [Ollama details](docs/plans/2026-09-07-local-llm-provider-plan.md).
 
 Settings lists the connected providers in the order the notch draws them, and
 you can drag one by its handle to move it. The order is remembered across

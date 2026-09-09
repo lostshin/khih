@@ -1,8 +1,14 @@
 import Foundation
 
+enum ProviderKind: Equatable {
+    case usage
+    case localRuntime
+}
+
 /// One source of usage numbers. Each adapter declares how trustworthy it is,
 /// and the UI never dresses a derived number up as an official one.
 protocol UsageProvider {
+    var kind: ProviderKind { get }
     var id: String { get }
     /// Enough to draw the cell even when a fetch has never succeeded.
     var displayName: String { get }
@@ -50,6 +56,10 @@ protocol UsageProvider {
 
 extension UsageProvider {
     var isVisibleWhenAbsent: Bool { true }
+}
+
+extension UsageProvider {
+    var kind: ProviderKind { .usage }
 }
 
 enum UsageProviderError: Error {
