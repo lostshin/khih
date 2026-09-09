@@ -14,10 +14,15 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// `nil` means follow the Mac.
+    ///
+    /// Plain `en`, not `en_US`: these identifiers are looked up against the
+    /// string catalog, whose English is filed under `en`. A region-qualified
+    /// identifier misses it and falls through to whatever localization the
+    /// bundle offers next — which made choosing English serve Chinese.
     var locale: Locale? {
         switch self {
         case .system:            return nil
-        case .english:           return Locale(identifier: "en_US")
+        case .english:           return Locale(identifier: "en")
         case .simplifiedChinese: return Locale(identifier: "zh-Hans")
         }
     }

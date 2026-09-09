@@ -4,24 +4,31 @@ import XCTest
 /// In-app language is a stored override, not the Mac's language. Follow
 /// System still hits the XCTest English pin when nothing is stored.
 final class AppLanguageTests: XCTestCase {
-    private var previousLanguage: Any?
+    private var suiteName = ""
+    private var previousDefaults: UserDefaults?
     private var previousTestLocale: Locale?
 
+    /// A scratch suite, not `.standard`. The test host *is* the app, so
+    /// `.standard` is the preferences of the copy of Codenotch installed on
+    /// this Mac: reading it would let a language chosen in Settings decide
+    /// what these assert, and writing it would leave a language behind in the
+    /// real app when a test failed before its restore.
     override func setUp() {
         super.setUp()
-        previousLanguage = UserDefaults.standard.object(forKey: L10n.languageDefaultsKey)
+        suiteName = "AppLanguageTests.\(UUID().uuidString)"
+        let scratch = UserDefaults(suiteName: suiteName)!
+        scratch.removePersistentDomain(forName: suiteName)
+        previousDefaults = L10n.defaults
         previousTestLocale = L10n.testLocale
+        L10n.defaults = scratch
         L10n.testLocale = nil
         L10n.apply(.system)
     }
 
     override func tearDown() {
         L10n.testLocale = previousTestLocale
-        if let previousLanguage {
-            UserDefaults.standard.set(previousLanguage, forKey: L10n.languageDefaultsKey)
-        } else {
-            UserDefaults.standard.removeObject(forKey: L10n.languageDefaultsKey)
-        }
+        L10n.defaults.removePersistentDomain(forName: suiteName)
+        if let previousDefaults { L10n.defaults = previousDefaults }
         super.tearDown()
     }
 
@@ -32,6 +39,16 @@ final class AppLanguageTests: XCTestCase {
             L10n.locale.identifier.hasPrefix("en"),
             "XCTest pin should return English when appLanguage is unset, got \(L10n.locale.identifier)"
         )
+    }
+
+    /// A forced English must actually be English. The catalog files its
+    /// source strings under `en`, so the region-qualified `en_US` this used
+    /// to store matched nothing and fell through to the next localization the
+    /// bundle offered — Chinese, on a build that ships one.
+    func testApplyEnglishServesEnglishCopy() {
+        L10n.apply(.english)
+        L10n.testLocale = nil
+        XCTAssertEqual(L10n.t("Always show"), "Always show")
     }
 
     /// `apply(.simplifiedChinese)` stores `zh-Hans`, and `L10n.locale`
