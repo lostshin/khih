@@ -74,6 +74,42 @@ final class NotchWindowController {
     /// Whether we have pushed the pointing hand onto the cursor stack.
     private var isPointing = false
 
+    /// Determines whether a full-screen application window is active on this notch's display.
+    /// Default implementation queries WindowServer and NSWorkspace; overridable for testing.
+    lazy var isFullScreenActive: () -> Bool = { [weak self] in
+        FullScreenDetector.isFullScreenAppFrontmost(on: self?.currentScreen())
+    }
+
+    /// When a full-screen app is active on the current space, auto-folds the notch.
+    /// When returning to a desktop space with `isAlwaysOn`, restores the unfolded state.
+    func handleActiveSpaceOrAppChange() {
+        if isFullScreenActive() {
+            foldForFullScreen()
+        } else if model.isAlwaysOn && !model.isExpanded {
+            withAnimation(NotchMotion.unfold) {
+                model.isExpanded = true
+            }
+            updateInteractiveRects()
+        }
+    }
+
+    /// Immediately folds the notch and clears pending peek/hover timers when a full-screen app takes focus.
+    func foldForFullScreen() {
+        foldWork?.cancel()
+        foldWork = nil
+        peekWork?.cancel()
+        peekWork = nil
+        peekUntil = nil
+        model.isPinned = false
+        guard model.isExpanded else { return }
+        withAnimation(NotchMotion.unfold) {
+            model.isExpanded = false
+            model.hoveredIndex = nil
+        }
+        setPointing(false)
+        updateInteractiveRects()
+    }
+
     func show() {
         relocate()
         startWatchingCursor()
@@ -84,6 +120,22 @@ final class NotchWindowController {
         )
         .sink { [weak self] _ in
             MainActor.assumeIsolated { self?.relocate() }
+        }
+        .store(in: &cancellables)
+
+        NSWorkspace.shared.notificationCenter.publisher(
+            for: NSWorkspace.activeSpaceDidChangeNotification
+        )
+        .sink { [weak self] _ in
+            MainActor.assumeIsolated { self?.handleActiveSpaceOrAppChange() }
+        }
+        .store(in: &cancellables)
+
+        NSWorkspace.shared.notificationCenter.publisher(
+            for: NSWorkspace.didActivateApplicationNotification
+        )
+        .sink { [weak self] _ in
+            MainActor.assumeIsolated { self?.handleActiveSpaceOrAppChange() }
         }
         .store(in: &cancellables)
 
@@ -117,6 +169,7 @@ final class NotchWindowController {
         clockTimer?.invalidate()
         mouseMonitors.forEach(NSEvent.removeMonitor)
         mouseMonitors.removeAll()
+        cancellables.removeAll()
     }
 
     // MARK: - Placement
