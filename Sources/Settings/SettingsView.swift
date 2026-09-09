@@ -2,6 +2,23 @@ import AppKit
 import CoreTransferable
 import SwiftUI
 
+/// A Liquid Glass background that falls back to a regular material on macOS
+/// 15, where `glassEffect` does not exist. The visual difference is minor — the
+/// sidebar gets a standard vibrancy material instead of the glass tint — and
+/// the layout and interactions are unchanged.
+extension View {
+    @ViewBuilder
+    func glassBackground(in shape: some Shape) -> some View {
+        if #available(macOS 26.0, *) {
+            background { Color.clear.glassEffect(.regular, in: shape) }
+        } else {
+            background {
+                shape.fill(.regularMaterial)
+            }
+        }
+    }
+}
+
 /// One entry in the sidebar. Grouped by subject rather than by how each
 /// setting is stored — a mute toggle for a provider's threshold alerts lives
 /// on that provider's own row in Accounts, not repeated here, but the
@@ -55,8 +72,7 @@ private struct VisualEffect: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = .behindWindow
+        apply(to: view, context: context)
         // `.followsWindowActiveState` would drain the colour out of the panel
         // whenever focus went elsewhere, which for a settings window that is
         // read while another app is in front is most of the time.
@@ -65,7 +81,17 @@ private struct VisualEffect: NSViewRepresentable {
     }
 
     func updateNSView(_ view: NSVisualEffectView, context: Context) {
-        view.material = material
+        apply(to: view, context: context)
+    }
+
+    private func apply(to view: NSVisualEffectView, context: Context) {
+        if context.environment.codenotchReduceTransparency {
+            view.material = .windowBackground
+            view.blendingMode = .withinWindow
+        } else {
+            view.material = material
+            view.blendingMode = .behindWindow
+        }
     }
 }
 
@@ -133,7 +159,13 @@ struct SettingsView: View {
     /// Re-reads a provider's credential. For a declined keychain prompt that is
     /// the whole remedy: asking again is what puts the prompt back on screen.
     let retry: (String) -> Void
+    /// Put the notch back in the middle of its edge. A closure rather than a
+    /// write to `preferences`, because the stored offset is not `@Published` —
+    /// nothing would tell the notch to move, and the setting would only take
+    /// effect the next time the edge changed.
+    let resetPosition: () -> Void
     @ObservedObject var updater: Updater
+    @Environment(\.codenotchReduceTransparency) private var reduceTransparency
 
     var body: some View {
         // A plain HStack rather than `NavigationSplitView`: the sidebar here
@@ -165,9 +197,22 @@ struct SettingsView: View {
         // (see `SettingsWindowController.show()`), so this material is the
         // whole visible surface, and clipping it is what rounds all four
         // corners rather than only the two macOS rounds for a titled window.
-        .background(VisualEffect(material: .underWindowBackground))
+        .background {
+            if reduceTransparency {
+                Color(nsColor: .windowBackgroundColor)
+            } else {
+                VisualEffect(material: .underWindowBackground)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: SettingsView.cornerRadius,
                                     style: .continuous))
+        .overlay {
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: SettingsView.cornerRadius,
+                                 style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            }
+        }
         // Without this SwiftUI insets the content by the title bar's height
         // even though the window has none to speak of, and the panel's own
         // rounded top is pushed down leaving a transparent band with the
@@ -224,14 +269,32 @@ struct SettingsView: View {
         .frame(width: SettingsView.sidebarWidth)
         // Liquid Glass, the way System Settings draws its own floating
         // sidebar on this OS — not a flat tint over the window's material.
-        // The glass is what gives the card an edge and a lift of its own, so
-        // there is no border drawn on top of it.
+        // Under reduce-transparency, swap to an opaque solid card with an explicit border.
         .background {
-            Color.clear.glassEffect(
-                .regular,
-                in: RoundedRectangle(cornerRadius: SettingsView.sidebarCornerRadius,
-                                     style: .continuous)
-            )
+            // Reduce-transparency wins outright: it is a request for no
+            // see-through surface at all, which neither glass nor a material
+            // would honour. Only past that does the OS decide which of the
+            // two translucent treatments it can actually draw.
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: SettingsView.sidebarCornerRadius,
+                                 style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SettingsView.sidebarCornerRadius,
+                                         style: .continuous)
+                            .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+                    )
+            } else if #available(macOS 26.0, *) {
+                Color.clear.glassEffect(
+                    .regular,
+                    in: RoundedRectangle(cornerRadius: SettingsView.sidebarCornerRadius,
+                                         style: .continuous)
+                )
+            } else {
+                RoundedRectangle(cornerRadius: SettingsView.sidebarCornerRadius,
+                                 style: .continuous)
+                    .fill(.regularMaterial)
+            }
         }
         .padding(SettingsView.sidebarInset)
     }
@@ -262,7 +325,17 @@ struct SettingsView: View {
                 .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(.primary)
                 .frame(width: 36, height: 36)
-                .background { Color.clear.glassEffect(.regular, in: Circle()) }
+                .background {
+                    if reduceTransparency {
+                        Circle()
+                            .fill(Color(nsColor: .controlBackgroundColor))
+                            .overlay(Circle().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
+                    } else if #available(macOS 26.0, *) {
+                        Color.clear.glassEffect(.regular, in: Circle())
+                    } else {
+                        Circle().fill(.regularMaterial)
+                    }
+                }
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -398,6 +471,12 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                Toggle(L10n.t("Show usage pace"), isOn: $preferences.showUsagePace)
+                Text(L10n.t("Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 Picker(L10n.t("Show"), selection: $preferences.notchVisibility) {
                     ForEach(NotchVisibility.allCases) { Text($0.title).tag($0) }
                 }
@@ -417,6 +496,31 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.t("Size"), selection: $preferences.notchSize) {
+                    ForEach(NotchSize.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+
+                Text(preferences.notchSize.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // The nudge has been draggable since the edge picker existed,
+                // and nothing on screen has ever said so — the only way to
+                // find it was to hold ⌥ on the notch and see what happened.
+                // This is also the only way back from a nudge that went too
+                // far, short of dragging it out again.
+                HStack {
+                    Text(L10n.t("Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button(L10n.t("Recentre"), action: resetPosition)
+                        .controlSize(.small)
+                }
 
                 Picker(L10n.t("Displays"), selection: $preferences.notchScope) {
                     ForEach(NotchScreenScope.allCases) { Text($0.title).tag($0) }
@@ -477,6 +581,16 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.appPresence.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker(L10n.t("Language"), selection: $preferences.language) {
+                    ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+
+                Text(preferences.language.explanation)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -691,7 +805,7 @@ struct SettingsView: View {
     /// this, sees four blank rings and concludes it is broken — and the
     /// distinction that catches them out is Claude *Code*, not the Claude app.
     static var setupCopy: String {
-        L10n.t("Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, GitHub Copilot or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.")
+        L10n.t("Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.")
     }
 
     /// Said before it happens rather than after. A system dialogue asking to
@@ -765,7 +879,16 @@ struct SettingsView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.orange.opacity(0.09), in: RoundedRectangle(cornerRadius: 8))
+        .background(
+            reduceTransparency ? .orange.opacity(0.18) : .orange.opacity(0.09),
+            in: RoundedRectangle(cornerRadius: 8)
+        )
+        .overlay {
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(.orange.opacity(0.4), lineWidth: 1)
+            }
+        }
     }
 
 
@@ -819,6 +942,8 @@ private struct AccentColorSwatch: View {
     let isSelected: Bool
     let select: () -> Void
 
+    @Environment(\.codenotchReduceTransparency) private var reduceTransparency
+
     var body: some View {
         Button(action: select) {
             ZStack {
@@ -826,7 +951,7 @@ private struct AccentColorSwatch: View {
                     .fill(choice.color)
                     .frame(width: 16, height: 16)
                     .overlay {
-                        Circle().strokeBorder(.primary.opacity(0.18), lineWidth: 1)
+                        Circle().strokeBorder(.primary.opacity(reduceTransparency ? 0.35 : 0.18), lineWidth: 1)
                     }
 
                 Circle()
@@ -909,6 +1034,8 @@ private struct AccountRow: View {
     /// Called after this row is switched on, so the list can decide where it
     /// now belongs. The row itself cannot: it can see only itself.
     let didConnect: () -> Void
+
+    @Environment(\.codenotchReduceTransparency) private var reduceTransparency
 
     /// The handle only appears under the pointer, so a row at rest stays as
     /// quiet as it was before there was anything to drag.
@@ -1088,7 +1215,7 @@ private struct AccountRow: View {
             // stayed gone until the pointer left the row and came back. Dimming
             // cannot fail that way — the worst a stale `isHovering` costs now
             // is a little emphasis.
-            .opacity(isHovering ? 1 : 0.4)
+            .opacity(isHovering ? 1 : (reduceTransparency ? 0.7 : 0.4))
             // Tall enough to be part of a real target rather than a 13pt strip
             // floating in the middle of the row.
             .frame(width: 12, height: 22)
@@ -1111,6 +1238,41 @@ private struct AccountRow: View {
                 }
                 .foregroundStyle(.secondary)
                 .help(L10n.t("Fills the ring against a ceiling you choose; Google publishes none for an API key."))
+            }
+            // Ollama owns its credential: the user enters an API key here, stored
+            // in the keychain. The env var OLLAMA_API_KEY is checked first, so a
+            // shell that exports one needs no entry here.
+            if provider.id == "ollama" {
+                ollamaKeyEntry
+            }
+        }
+    }
+
+    /// The API key input for Ollama. Stored in the keychain on Save, then a
+    /// refresh is triggered so the ring picks up the new credential without a
+    /// relaunch.
+    @State private var ollamaKey = ""
+    @State private var ollamaKeySaved = false
+
+    private var ollamaKeyEntry: some View {
+        HStack(spacing: 8) {
+            SecureField("Ollama API key", text: $ollamaKey)
+                .textContentType(.password)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+            Button("Save") {
+                guard !ollamaKey.isEmpty else { return }
+                OllamaCredentials.store(ollamaKey)
+                ollamaKey = ""
+                ollamaKeySaved = true
+                _ = signIn(provider.id)
+            }
+            .controlSize(.small)
+            .disabled(ollamaKey.isEmpty)
+            if ollamaKeySaved {
+                Text("Saved.")
+                    .foregroundStyle(.green)
+                    .controlSize(.small)
             }
         }
     }

@@ -3,28 +3,38 @@ import SQLite3
 
 /// Reads live account limits using the session owned and refreshed by Codex.
 actor CodexLocalProvider: UsageProvider {
-    nonisolated let id = "codex"
-    nonisolated let displayName = "Codex"
+    nonisolated let id: String
+    nonisolated let displayName: String
     nonisolated let glyph = ProviderGlyph.openai
+    nonisolated let profile: CodexProfile
 
     private let session: URLSession
     nonisolated private let authURL: URL
     private let archive: UsageArchive
     private var retryNoEarlierThan: Date?
 
-    init(session: URLSession = .shared,
-         authURL: URL = CodexCredentials.authURL,
+    init(profile: CodexProfile = .default(),
+         session: URLSession = .shared,
+         authURL: URL? = nil,
          archive: UsageArchive = UsageArchive()) {
+        self.profile = profile
+        self.id = profile.id
+        self.displayName = profile.displayName
         self.session = session
-        self.authURL = authURL
+        self.authURL = authURL ?? profile.authURL
         self.archive = archive
         // Recreating the provider or relaunching must not bypass the server's retry deadline.
-        self.retryNoEarlierThan = archive.loadBackoffUntil(providerID: "codex")
+        self.retryNoEarlierThan = archive.loadBackoffUntil(providerID: profile.id)
     }
 
-    nonisolated var signInRoute: SignInRoute { .openApp(bundleID: "com.openai.codex", name: "Codex") }
+    nonisolated var signInRoute: SignInRoute {
+        guard profile.slug != nil else { return .openApp(bundleID: "com.openai.codex", name: "Codex") }
+        return .guidance("Run \(profile.signInCommand) in Terminal to sign in to \(displayName).")
+    }
 
-    nonisolated func account() -> ProviderAccount? { CodexCredentials.account(from: authURL) }
+    nonisolated func account() -> ProviderAccount? {
+        CodexCredentials.account(from: authURL, source: profile.sourceName)
+    }
 
     func fetchSnapshot() async throws -> ProviderSnapshot {
         let now = Date()
@@ -61,13 +71,44 @@ actor CodexLocalProvider: UsageProvider {
         }
 
         let windows = try CodexUsage.windows(from: data)
+
+        // The profile page's token statistics are the source for the chart and
+        // totals.
+        let profileUsage = try? await Self.fetchProfileUsage(
+            session: session, credential: credential
+        )
         retryNoEarlierThan = nil
         archive.saveBackoffUntil(nil, providerID: id)
         return ProviderSnapshot(
             id: id, displayName: displayName, glyph: glyph,
             fidelity: .official, status: .ok, windows: windows,
-            headlineID: windows.first?.id
+            headlineID: windows.first?.id,
+            tokenUsage: profileUsage
         )
+    }
+
+    private static func fetchProfileUsage(
+        session: URLSession,
+        credential: CodexCredentials.Credential
+    ) async throws -> CodexTokenUsage {
+        var request = URLRequest(
+            url: URL(string: "https://chatgpt.com/backend-api/wham/profiles/me")!,
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: 15
+        )
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(credential.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(credential.accountID, forHTTPHeaderField: "ChatGPT-Account-Id")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-cache, no-store", forHTTPHeaderField: "Cache-Control")
+
+        let (data, response) = try await session.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 401 || status == 403 { throw UsageProviderError.needsAuth }
+        guard (200..<300).contains(status) else {
+            throw UsageProviderError.badResponse(status: status)
+        }
+        return try CodexUsage.profileUsage(from: data)
     }
 
     private static func retryAfter(from response: HTTPURLResponse?, now: Date) -> TimeInterval? {
@@ -88,7 +129,7 @@ actor CodexLocalProvider: UsageProvider {
 /// Shared access to Codex's local state.
 enum CodexStore {
     static var stateURL: URL {
-        URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".codex/state_5.sqlite")
+        CodexProfile.default().stateURL
     }
 
     /// The desktop app's own thread catalogue.
@@ -99,8 +140,7 @@ enum CodexStore {
     /// `source_kind = 'chatgpt'`. Watching only the rollouts meant the notch
     /// could never see the desktop app working at all.
     static var desktopStoreURL: URL {
-        URL(fileURLWithPath: NSHomeDirectory())
-            .appendingPathComponent(".codex/sqlite/codex-dev.db")
+        CodexProfile.default().desktopStoreURL
     }
 
     /// The most recently touched desktop thread: when, and what it is called.

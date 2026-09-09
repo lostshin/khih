@@ -10,11 +10,33 @@ enum L10n {
 
     static var bundle: Bundle { Bundle(for: Token.self) }
 
-    /// Tests pin English so existing assertions stay stable on a Chinese Mac.
-    /// The running app uses the system locale.
+    /// Posted after `apply` so windows can rebuild copy. A notification
+    /// rather than an observable object because `t` is called off the main
+    /// actor from providers.
+    static let didChange = Notification.Name("L10nDidChange")
+
+    /// Persistence key for the in-app override. Not `AppleLanguages` — that
+    /// would rewrite AppKit chrome too.
+    static let languageDefaultsKey = "appLanguage"
+
+    /// Tests set this to force a locale; nil means production rules.
+    static var testLocale: Locale?
+
     static var locale: Locale {
-        if NSClassFromString("XCTestCase") != nil {
+        if let testLocale { return testLocale }
+
+        // Existing assertions stay English on a Chinese Mac. A stored
+        // override still wins so a test can pin zh-Hans without testLocale.
+        let stored = UserDefaults.standard.string(forKey: languageDefaultsKey)
+        if NSClassFromString("XCTestCase") != nil,
+           stored == nil || stored == AppLanguage.system.rawValue {
             return Locale(identifier: "en")
+        }
+
+        if let stored,
+           let language = AppLanguage(rawValue: stored),
+           let locale = language.locale {
+            return locale
         }
         return .current
     }
@@ -27,5 +49,16 @@ enum L10n {
         String(localized: LocalizedStringResource(
             key, locale: locale, bundle: .atURL(bundle.bundleURL)
         ))
+    }
+
+    static func apply(_ language: AppLanguage) {
+        // Absence, not the string "system": the XCTest English pin treats a
+        // missing key as follow-the-Mac.
+        if language == .system {
+            UserDefaults.standard.removeObject(forKey: languageDefaultsKey)
+        } else {
+            UserDefaults.standard.set(language.rawValue, forKey: languageDefaultsKey)
+        }
+        NotificationCenter.default.post(name: didChange, object: nil)
     }
 }

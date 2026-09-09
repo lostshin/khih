@@ -28,15 +28,20 @@ enum GrokUsage {
 
         var windows: [LimitWindow] = []
 
-        let creditsReset = date(period(credits["currentPeriod"])?["end"])
-            ?? date(credits["billingPeriodEnd"])
+        let currentPeriod = period(credits["currentPeriod"])
+        let currentEnd = date(currentPeriod?["end"])
+        let creditsReset = currentEnd ?? date(credits["billingPeriodEnd"])
+        let start = currentEnd == nil
+            ? date(credits["billingPeriodStart"]) : date(currentPeriod?["start"])
+        let duration = start.flatMap { start in creditsReset.map { $0.timeIntervalSince(start) } }
 
         if let fraction = percent(credits["creditUsagePercent"]) {
             windows.append(LimitWindow(
                 id: "credits",
                 label: productLabel(credits) ?? L10n.t("Grok Build"),
                 usedFraction: fraction,
-                resetsAt: creditsReset
+                resetsAt: creditsReset,
+                duration: duration
             ))
         } else if let products = credits["productUsage"] as? [[String: Any]] {
             for product in products {
@@ -49,9 +54,27 @@ enum GrokUsage {
                     id: windows.isEmpty ? "credits" : ((product["product"] as? String) ?? name),
                     label: name,
                     usedFraction: fraction,
-                    resetsAt: creditsReset
+                    resetsAt: creditsReset,
+                    duration: duration
                 ))
             }
+        }
+
+        // A weekly plan pool (X Premium+, SuperGrok) states its window in
+        // `currentPeriod` and omits `creditUsagePercent`/`productUsage` until
+        // usage lands, so the branches above find nothing on a fresh period.
+        // Grok's own `/usage` still shows this as a "Weekly limit" bar at 0%
+        // with the period end as the reset, so mirror it rather than reporting
+        // the account as unmetered.
+        if windows.isEmpty,
+           let weekly = period(credits["currentPeriod"]),
+           (weekly["type"] as? String).map({ $0.contains("WEEKLY") }) == true {
+            windows.append(LimitWindow(
+                id: "credits",
+                label: "Weekly limit",
+                usedFraction: 0,
+                resetsAt: date(weekly["end"]) ?? creditsReset
+            ))
         }
 
         guard !windows.isEmpty else {

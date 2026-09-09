@@ -82,6 +82,33 @@ final class PanelOffsetTests: XCTestCase {
         visibleFrameValue: CGRect(x: 0, y: 0, width: 1800, height: 1132)
     )
 
+    @MainActor
+    func testDraggingToTheTrailingEndKeepsTheSettingsHandleOnScreen() {
+        let secondary = FakeScreen(
+            frameValue: CGRect(x: -1800, y: -200, width: 1800, height: 1169),
+            visibleFrameValue: CGRect(x: -1800, y: -200, width: 1800, height: 1132)
+        )
+        for display in [screen, secondary] {
+            for edge in NotchEdge.allCases {
+                let model = NotchViewModel()
+                model.edge = edge
+                let frame = NotchGeometry.panelFrame(
+                    for: display, panelSize: model.panelSize, edge: edge,
+                    alongOffset: 10_000, slack: model.slack,
+                    trailingExtent: model.trailingExtent
+                )
+                let handleEnd = model.slack + model.orbAlong + NotchLayout.orbHotZone / 2
+                if edge.isVertical {
+                    XCTAssertGreaterThanOrEqual(frame.maxY - handleEnd,
+                                                display.frameValue.minY - 0.5)
+                } else {
+                    XCTAssertLessThanOrEqual(frame.minX + handleEnd,
+                                             display.frameValue.maxX + 0.5)
+                }
+            }
+        }
+    }
+
     func testZeroOffsetChangesNothing() {
         let size = CGSize(width: 334, height: 484)
         let centred = NotchGeometry.panelFrame(for: screen, panelSize: size, edge: .right)
@@ -190,5 +217,37 @@ final class PanelEdgeTests: XCTestCase {
             panelSize: CGSize(width: 334.3247863247863, height: 205.182905982906)
         )
         XCTAssertEqual(frame.maxX, 0, accuracy: 0.0001)
+    }
+}
+
+/// The size choice reaches the screen in the notch's own measurements, never
+/// in the tooltip's. These pin the seam between the two.
+final class ScaledMeasurementTests: XCTestCase {
+    /// A scaled panel is still a panel: it has to land flush on the bezel like
+    /// any other, or a large notch floats a hairline off the edge.
+    func testAScaledPanelStillLandsFlushOnTheEdge() {
+        let screen = FakeScreen(frameValue: CGRect(x: 0, y: 0, width: 1800, height: 1000),
+                                visibleFrameValue: CGRect(x: 0, y: 0, width: 1800, height: 1000))
+        let frame = NotchGeometry.panelFrame(
+            for: screen,
+            panelSize: CGSize(width: 200, height: 750),
+            edge: .right
+        )
+
+        XCTAssertEqual(frame.maxX, 1800, accuracy: 0.001)
+    }
+
+    /// The notch's own end margin scales; the room reserved for the card does
+    /// not. Scaling both would reserve space for a card that is never that big,
+    /// and at the small end would reserve less than the card needs.
+    func testSlackScalesTheNotchsMarginAndNotTheCards() {
+        let cardBound = NotchLayout.slack(for: .right, maxCardHeight: 2000)
+        XCTAssertEqual(NotchLayout.slack(for: .right, maxCardHeight: 2000, notchScale: 0.8),
+                       cardBound,
+                       "the card's half-extent was scaled with the notch")
+
+        let marginBound = NotchLayout.slack(for: .right, maxCardHeight: 0)
+        XCTAssertEqual(NotchLayout.slack(for: .right, maxCardHeight: 0, notchScale: 2),
+                       marginBound * 2, accuracy: 0.001)
     }
 }

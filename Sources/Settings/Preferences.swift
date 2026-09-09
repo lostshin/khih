@@ -6,6 +6,8 @@ import os
 /// What the user has chosen, kept in `UserDefaults`.
 @MainActor
 final class Preferences: ObservableObject {
+    static let showUsagePaceKey = "showUsagePace"
+
     /// Providers the user has switched off. Stored as the *disconnected* set
     /// rather than the connected one, so a provider added in a later version is
     /// on by default instead of silently staying dark.
@@ -46,6 +48,11 @@ final class Preferences: ObservableObject {
     /// Which screen edge the notch is welded to.
     @Published var notchEdge: NotchEdge {
         didSet { defaults.set(notchEdge.rawValue, forKey: Keys.edge) }
+    }
+
+    /// How large the notch is drawn.
+    @Published var notchSize: NotchSize {
+        didSet { defaults.set(notchSize.rawValue, forKey: Keys.size) }
     }
 
     /// The display the notch stays on, or the original focus-following behaviour.
@@ -89,9 +96,21 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(resetTimeFormat.rawValue, forKey: Keys.resetTimeFormat) }
     }
 
+    @Published var showUsagePace: Bool {
+        didSet { defaults.set(showUsagePace, forKey: Self.showUsagePaceKey) }
+    }
+
     /// The colour used for positive usage and active-work indicators.
     @Published var accentColor: AccentColorChoice {
         didSet { defaults.set(accentColor.rawValue, forKey: Keys.accentColor) }
+    }
+
+    /// The language the app itself speaks.
+    ///
+    /// `.system` follows the Mac. Written through `L10n.apply` so the store
+    /// and the change notification stay a single write.
+    @Published var language: AppLanguage {
+        didSet { L10n.apply(language) }
     }
 
     /// Where the app itself shows up: Dock, menu bar, or nowhere.
@@ -184,6 +203,8 @@ final class Preferences: ObservableObject {
         static let visibility = "notchVisibility"
         static let presence = "appPresence"
         static let edge = "notchEdge"
+        // A new key, so there is nothing under the old app name to migrate.
+        static let size = "notchSize"
         static let display = "notchDisplay"
         static let resetTimeFormat = "resetTimeFormat"
         static let scope = "notchScope"
@@ -265,10 +286,15 @@ final class Preferences: ObservableObject {
         // side of a Mac that no system chrome claims by default.
         self.notchEdge = defaults.string(forKey: Keys.edge)
             .flatMap(NotchEdge.init(rawValue:)) ?? .right
+        // Medium is the design frame at 1:1, so an install that predates this
+        // choice keeps exactly the notch it already had.
+        self.notchSize = defaults.string(forKey: Keys.size)
+            .flatMap(NotchSize.init(rawValue:)) ?? .medium
         self.displayPreference = defaults.string(forKey: Keys.display)
             .map(DisplayPreference.display) ?? .followActiveWindow
         self.resetTimeFormat = defaults.string(forKey: Keys.resetTimeFormat)
             .flatMap(ResetTimeFormat.init(rawValue:)) ?? .automatic
+        self.showUsagePace = defaults.bool(forKey: Self.showUsagePaceKey)
         // Absent means never chosen. Main display only, because that is what a
         // single-panel setup always did — all-displays on a fresh install
         // would put notches where none were expected.
@@ -277,6 +303,9 @@ final class Preferences: ObservableObject {
         // Follow the Mac unless the user explicitly chooses a Codenotch colour.
         self.accentColor = defaults.string(forKey: Keys.accentColor)
             .flatMap(AccentColorChoice.init(rawValue:)) ?? .system
+        // Absent means never chosen, which is follow-the-Mac.
+        self.language = defaults.string(forKey: L10n.languageDefaultsKey)
+            .flatMap(AppLanguage.init(rawValue:)) ?? .system
         // Absent means nothing has been shown yet, which is true of a fresh
         // install — so the current release reads as new to it.
         self.lastSeenVersion = defaults.string(forKey: Keys.lastSeenVersion)

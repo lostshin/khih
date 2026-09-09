@@ -73,6 +73,7 @@ enum Percent {
 /// and the longer all-models window), others have one.
 struct LimitWindow: Identifiable, Codable, Equatable {
     let id: String
+    let group: String?
     let label: String
     /// 0...1+, where 1 means the limit is spent. Nil when the provider reports
     /// what is left but never says what the limit was — Perplexity does exactly
@@ -86,14 +87,20 @@ struct LimitWindow: Identifiable, Codable, Equatable {
     /// Nil when the provider does not say when the window rolls over.
     let resetsAt: Date?
 
-    init(id: String, label: String, usedFraction: Double? = nil,
-         remaining: Int? = nil, used: Int? = nil, resetsAt: Date? = nil) {
+    /// Exact cycle length when known; optional to keep older archives readable.
+    let duration: TimeInterval?
+
+    init(id: String, group: String? = nil, label: String, usedFraction: Double? = nil,
+         remaining: Int? = nil, used: Int? = nil, resetsAt: Date? = nil,
+         duration: TimeInterval? = nil) {
         self.id = id
+        self.group = group
         self.label = label
         self.usedFraction = usedFraction
         self.remaining = remaining
         self.used = used
         self.resetsAt = resetsAt
+        self.duration = duration
     }
 
     /// A count short enough to sit inside a 44 pt ring.
@@ -122,13 +129,13 @@ struct LimitWindow: Identifiable, Codable, Equatable {
             return L10n.t("\(halves.used)% Used · \(halves.left)% left", locale: locale)
         }
         if let remaining {
-            return remaining == 1
-                ? L10n.t("1 left", locale: locale)
+            return remaining < 10_000
+                ? L10n.t("\(remaining) left", locale: locale)
                 : L10n.t("\(Self.compact(remaining)) left", locale: locale)
         }
         if let used {
-            return used == 1
-                ? L10n.t("1 used", locale: locale)
+            return used < 10_000
+                ? L10n.t("\(used) used", locale: locale)
                 : L10n.t("\(Self.compact(used)) used", locale: locale)
         }
         return L10n.t("No reading", locale: locale)
@@ -182,6 +189,11 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// Set when something is blocked right now. Deliberately separate from the
     /// windows: it is not a measurement, it is a door being shut.
     var block: UsageBlock?
+    /// Codex's account-wide token activity, when its profile endpoint returned
+    /// it. The optional top model is an enrichment from the desktop breakdown
+    /// endpoint; it never changes the profile token buckets. Other providers
+    /// leave this nil because they do not expose the same account-level data.
+    var tokenUsage: CodexTokenUsage? = nil
 
     /// The number on the cell: the provider's declared primary window — for
     /// Claude, the current session.
@@ -213,6 +225,12 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// a dash rather than an authoritative-looking 0%.
     var hasReading: Bool { !windows.isEmpty }
 
+    /// How many windows are count-only (no fraction, no bar) — they render as
+    /// single-line rows and take less vertical space than full bar rows.
+    var compactRowCount: Int {
+        windows.filter { $0.usedFraction == nil && $0.used != nil }.count
+    }
+
     /// A ring can only be drawn when the provider said what the limit was.
     var ringFraction: Double? { usedFraction }
 
@@ -229,10 +247,18 @@ struct ProviderSnapshot: Identifiable, Equatable {
             return L10n.t("Sign in to Claude Code in ~/.claude-\(slug) to read your usage", locale: locale)
         case "cursor":     return L10n.t("Sign in to Cursor in the editor", locale: locale)
         case "codex":      return L10n.t("Sign in to Codex to read your usage", locale: locale)
+        case _ where CodexProfile.slug(fromProviderID: id) != nil:
+            let slug = CodexProfile.slug(fromProviderID: id)!
+            return L10n.t("Sign in to Codex in ~/.codex-\(slug) to read your usage", locale: locale)
         case "gemini":     return L10n.t("Sign in to Antigravity to read your usage", locale: locale)
         case "glm":        return L10n.t("Set up a GLM Coding Plan key for a coding tool to read your usage", locale: locale)
         case "copilot":    return L10n.t("Sign in with GitHub CLI to read your Copilot usage", locale: locale)
         case "opencode":   return L10n.t("Connect the Go plan in OpenCode to read your usage", locale: locale)
+        case "commandcode": return L10n.t("Sign in with the Command Code app to read your usage", locale: locale)
+        // Two Ollamas, and they are stuck for different reasons: the hosted
+        // one wants a key, the local one wants the daemon running.
+        case "ollama":       return L10n.t("Enter an Ollama API key in Settings, or export OLLAMA_API_KEY", locale: locale)
+        case "ollama-local": return L10n.t("Start Ollama to monitor your local models", locale: locale)
         default:           return L10n.t("Sign in to \(displayName) to read your usage", locale: locale)
         }
     }

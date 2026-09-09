@@ -16,6 +16,18 @@ final class TooltipRenderTests: XCTestCase {
                      since: Date().addingTimeInterval(Double(-minutes) * 60))
     }
 
+    func testUsagePaceFitsTheExistingSummaryLine() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = LimitWindow(id: "weekly", label: "Weekly limit", usedFraction: 1,
+                                 resetsAt: now.addingTimeInterval(604800), duration: 604800)
+        let pace = try XCTUnwrap(window.usagePace(now: now))
+        let summary = "\(window.summary) · \(pace.summary)"
+        XCTAssertEqual(summary, "100% Used · 0% left · 100% deficit")
+        let font = NSFont.systemFont(ofSize: Design.fontSize(capPixels: 18))
+        let width = (summary as NSString).size(withAttributes: [.font: font]).width
+        XCTAssertLessThanOrEqual(width * 0.85, NotchLayout.cardTextWidth)
+    }
+
     func testTheCardLaysOutEverySessionState() throws {
         let snapshot = ProviderSnapshot(
             id: "claude", displayName: "Claude", glyph: .claude,
@@ -43,6 +55,49 @@ final class TooltipRenderTests: XCTestCase {
         XCTAssertGreaterThan(image.size.width, NotchLayout.cardWidth)
 
         if let path = ProcessInfo.processInfo.environment["TOOLTIP_RENDER_PATH"] {
+            let tiff = try XCTUnwrap(image.tiffRepresentation)
+            let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?
+                .representation(using: .png, properties: [:]))
+            try png.write(to: URL(fileURLWithPath: path))
+        }
+    }
+
+    func testCodexCardRendersAccountActivity() throws {
+        let usage = CodexTokenUsage(
+            summary: .init(lifetimeTokens: 280_000, peakDailyTokens: 150_000,
+                            longestRunningTurnSeconds: 4020,
+                            currentStreakDays: 2, longestStreakDays: 11),
+            dailyUsageBuckets: [
+                .init(startDate: "2026-08-25", tokens: 48_000),
+                .init(startDate: "2026-09-03", tokens: 192_000),
+                .init(startDate: "2026-09-08", tokens: 40_000)
+            ]
+        )
+        let snapshot = ProviderSnapshot(
+            id: "codex", displayName: "Codex", glyph: .openai,
+            fidelity: .official, status: .ok,
+            windows: [
+                LimitWindow(id: "primary", label: "5h limit", usedFraction: 0),
+                LimitWindow(id: "secondary", label: "Weekly limit", usedFraction: 0.28)
+            ],
+            tokenUsage: usage
+        )
+        let calendar = Calendar(identifier: .gregorian)
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 9))!
+        let view = TooltipCard(snapshot: snapshot, now: now)
+            .padding(20)
+            .background(Color.black)
+
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 3
+        let image = try XCTUnwrap(renderer.nsImage)
+        XCTAssertGreaterThan(
+            image.size.height,
+            NotchLayout.cardHeight(windowCount: 2) + NotchLayout.codexChartHeight,
+            "the account activity section was not included in the rendered card"
+        )
+
+        if let path = ProcessInfo.processInfo.environment["CODEX_TOOLTIP_RENDER_PATH"] {
             let tiff = try XCTUnwrap(image.tiffRepresentation)
             let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?
                 .representation(using: .png, properties: [:]))

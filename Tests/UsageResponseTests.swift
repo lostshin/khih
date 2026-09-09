@@ -44,6 +44,7 @@ final class UsageResponseTests: XCTestCase {
     func testDecodesTheLiveShape() throws {
         let windows = try decode(live).limitWindows()
         XCTAssertEqual(windows.count, 2)
+        XCTAssertEqual(windows.map(\.duration), [18000, 604800])
         XCTAssertEqual(windows[0].id, "session")
         XCTAssertEqual(windows[0].label, "Current session")
         XCTAssertEqual(windows[0].usedFraction ?? -1, 0.52, accuracy: 0.0001)
@@ -216,6 +217,28 @@ final class UsageArchiveTests: XCTestCase {
         XCTAssertEqual(restored?.snapshot.windows.first?.usedFraction, 0.68)
         XCTAssertEqual(restored?.snapshot.displayName, "Claude")
         XCTAssertEqual(restored?.fetchedAt, taken)
+    }
+
+    func testCodexDailyUsageRoundTripsWithTheQuotaReading() {
+        let defaults = makeDefaults()
+        let usage = CodexTokenUsage(
+            summary: .init(lifetimeTokens: 90, peakDailyTokens: 90,
+                            longestRunningTurnSeconds: 3600,
+                            currentStreakDays: 1, longestStreakDays: 3),
+            dailyUsageBuckets: [.init(
+                startDate: "2026-09-08", tokens: 90
+            )]
+        )
+        let snapshot = ProviderSnapshot(
+            id: "codex", displayName: "Codex", glyph: .openai,
+            fidelity: .official, status: .ok,
+            windows: [LimitWindow(id: "primary", label: "5h limit", usedFraction: 0.2)],
+            tokenUsage: usage
+        )
+        UsageArchive(defaults: defaults).save(["codex": (snapshot, Date())])
+
+        let restored = UsageArchive(defaults: defaults).load()["codex"]?.snapshot
+        XCTAssertEqual(restored?.tokenUsage, usage)
     }
 
     /// A restored reading is never presented as live.

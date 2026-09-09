@@ -17,6 +17,7 @@ final class CodexUsageTests: XCTestCase {
          "code_review_rate_limit":{"primary_window":{"used_percent":90,"limit_window_seconds":604800}},
          "credits":{"balance":"100"},"model_usage":{"spark":99}}
         """)
+        XCTAssertEqual(result.map(\.duration), [18000, 604800])
         XCTAssertEqual(result.map(\.id), ["primary", "secondary"])
         XCTAssertEqual(result.map(\.label), ["5h limit", "Weekly limit"])
         XCTAssertEqual(result.map(\.usedFraction), [0.25, 0.10])
@@ -38,6 +39,20 @@ final class CodexUsageTests: XCTestCase {
         XCTAssertEqual(result.map(\.id), ["primary"])
         XCTAssertEqual(result.first?.label, "Monthly limit")
         XCTAssertEqual(result.first?.usedFraction ?? -1, 0.16, accuracy: 0.0001)
+    }
+
+    func testPaceUsesTheReportedCycleRegardlessOfPlanName() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        for seconds in [18000, 604800, 2592000] {
+            let result = try CodexUsage.windows(from: Data("""
+            {"rate_limit":{"primary_window":{"used_percent":80,
+            "limit_window_seconds":\(seconds),"reset_after_seconds":\(seconds / 2)}}}
+            """.utf8), now: now)
+            let window = try XCTUnwrap(result.first)
+            XCTAssertEqual(window.duration, Double(seconds))
+            XCTAssertEqual(try XCTUnwrap(window.usagePace(now: now)).percentagePoints, 30,
+                           accuracy: 0.00001)
+        }
     }
 
     /// A duration that is none of the named buckets still gets a usable label
@@ -66,6 +81,7 @@ final class CodexUsageTests: XCTestCase {
         "primary_window":{"used_percent":8,"limit_window_seconds":604800},
         "secondary_window":{"used_percent":0,"limit_window_seconds":18000,"reset_after_seconds":120}}}
         """)
+        XCTAssertEqual(result.map(\.duration), [604800, 18000])
         XCTAssertEqual(result.map(\.id), ["primary", "secondary"])
         XCTAssertEqual(result.first?.usedFraction, 0.08)
         XCTAssertNil(result.first?.resetsAt)
@@ -110,6 +126,55 @@ final class CodexUsageTests: XCTestCase {
           "secondary_window":null}}
         """))
     }
+
+    func testDecodesProfileTokenUsageAndBuildsAThirtyDaySeries() throws {
+        let json = """
+        {"profile":{"display_name":"Test"},
+         "stats":{"lifetime_tokens":1200,"peak_daily_tokens":300,
+         "longest_running_turn_sec":4020,"current_streak_days":2,"longest_streak_days":11,
+         "daily_usage_buckets":[
+           {"start_date":"2026-08-12","tokens":100},
+           {"start_date":"2026-09-03","tokens":200},
+           {"start_date":"2026-09-08","tokens":300}
+         ]}}
+        """
+        let usage = try CodexUsage.profileUsage(from: Data(json.utf8))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 9))!
+
+        XCTAssertEqual(usage.last30Days(now: now, calendar: calendar).count, 30)
+        XCTAssertEqual(usage.last30Days(now: now, calendar: calendar).first?.startDate,
+                       "2026-08-11")
+        XCTAssertEqual(usage.usageInLast30Days(now: now, calendar: calendar), 600)
+        XCTAssertEqual(usage.peakDailyTokens, 300)
+        XCTAssertEqual(usage.summary?.lifetimeTokens, 1200)
+        XCTAssertEqual(usage.summary?.peakDailyTokens, 300)
+        XCTAssertEqual(usage.summary?.longestRunningTurnSeconds, 4020)
+        XCTAssertEqual(usage.summary?.currentStreakDays, 2)
+        XCTAssertEqual(usage.summary?.longestStreakDays, 11)
+        XCTAssertEqual(usage.usageToday(now: now, calendar: calendar), nil,
+                       "a missing current-day bucket should be shown as Pending")
+    }
+
+    func testAccountUsageCardGetsRoomForTheActivitySection() {
+        let plain = NotchLayout.cardHeight(windowCount: 2)
+        let withTokens = NotchLayout.cardHeight(windowCount: 2, hasTokenUsage: true)
+
+        XCTAssertGreaterThan(withTokens, plain)
+        XCTAssertEqual(
+            withTokens - plain,
+            NotchLayout.codexUsageTop + NotchLayout.hairline + NotchLayout.blockSpacing
+                + NotchLayout.codexMetricTop + NotchLayout.codexMetricHeight
+                + NotchLayout.codexMetricBottom
+                + NotchLayout.hairline
+                + 2 * NotchLayout.cardBodyLineHeight
+                + NotchLayout.codexUsageRowGap
+                + NotchLayout.codexChartTop + NotchLayout.codexChartHeight,
+            accuracy: 0.001
+        )
+    }
+
 }
 
 /// The activity signal is a heuristic — a rollout written moments ago — so what
@@ -277,4 +342,3 @@ final class UsageBlockTests: XCTestCase {
         )
     }
 }
-

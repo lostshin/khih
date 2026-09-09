@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// provider and a session monitor of its own, keyed by the same id, so a
     /// work login's sessions spin the work ring and nobody else's.
     private let claudeProfiles = ClaudeProfile.discover()
+    private let codexProfiles = CodexProfile.discover()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Set here, not in the Info.plist: this call is applied at launch and
@@ -79,11 +80,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // it drew every provider from the archive and only dropped the
             // switched-off ones once the binding below delivered.
             Log.usage.info("claude profiles: \(self.claudeProfiles.map(\.displayPath).joined(separator: ", "), privacy: .public)")
+            Log.usage.info("codex profiles: \(self.codexProfiles.map(\.displayPath).joined(separator: ", "), privacy: .public)")
             let store = UsageStore(
                 providers: claudeProfiles.map { ClaudeOAuthProvider(profile: $0) }
-                    + [CursorLocalProvider(), CodexLocalProvider(), AntigravityProvider(),
+                    + [CursorLocalProvider()]
+                    + codexProfiles.map { CodexLocalProvider(profile: $0) }
+                    + [AntigravityProvider(),
                        GLMProvider(), GrokLocalProvider(), OpenCodeProvider(),
-                       GitHubCopilotProvider(),
+                       CommandCodeProvider(), GitHubCopilotProvider(),
+                       OllamaLocalProvider(), OllamaProvider(),
                        // A closure, not the value: the provider is an actor and
                        // re-reads the budget on every fetch, so a ceiling typed
                        // into Settings applies without a restart.
@@ -114,7 +119,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 switchAccount: { [weak store] in
                     store?.openAccountSource(providerID: $0) ?? false
                 },
-                retry: { [weak store] in store?.reauthorize(providerID: $0) }
+                retry: { [weak store] in store?.reauthorize(providerID: $0) },
+                // Both halves, because the stored nudge and the live one are
+                // kept apart on purpose — clearing only the preference would
+                // leave the notch where it is until the next edge change, and
+                // moving only the panel would put it back on relaunch.
+                resetPosition: { [weak fleet, weak preferences] in
+                    preferences?.setOffset(0, for: preferences?.notchEdge ?? .right)
+                    fleet?.apply(alongOffset: 0)
+                }
             )
             fleet.onOpenSettings = { [weak settings] in settings?.show() }
             self.settings = settings
@@ -169,6 +182,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     fleet?.apply(alongOffset: preferences?.offset(for: edge) ?? 0)
                     fleet?.apply(edge: edge)
                 }
+                .store(in: &cancellables)
+
+            preferences.$notchSize
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.apply(size: $0) }
                 .store(in: &cancellables)
 
             preferences.$notchScope
@@ -263,13 +281,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // still working without you switching to it.
         var monitors: [String: any AgentActivityMonitor] = [
             "cursor": CursorActivityMonitor(),
-            "codex": CodexActivityMonitor(),
             "gemini": AntigravityActivityMonitor(),
             "grok": GrokActivityMonitor(),
-            "gemini-api": GeminiCLIActivityMonitor()
+            "gemini-api": GeminiCLIActivityMonitor(),
+            "ollama": OllamaActivityMonitor(),
+            "ollama-local": OllamaActivityMonitor()
         ]
         for profile in claudeProfiles {
-            monitors[profile.id] = ClaudeSessionMonitor(directory: profile.sessionsDirectory)
+            monitors[profile.id] = ClaudeSessionMonitor(
+                directory: profile.sessionsDirectory,
+                projects: profile.projectsDirectory
+            )
+        }
+        for profile in codexProfiles {
+            monitors[profile.id] = CodexActivityMonitor(profile: profile)
         }
         for (id, monitor) in monitors {
             monitor.sessionsPublisher
@@ -304,6 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // so this has to be the very last thing that can create one.
         fleet.apply(displayPreference: preferences.displayPreference)
         fleet.apply(alongOffset: preferences.offset(for: preferences.notchEdge))
+        fleet.apply(size: preferences.notchSize)
         fleet.apply(resetTimeFormat: preferences.resetTimeFormat)
         fleet.apply(accentColor: preferences.accentColor)
         fleet.show()

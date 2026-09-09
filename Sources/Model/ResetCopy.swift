@@ -68,15 +68,7 @@ enum ResetCopy {
             return L10n.t("Resets \(formatter.string(from: resetsAt))", locale: locale)
         }
 
-        // English keeps a literal pattern so the separator stays a colon
-        // ("Thu 12:00 AM"); a localised template yields "12.00 AM" in some
-        // regions, and Claude's own panel writes the colon. Other languages
-        // take the locale's template.
-        if locale.language.languageCode?.identifier == "en" {
-            formatter.dateFormat = "E h:mm a"
-        } else {
-            formatter.setLocalizedDateFormatFromTemplate("E h:mm a")
-        }
+        formatter.setLocalizedDateFormatFromTemplate("E h:mm a")
         return L10n.t("Resets \(formatter.string(from: resetsAt))", locale: locale)
     }
 

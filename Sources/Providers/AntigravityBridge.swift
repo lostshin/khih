@@ -139,6 +139,7 @@ enum AntigravityBridge {
                 let displayName: String?
                 let remainingFraction: Double?
                 let resetTime: String?
+                let window: String?
             }
             struct Group: Decodable {
                 let displayName: String?
@@ -157,13 +158,22 @@ enum AntigravityBridge {
                 guard let remaining = bucket.remainingFraction,
                       remaining >= 0, remaining <= 1
                 else { return nil }
+                let id = bucket.bucketId ?? group.displayName ?? "quota"
+                
+                var bucketLabel = bucket.displayName ?? "Usage"
+                if bucketLabel.hasSuffix(" Remaining") {
+                    bucketLabel = String(bucketLabel.dropLast(" Remaining".count))
+                }
+                
+                let groupLabel = group.displayName ?? ""
+
                 return LimitWindow(
-                    id: bucket.bucketId ?? group.displayName ?? "quota",
-                    // The group names the models; the bucket only ever says
-                    // "Weekly Limit Remaining", which is the same for both.
-                    label: group.displayName ?? bucket.displayName ?? "Usage",
+                    id: id,
+                    group: groupLabel.isEmpty ? nil : groupLabel,
+                    label: bucketLabel,
                     usedFraction: 1 - remaining,
-                    resetsAt: bucket.resetTime.flatMap(AntigravityCredentials.parse)
+                    resetsAt: bucket.resetTime.flatMap(AntigravityCredentials.parse),
+                    duration: bucket.window == "weekly" ? 7 * 86400 : nil
                 )
             }
         }

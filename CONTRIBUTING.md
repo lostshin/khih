@@ -43,6 +43,19 @@ credentials only the maintainer has. You won't need it to contribute.
   visible, honest status — `stale`, `needsAuth`, `accessDenied`, `error` — and
   never invent a number. See `UsageProviderError` and `ProviderStatus`.
 
+## Visible copy
+
+- User-visible strings (settings, menus, tooltips, notifications, What's New,
+  provider labels and status) go through `L10n.t("English source")`. The
+  English source **is** the key.
+- Add a `zh-Hans` entry in `Sources/Localizable.xcstrings` in the same change.
+  Missing translations fall back to English; missing keys should fail tests.
+- Don't freeze `L10n.t` in a `static let` — lookup has to see the current
+  language.
+- Follow System plus the in-app Language setting; don't set `AppleLanguages`.
+- Windows `windows/codenotch/src/i18n.rs` is a separate system — don't merge
+  the two.
+
 ## Adding a provider
 
 Implement `UsageProvider` (`Sources/Providers/UsageProvider.swift`). At
