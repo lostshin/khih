@@ -34,22 +34,20 @@ final class HardwareNotchGeometryTests: XCTestCase {
                        "it stopped below the menu bar instead of meeting the notch")
     }
 
-    /// With nothing to merge with, covering the menu bar is pure cost.
-    func testWithoutOneItStillSitsBelowTheMenuBar() {
+    func testWithoutOneItStillReachesThePhysicalTopEdge() {
         let frame = NotchGeometry.panelFrame(for: plain, panelSize: size, edge: .top)
-        XCTAssertEqual(frame.maxY, plain.visibleFrameValue.maxY, accuracy: 0.001)
+        XCTAssertEqual(frame.maxY, plain.frameValue.maxY, accuracy: 0.001)
     }
 
-    /// Only the top edge merges. The others have nothing to merge with, and a
-    /// bottom notch still has a Dock to keep clear of.
+    /// Hardware merging only affects the top edge.
     func testTheOtherEdgesAreUnaffectedByIt() {
         XCTAssertEqual(
             NotchGeometry.panelFrame(for: notched, panelSize: size, edge: .bottom).minY,
-            notched.visibleFrameValue.minY, accuracy: 0.001
+            notched.frameValue.minY, accuracy: 0.001
         )
         XCTAssertEqual(
             NotchGeometry.panelFrame(for: notched, panelSize: CGSize(width: 300, height: 700), edge: .right).maxX,
-            notched.visibleFrameValue.maxX, accuracy: 0.001
+            notched.frameValue.maxX, accuracy: 0.001
         )
     }
 

@@ -85,3 +85,20 @@ final class PreferencesMigrationTests: XCTestCase {
         XCTAssertEqual(NotchSize.medium.scale, 1)
     }
 }
+
+@MainActor
+final class NotchPositionPersistenceTests: XCTestCase {
+    func testEachEdgesPositionSurvivesReopeningPreferences() throws {
+        let name = "NotchPositionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = Preferences(defaults: defaults)
+        for (index, edge) in NotchEdge.allCases.enumerated() {
+            preferences.setOffset(CGFloat(index * 150 - 225), for: edge)
+        }
+        let reopened = Preferences(defaults: defaults)
+        for (index, edge) in NotchEdge.allCases.enumerated() {
+            XCTAssertEqual(reopened.offset(for: edge), CGFloat(index * 150 - 225))
+        }
+    }
+}

@@ -77,6 +77,7 @@ private struct TooltipShell<Content: View>: View {
     let height: CGFloat
     /// Which side of the notch the card is on, so the tail goes on the other one.
     let direction: NotchEdge.TooltipDirection
+    var tailOffset: CGFloat = 0
     @ViewBuilder let content: Content
 
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
@@ -119,6 +120,8 @@ private struct TooltipShell<Content: View>: View {
         return TooltipTail(direction: direction)
             .fill(Palette.card)
             .frame(width: size.width, height: size.height)
+            .offset(x: direction == .up || direction == .down ? tailOffset : 0,
+                    y: direction == .leading || direction == .trailing ? tailOffset : 0)
     }
 
     var body: some View {
@@ -385,7 +388,7 @@ private struct ProviderTooltip: View {
                                     .fontWeight(.semibold)
                                     .foregroundStyle(Palette.textPrimary)
                                     .padding(.leading, Design.px(4))
-                                
+
                                 VStack(alignment: .leading, spacing: NotchLayout.blockSpacing) {
                                     ForEach(Array(group.windows.enumerated()), id: \.element.id) { windowIndex, window in
                                         LimitWindowRow(window: window, inset: 2 * Design.px(16), fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat, showsUsagePace: showUsagePace)
@@ -695,26 +698,15 @@ struct TooltipCard: View {
     /// rather than fixed, so a big screen hides nothing.
     var sessionCap: Int = NotchLayout.defaultSessionCap
     var resetTimeFormat: ResetTimeFormat = .automatic
+    var tailOffset: CGFloat = 0
     @AppStorage(Preferences.showUsagePaceKey) private var showUsagePace = false
-
-    private var groupCount: Int {
-        var groups = Set<String>()
-        var count = 0
-        for window in snapshot.windows {
-            if let group = window.group, !groups.contains(group) {
-                groups.insert(group)
-                count += 1
-            }
-        }
-        return count
-    }
 
     /// The same figure the hover region uses, so what is drawn and what is
     /// reachable can never drift apart.
     private var height: CGFloat {
         NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
-            groupCount: groupCount,
+            groupCount: snapshot.windowGroupCount,
             sessionCount: activity?.sessions.count ?? 0,
             sessionCap: sessionCap,
             statusMessage: snapshot.statusMessage,
@@ -725,7 +717,7 @@ struct TooltipCard: View {
     }
 
     var body: some View {
-        TooltipShell(height: height, direction: direction) {
+        TooltipShell(height: height, direction: direction, tailOffset: tailOffset) {
             // Stacked, not replaced in place: during a swap both sets of rows
             // exist for a moment, and in a ZStack they overlap and dissolve
             // instead of shoving each other around. Top-aligned so neither

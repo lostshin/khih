@@ -63,7 +63,8 @@ struct NotchRootView: View {
                         now: model.now,
                         direction: model.edge.tooltipDirection,
                         sessionCap: model.sessionCap,
-                        resetTimeFormat: model.resetTimeFormat
+                        resetTimeFormat: model.resetTimeFormat,
+                        tailOffset: tooltipTailOffset(index: index, snapshot: snapshot)
                     )
                         // Deliberately *no* `.id` here: the card is one object
                         // that travels and resizes between cells, which reads
@@ -214,6 +215,26 @@ struct NotchRootView: View {
         )
     }
 
+    private func tooltipLength(_ snapshot: ProviderSnapshot) -> CGFloat {
+        model.edge.isVertical
+            ? NotchLayout.cardHeight(
+                windowCount: snapshot.windows.count,
+                groupCount: snapshot.windowGroupCount,
+                sessionCount: model.activity(for: snapshot.id)?.sessions.count ?? 0,
+                sessionCap: model.sessionCap,
+                statusMessage: snapshot.statusMessage,
+                blockMessage: snapshot.block?.summary(now: model.now),
+                hasTokenUsage: snapshot.tokenUsage != nil,
+                compactRowCount: snapshot.compactRowCount
+            )
+            : NotchLayout.cardWidth
+    }
+
+    private func tooltipTailOffset(index: Int, snapshot: ProviderSnapshot) -> CGFloat {
+        model.slack + model.ringCenter(index: index) * model.sizeScale
+            - model.tooltipAlong(index: index, length: tooltipLength(snapshot))
+    }
+
     /// The tooltip is the card plus its tail; `position` centres that pair, so
     /// the tail lands on the hovered cell and the card sits beyond it.
     private func tooltipCentre(
@@ -223,17 +244,19 @@ struct NotchRootView: View {
             ? NotchLayout.cardWidth
             : NotchLayout.cardHeight(
                 windowCount: snapshot.windows.count,
+                groupCount: snapshot.windowGroupCount,
                 sessionCount: model.activity(for: snapshot.id)?.sessions.count ?? 0,
                 sessionCap: model.sessionCap,
                 statusMessage: snapshot.statusMessage,
                 blockMessage: snapshot.block?.summary(now: model.now),
+                hasTokenUsage: snapshot.tokenUsage != nil,
                 compactRowCount: snapshot.compactRowCount
             )
         // The ring it points at has moved with the notch, so the tail follows
         // it — but the card beyond the tail is drawn at its own size, and
         // `tooltipInset` already ends where the drawn notch does.
         return place.point(
-            along: model.slack + model.ringCenter(index: index) * model.sizeScale,
+            along: model.tooltipAlong(index: index, length: tooltipLength(snapshot)),
             across: model.tooltipInset + (NotchLayout.tailLength + card) / 2
         )
     }

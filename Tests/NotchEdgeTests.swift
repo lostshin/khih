@@ -126,9 +126,8 @@ final class NotchPlacementTests: XCTestCase {
     }
 }
 
-/// The notch is pinned to the *usable* edge, so it rests on the Dock rather
-/// than under it, and below the menu bar rather than behind it.
-final class DockAvoidanceTests: XCTestCase {
+/// Desktop reservations must not displace a user-selected screen position.
+final class PhysicalScreenEdgeTests: XCTestCase {
     /// A 70pt Dock at the bottom, and the menu bar above it.
     private let docked = FakeScreen(
         frameValue: CGRect(x: 0, y: 0, width: 1800, height: 1169),
@@ -136,17 +135,17 @@ final class DockAvoidanceTests: XCTestCase {
     )
     private let wide = CGSize(width: 600, height: 200)
 
-    func testTheBottomEdgeRestsOnTopOfTheDock() {
+    func testTheBottomEdgeReachesTheScreenBelowTheDock() {
         let frame = NotchGeometry.panelFrame(for: docked, panelSize: wide, edge: .bottom)
-        XCTAssertEqual(frame.minY, 70, accuracy: 0.001)
+        XCTAssertEqual(frame.minY, 0, accuracy: 0.001)
     }
 
-    func testTheTopEdgeHangsBelowTheMenuBar() {
+    func testTheTopEdgeReachesThePhysicalScreenEdge() {
         let frame = NotchGeometry.panelFrame(for: docked, panelSize: wide, edge: .top)
-        XCTAssertEqual(frame.maxY, docked.visibleFrameValue.maxY, accuracy: 0.001)
+        XCTAssertEqual(frame.maxY, docked.frameValue.maxY, accuracy: 0.001)
     }
 
-    func testASideDockPushesTheNotchIn() {
+    func testASideDockDoesNotPushTheNotchIn() {
         let leftDock = FakeScreen(
             frameValue: CGRect(x: 0, y: 0, width: 1800, height: 1169),
             visibleFrameValue: CGRect(x: 90, y: 0, width: 1710, height: 1132)
@@ -154,19 +153,17 @@ final class DockAvoidanceTests: XCTestCase {
         let frame = NotchGeometry.panelFrame(
             for: leftDock, panelSize: CGSize(width: 334, height: 484), edge: .left
         )
-        XCTAssertEqual(frame.minX, 90, accuracy: 0.001)
+        XCTAssertEqual(frame.minX, 0, accuracy: 0.001)
     }
 
-    /// A Dock that hides gives the space back, and the notch takes it — this is
-    /// what makes the placement follow rather than guess once at launch.
-    func testItFollowsTheDockWhenItHides() {
+    func testItStaysAtTheSameEdgeWhenTheDockHides() {
         let hidden = FakeScreen(
             frameValue: docked.frameValue,
             visibleFrameValue: CGRect(x: 0, y: 0, width: 1800, height: 1132)
         )
         XCTAssertEqual(
             NotchGeometry.panelFrame(for: docked, panelSize: wide, edge: .bottom).minY,
-            70, accuracy: 0.001
+            0, accuracy: 0.001
         )
         XCTAssertEqual(
             NotchGeometry.panelFrame(for: hidden, panelSize: wide, edge: .bottom).minY,
