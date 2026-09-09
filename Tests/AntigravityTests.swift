@@ -219,6 +219,62 @@ final class AntigravityActivityTests: XCTestCase {
         XCTAssertTrue(AntigravityActivity.transcriptRoots(home: home).isEmpty)
     }
 
+    // MARK: - What the row is called
+
+    /// A bare `0` reads as the app having found nothing, which is also what the
+    /// wrong directory looked like. Saying when it was last used tells them
+    /// apart.
+    func testAQuietDayNamesTheLastTimeItWasUsed() throws {
+        try write([step("2026-08-28T09:00:00Z", source: "MODEL")], to: root, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [root], now: noon).label(now: noon),
+                       "Requests today · last used 3 days ago")
+    }
+
+    func testYesterdayIsNamedAsYesterday() throws {
+        try write([step("2026-08-30T09:00:00Z", source: "MODEL")], to: root, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [root], now: noon).label(now: noon),
+                       "Requests today · last used yesterday")
+    }
+
+    /// Counted in calendar days, like `requestsToday` itself. Measured in
+    /// elapsed hours instead, a late evening reads as "3 hr ago" rather than
+    /// yesterday, and the row's two halves disagree about what a day is.
+    ///
+    /// Built from the local calendar rather than from fixed UTC strings: which
+    /// calendar day an instant falls on is exactly what is under test, so a
+    /// literal `Z` timestamp would pass or fail on the machine's own timezone.
+    func testTheEveningBeforeIsStillYesterday() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let earlyMorning = calendar.date(
+            from: DateComponents(year: 2026, month: 8, day: 31, hour: 1)
+        )!
+        let previousEvening = calendar.date(byAdding: .hour, value: -3, to: earlyMorning)!
+
+        let stamp = ISO8601DateFormatter().string(from: previousEvening)
+        try write([step(stamp, source: "MODEL")], to: root, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [root], now: earlyMorning)
+                           .label(now: earlyMorning),
+                       "Requests today · last used yesterday")
+    }
+
+    /// A day with work on it says nothing about recency — the count is the
+    /// answer, and the old wording is still the right one.
+    func testABusyDayKeepsThePlainLabel() throws {
+        try write([step("2026-08-31T09:00:00Z", source: "MODEL")], to: root, trajectory: "a")
+
+        XCTAssertEqual(AntigravityActivity.read(roots: [root], now: noon).label(now: noon),
+                       "Requests today · no limit published")
+    }
+
+    func testNothingEverRecordedKeepsThePlainLabel() {
+        XCTAssertEqual(AntigravityActivity.read(roots: [], now: noon).label(now: noon),
+                       "Requests today · no limit published")
+    }
+
     /// The real transcript interleaves user input and system checkpoints with
     /// model answers. Counting those would inflate the figure with work the
     /// model never did.

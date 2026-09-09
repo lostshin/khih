@@ -112,4 +112,43 @@ struct AntigravityActivity: Equatable {
         guard requestsToday > 0 else { return "no requests today" }
         return "~\(requestsToday) request\(requestsToday == 1 ? "" : "s") today"
     }
+
+    /// What the tooltip's row is called.
+    ///
+    /// A bare `0` on a day Antigravity has not been opened reads as the app
+    /// failing to find anything rather than as an honest nothing — and that is
+    /// exactly what a wrong directory looks like too, which is how this went
+    /// unnoticed. Saying when it *was* last used tells the two apart.
+    func label(now: Date = Date()) -> String {
+        guard requestsToday == 0, let lastRequest else {
+            return "Requests today · no limit published"
+        }
+        return "Requests today · last used \(Self.lastUsed(lastRequest, now: now))"
+    }
+
+    /// Counted in calendar days, not in elapsed time, because the number beside
+    /// it is: `requestsToday` asks whether a timestamp falls on today's date.
+    /// Measured in elapsed hours instead, a Saturday evening reads as "2 days
+    /// ago" on a Tuesday morning, and the row's two halves disagree about what
+    /// a day is.
+    ///
+    /// Inside a day it defers to `ElapsedCopy`, the same phrase the session list
+    /// uses, so the two read alike. Days are added here rather than there:
+    /// that helper answers "is this still working", where a span of days cannot
+    /// arise and would only be noise.
+    private static func lastUsed(_ date: Date, now: Date) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: date),
+            to: calendar.startOfDay(for: now)
+        ).day ?? 0
+
+        switch days {
+        case ..<1:  return ElapsedCopy.ago(since: date, now: now)
+        case 1:     return "yesterday"
+        default:    return "\(days) days ago"
+        }
+    }
 }
