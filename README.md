@@ -36,6 +36,8 @@ Applications:
 xattr -dr com.apple.quarantine /Applications/Codenotch.app
 ```
 
+If macOS says the app is *damaged*, that is the quarantine flag rather than a bad download — run the command above.
+
 Universal binary. macOS 15 or later. To build and install a copy from source
 instead, see [Building](#building).
 

@@ -73,6 +73,8 @@ jobs:
             echo "xattr -dr com.apple.quarantine /Applications/Codenotch.app"
             echo '```'
             echo
+            echo "If macOS says the app is *damaged*, that is the quarantine flag rather than a bad download — run the command above."
+            echo
             echo "Universal binary — Apple Silicon and Intel. Requires macOS 15 or later."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -109,6 +111,8 @@ jobs:
           Applications, clear the flag once:
 
               xattr -dr com.apple.quarantine /Applications/Codenotch.app
+
+          If macOS says the app is *damaged*, that is the quarantine flag rather than a bad download — run the command above.
 
           For a signed and notarized build, take the latest release instead.
 
