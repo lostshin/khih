@@ -65,27 +65,13 @@ actor AntigravityProvider: UsageProvider {
     nonisolated func forgetCachedCredential() { AntigravityCredentials.forgetCached() }
 
     nonisolated func account() -> ProviderAccount? {
-        if UserDefaults.standard.bool(forKey: "AntigravityEverBridged") {
-            return ProviderAccount(
-                label: nil,
-                plan: "IDE Session",
-                source: "Antigravity IDE",
-                manageURL: URL(string: "https://antigravity.google")
-            )
-        }
-        // Presence, not contents. This row is rebuilt every time the settings
-        // window renders, and reading the secret to print a plan name made
-        // opening Settings raise the keychain dialogue — the same interruption
-        // the readings themselves now avoid. The item's attributes answer
-        // "is there an account" without being behind that prompt.
         guard AntigravityCredentials.isSignedIn() else { return nil }
-        // Named only when a fetch has already had to read the token, which is
-        // exactly when Antigravity is not running to be asked instead. A blank
-        // plan is a smaller loss than a dialogue nobody asked for.
         let held = AntigravityCredentials.held
+        let email = held?.email
+        let plan = held.map { $0.authMethod == "consumer" ? "Personal" : $0.authMethod } ?? "Personal"
         return ProviderAccount(
-            label: nil,   // the token carries no address
-            plan: held.map { $0.authMethod == "consumer" ? "Personal" : $0.authMethod },
+            label: email,
+            plan: plan,
             source: "Antigravity",
             manageURL: URL(string: "https://antigravity.google")
         )
@@ -106,8 +92,6 @@ actor AntigravityProvider: UsageProvider {
             everBridged = true
             UserDefaults.standard.set(true, forKey: "AntigravityEverBridged")
             
-            // Antigravity now has multiple limits (Weekly, 5-hour).
-            // The user prefers the 'hour' limit to be shown as the main notch ring percentage.
             let hourlies = windows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
             let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
             
@@ -116,85 +100,63 @@ actor AntigravityProvider: UsageProvider {
                                     headlineID: mostConstrained?.id ?? "gemini-hourly")
         }
 
-        // Antigravity has answered before and is not answering now: it has been
-        // closed or restarted. Keep the last percentage, dimmed and dated,
-        // rather than swapping in a count — and still without a prompt, which
-        // asking for the token here would have caused.
-        if everBridged { throw UsageProviderError.credentialExpired }
+        if localQuotaOverride != nil && everBridged {
+            throw UsageProviderError.credentialExpired
+        }
 
-        let credentials = try AntigravityCredentials.load()
-        // Expired is not signed out: Antigravity refreshes this on its own the
-        // next time it runs, and the last reading is still true, just old.
-        if credentials.isExpired { throw UsageProviderError.credentialExpired }
-
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
-        request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
-        request.httpBody = try JSONSerialization.data(
-            withJSONObject: [
-                "cloudaicompanionProject": credentials.projectId as Any,
-                "metadata": [
-                    "ideType": "IDE_UNSPECIFIED",
-                    "platform": "PLATFORM_UNSPECIFIED",
-                    "pluginType": "GEMINI"
+        // If local bridge is absent, try reading credentials and asking Google directly
+        if let credentials = try? AntigravityCredentials.load() {
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)", forHTTPHeaderField: "User-Agent")
+            request.setValue("ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI", forHTTPHeaderField: "Client-Metadata")
+            request.httpBody = try? JSONSerialization.data(
+                withJSONObject: [
+                    "cloudaicompanionProject": credentials.projectId as Any,
+                    "metadata": [
+                        "ideType": "IDE_UNSPECIFIED",
+                        "platform": "PLATFORM_UNSPECIFIED",
+                        "pluginType": "GEMINI"
+                    ]
                 ]
-            ]
-        )
-        request.timeoutInterval = 15
+            )
+            request.timeoutInterval = 15
 
-        let (data, response) = try await session.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if let (data, response) = try? await session.data(for: request),
+               let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200 {
+                var companionProject = credentials.projectId
+                if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let p = obj["cloudaicompanionProject"] as? String {
+                        companionProject = p
+                    } else if let pObj = obj["cloudaicompanionProject"] as? [String: Any],
+                              let p = pObj["id"] as? String {
+                        companionProject = p
+                    }
+                }
 
-        if status == 401 {
-            // Same reasoning as Claude's: rejected but unexpired means the
-            // account underneath has changed.
-            AntigravityCredentials.forgetCached()
-            UserDefaults.standard.removeObject(forKey: "AntigravityEverBridged")
-            throw UsageProviderError.needsAuth
-        }
-        if status == 403 {
-            UserDefaults.standard.removeObject(forKey: "AntigravityEverBridged")
-            throw UsageProviderError.needsAuth
-        }
-        if status == 429 {
-            let retry = (response as? HTTPURLResponse)?
-                .value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
-            throw UsageProviderError.rateLimited(retryAfter: retry ?? 0)
-        }
-        guard status == 200 else { throw UsageProviderError.badResponse(status: status) }
-
-        var companionProject = credentials.projectId
-        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let p = obj["cloudaicompanionProject"] as? String {
-                companionProject = p
-            } else if let pObj = obj["cloudaicompanionProject"] as? [String: Any],
-                      let p = pObj["id"] as? String {
-                companionProject = p
+                if let windows = try? await quota(token: credentials.accessToken, project: companionProject), !windows.isEmpty {
+                    let hourlies = windows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
+                    let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
+                    return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
+                                            fidelity: .official, status: .ok, windows: windows,
+                                            headlineID: mostConstrained?.id ?? "gemini-hourly")
+                }
             }
-        }
-
-        // Then Google directly, which answers for both licensed accounts and
-        // consumer accounts when addressed with proper client metadata.
-        if let windows = try await quota(token: credentials.accessToken, project: companionProject), !windows.isEmpty {
-            let hourlies = windows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") || $0.id.lowercased().contains("flash") }
-            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? windows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
-            return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
-                                    fidelity: .official, status: .ok, windows: windows,
-                                    headlineID: mostConstrained?.id ?? "gemini-quota")
         }
 
         // Check if OMP has recorded recent usage history in its SQLite store
         let ompWindows = Self.ompUsageWindows()
         if !ompWindows.isEmpty {
-            let mostConstrained = ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
+            let hourlies = ompWindows.filter { $0.id.lowercased().contains("hour") || $0.label.lowercased().contains("hour") }
+            let mostConstrained = hourlies.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) }) ?? ompWindows.max(by: { ($0.usedFraction ?? 0) < ($1.usedFraction ?? 0) })
             return ProviderSnapshot(id: id, displayName: displayName, glyph: glyph,
                                     fidelity: .official, status: .ok, windows: ompWindows,
-                                    headlineID: mostConstrained?.id ?? "gemini-quota")
+                                    headlineID: mostConstrained?.id ?? "gemini-hourly")
         }
-        // Not licensed, so Google will not say how much of what. Our own count
+
+        if everBridged { throw UsageProviderError.credentialExpired }
         // is the only number left — reported as a *count*, with no
         // `usedFraction`, which is a case the model already knows: the cell
         // prints the number and the ring draws its track with no arc, because
