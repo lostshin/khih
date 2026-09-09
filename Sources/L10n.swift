@@ -32,11 +32,20 @@ enum L10n {
     static var locale: Locale {
         if let testLocale { return testLocale }
 
+        let stored = defaults.string(forKey: languageDefaultsKey)
+        let isTest = NSClassFromString("XCTestCase") != nil
+
+        // Under XCTest the host *is* the app, so the production store here is
+        // the preferences of the installed copy of Codenotch. Choosing 简体中文
+        // in Settings would otherwise decide what a hundred copy assertions
+        // compare against — which it did, twice, mid-session. A test that
+        // means to exercise the override injects its own store and is
+        // answered by the rules below.
+        if isTest, defaults == .standard { return Locale(identifier: "en") }
+
         // Existing assertions stay English on a Chinese Mac. A stored
         // override still wins so a test can pin zh-Hans without testLocale.
-        let stored = defaults.string(forKey: languageDefaultsKey)
-        if NSClassFromString("XCTestCase") != nil,
-           stored == nil || stored == AppLanguage.system.rawValue {
+        if isTest, stored == nil || stored == AppLanguage.system.rawValue {
             return Locale(identifier: "en")
         }
 
