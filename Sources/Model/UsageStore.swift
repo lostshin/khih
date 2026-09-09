@@ -110,6 +110,7 @@ final class UsageStore: ObservableObject {
     /// never depends on when the task body happens to start.
     private var isRefreshing = false
     private var wakeObserver: NSObjectProtocol?
+    private var languageObserver: NSObjectProtocol?
 
     /// How long one pass gets before the store stops waiting for it.
     ///
@@ -246,6 +247,18 @@ final class UsageStore: ObservableObject {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshNow() }
         }
+
+        // A window's `label` is display text a provider resolved while it was
+        // parsing, and it is stored — archived to disk with the rest of the
+        // reading. Everything else on a tooltip is computed as it is drawn and
+        // so follows a language change immediately; the labels do not, and
+        // stayed in the old language across a relaunch. Re-reading is what
+        // rebuilds them, because it is the parse that names them.
+        languageObserver = NotificationCenter.default.addObserver(
+            forName: L10n.didChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshNow() }
+        }
     }
 
     func stop() {
@@ -259,6 +272,10 @@ final class UsageStore: ObservableObject {
         deadlineTask = nil
         isRefreshing = false
         // Block-based observers are not removed by `removeObserver(self)`.
+        if let languageObserver {
+            NotificationCenter.default.removeObserver(languageObserver)
+            self.languageObserver = nil
+        }
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
             self.wakeObserver = nil

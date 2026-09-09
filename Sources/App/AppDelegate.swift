@@ -176,7 +176,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 },
                 usageStore: store, ollamaRelay: relay
             )
-            fleet.onOpenSettings = { [weak settings] in settings?.show() }
+            // The gear toggles; everything else that opens settings opens it.
+            fleet.onOpenSettings = { [weak settings] in settings?.toggle() }
             self.settings = settings
 
             // What changed, once per version — including on a fresh install,
@@ -235,29 +236,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // value each of them holds. Any of them changing has to re-ask
             // `notchScale` rather than trust the value it was handed, since
             // the preset and the slider each keep their own.
-            preferences.$notchSize
-                .receive(on: RunLoop.main)
-                .sink { [weak fleet, weak preferences] _ in
-                    guard let preferences else { return }
-                    fleet?.apply(scale: preferences.notchScale)
-                }
-                .store(in: &cancellables)
-
-            preferences.$usesCustomNotchScale
-                .receive(on: RunLoop.main)
-                .sink { [weak fleet, weak preferences] _ in
-                    guard let preferences else { return }
-                    fleet?.apply(scale: preferences.notchScale)
-                }
-                .store(in: &cancellables)
-
-            preferences.$customNotchScale
-                .receive(on: RunLoop.main)
-                .sink { [weak fleet, weak preferences] _ in
-                    guard let preferences else { return }
-                    fleet?.apply(scale: preferences.notchScale)
-                }
-                .store(in: &cancellables)
+            //
+            // `dropFirst` on each, because `@Published` publishes the value it
+            // is given at init — without it every launch would open the notch
+            // three times over before anyone had touched anything.
+            Publishers.MergeMany(
+                preferences.$notchSize.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+                preferences.$usesCustomNotchScale.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+                preferences.$customNotchScale.dropFirst().map { _ in () }.eraseToAnyPublisher()
+            )
+            // `DispatchQueue.main`, not `RunLoop.main`, and this is the one
+            // subscription where the difference is visible. Combine's RunLoop
+            // scheduler delivers in `.default` mode, which AppKit starves for
+            // as long as a drag is in progress — the loop is in
+            // `NSEventTrackingRunLoopMode` the whole time a slider is held. So
+            // the notch sat unchanged until the mouse came up, then jumped.
+            // Every `Timer` here is registered `forMode: .common` against the
+            // same hazard; the scheduler offers no way to say that, and the
+            // dispatch queue is not bound to run loop modes at all.
+            .receive(on: DispatchQueue.main)
+            .sink { [weak fleet, weak preferences] in
+                guard let preferences, let fleet else { return }
+                fleet.apply(scale: preferences.notchScale)
+                // Resizing something you cannot see is guesswork. On the
+                // hover setting the notch is folded away for as long as the
+                // pointer is in Settings, which is exactly when the size is
+                // being chosen — so it is opened for a moment to show what
+                // just changed. Dragging the slider keeps re-arming this, so
+                // it simply stays open until the drag stops. `peek` still
+                // declines outright when the notch is set to Hide.
+                fleet.peek(for: 1.2, focusing: nil)
+            }
+            .store(in: &cancellables)
 
             preferences.$notchScope
                 .receive(on: RunLoop.main)

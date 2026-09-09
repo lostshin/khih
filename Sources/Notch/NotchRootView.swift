@@ -22,7 +22,8 @@ struct NotchRootView: View {
                 SettingsOrb(isHovered: model.isHoveringSettings, edge: model.edge,
                                     convex: model.orbHugsCorner,
                                     arcRadius: model.orbArcRadius,
-                                    arcOffset: model.orbArcOffset)
+                                    arcOffset: model.orbArcOffset,
+                                    spins: model.settingsSpins)
                         // A second route to the same action the panel's own
                         // `mouseDown` override reaches for — see
                         // `NotchViewModel.onOpenSettings`. Both still depend
@@ -32,7 +33,10 @@ struct NotchRootView: View {
                         // view — but once it does, this fires reliably where
                         // the AppKit-level path did not.
                         .contentShape(Circle())
-                        .onTapGesture { model.onOpenSettings?() }
+                        .onTapGesture {
+                            model.settingsSpins += 1
+                            model.onOpenSettings?()
+                        }
                         // Before `position`, not after. `position` hands back a
                         // view the size of the whole panel with the orb placed
                         // inside it, so a scale applied after this one scales
@@ -115,15 +119,54 @@ struct NotchRootView: View {
             // and to nothing else. Drawn at design-frame size and scaled from
             // there, so `NotchLayout` keeps measuring the one thing it is
             // quoted from.
-            .scaleEffect(model.sizeScale)
-            // `notchLeadingInset + notchLength / 2` is `slack + shapeLength / 2`
-            // — the two `notchLength` terms cancel — so folding away moves the
-            // centre nowhere and only the shape's own half-extent scales here.
+            // Scaled *from the bezel*, so the outer edge is a fixed point of
+            // the transform rather than a number that has to come out right.
+            .scaleEffect(model.sizeScale, anchor: bezelAnchor)
+            // Neither argument may depend on the scale, and that is the whole
+            // point of the anchor above. They used to: `across` was
+            // `notchDepth * sizeScale / 2`, which cancels against a
+            // centre-anchored scale — but only once both have settled.
+            // SwiftUI animates `scaleEffect` and `position` independently, so
+            // while a size change is in flight the eased scale and the
+            // stepped position disagree and the notch lifts off the bezel,
+            // snapping back at the end. Anchored at the edge with a position
+            // that never moves, there is nothing left to disagree about: the
+            // shape grows inward from a corner that cannot move, animated or
+            // not.
             .position(place.point(
-                along: model.slack + model.shapeLength * model.sizeScale / 2,
-                across: model.notchDepth * model.sizeScale / 2
+                along: (model.edge.isVertical ? place.panelSize.height
+                                              : place.panelSize.width) / 2,
+                across: model.notchDepth / 2
             ))
+            // Pushed a shade past the bezel, and then clipped by the panel.
+            //
+            // The arithmetic above already lands the shape's outer edge on the
+            // screen's, but "exactly" is doing a lot of work: the scale is a
+            // fraction, the shape is antialiased, and a display can round its
+            // last column its own way. Any of those leaves a hairline of
+            // wallpaper between the notch and the bezel — the one thing this
+            // shape must never show, since it is meant to read as part of the
+            // frame of the screen. Overhanging costs nothing: the panel ends
+            // at the bezel and everything past it is simply not drawn.
+            .offset(x: model.edge.outward.x * Self.bezelBleed,
+                    y: model.edge.outward.y * Self.bezelBleed)
     }
+
+    /// The bezel side as a scaling anchor: the edge the notch is welded to
+    /// stays put while everything else moves toward or away from it.
+    private var bezelAnchor: UnitPoint {
+        switch model.edge {
+        case .right:  return .trailing
+        case .left:   return .leading
+        case .top:    return .top
+        case .bottom: return .bottom
+        }
+    }
+
+    /// How far the shape may overhang the screen edge. Small enough that the
+    /// notch is not visibly shallower for it, large enough to swallow a
+    /// rounding error at any size.
+    private static let bezelBleed: CGFloat = 2
 
     /// The cells fade and lift into place a beat after the shape starts opening,
     /// each trailing the one before it. Folded shut they are not just hidden but

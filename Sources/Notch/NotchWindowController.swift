@@ -529,6 +529,10 @@ final class NotchWindowController {
         // cells — otherwise the cell band nearest the foot of the stack swallows
         // it and clicking the gear refetches a provider instead.
         if model.isExpanded, isOverHandle(local) {
+            // The same turn the SwiftUI tap gives it, so the gear responds
+            // however the click reached it — this path and the tap gesture
+            // are two routes to one action.
+            model.settingsSpins += 1
             onOpenSettings?()
             return
         }
@@ -596,11 +600,61 @@ final class NotchWindowController {
     /// same shape for the same reason.
     func apply(scale: CGFloat) {
         guard model.sizeScale != scale else { return }
+
+        // A drag arrives as a stream of tiny deltas; a preset, or a switch
+        // between the two controls, arrives as one large one.
+        let isDrag = abs(scale - model.sizeScale) < Self.steppedScaleDelta
+
+        // The drawn shape follows every tick — that part is a redraw and it is
+        // cheap. Re-laying the *window* out is not: `relocate` recomputes the
+        // panel size through `maxCardHeight` and the `sessionCap` search, then
+        // asks the compositor to resize a full-height window. Sixty of those a
+        // second is what makes a drag feel like it is pulling something heavy.
         model.sizeScale = scale
-        relocate()
-        updateInteractiveRects()
+        if isDrag {
+            coalesceRelocate()
+        } else {
+            pendingRelocate?.cancel()
+            pendingRelocate = nil
+            relocate()
+            updateInteractiveRects()
+        }
     }
 
+    /// Above this, a size change was *chosen* rather than dragged. The
+    /// smallest gap between two presets is 0.2 and a drag tick is a fraction
+    /// of a percent, so there is a wide margin either way.
+    private static let steppedScaleDelta: CGFloat = 0.05
+
+    /// The window is re-laid out at most this often while a drag is in
+    /// flight. The panel is larger than the notch by the whole tooltip slack,
+    /// so it can be a tenth of a second out of date without anything showing.
+    private static let relocateInterval: TimeInterval = 0.1
+
+    /// Resize the window on a budget, and always once the drag has stopped.
+    private func coalesceRelocate() {
+        let now = Date()
+        if now.timeIntervalSince(lastRelocate) >= Self.relocateInterval {
+            lastRelocate = now
+            relocate()
+            return
+        }
+        // Too soon. Replace any pending catch-up with one scheduled from now,
+        // so a drag that stops mid-interval still ends up correctly sized.
+        pendingRelocate?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.lastRelocate = Date()
+            self.relocate()
+            self.updateInteractiveRects()
+        }
+        pendingRelocate = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.relocateInterval,
+                                      execute: work)
+    }
+
+    private var lastRelocate = Date.distantPast
+    private var pendingRelocate: DispatchWorkItem?
     func apply(edge: NotchEdge) {
         guard model.edge != edge else { return }
         guard let panel else {   // before there is anything on screen to fade

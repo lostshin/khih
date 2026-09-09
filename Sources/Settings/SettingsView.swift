@@ -191,6 +191,20 @@ struct SettingsView: View {
                 // is titled the way a sidebar of documents would be.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        // Rebuild the whole pane when the language changes.
+        //
+        // A segmented `Picker` draws its options through `ForEach`, which
+        // identifies each row by its tag — the enum case. Switching language
+        // changes only the title that row renders, not its identity, so the
+        // rows compare equal, AppKit's segmented control is told nothing has
+        // changed, and it keeps the segment labels it was first built with.
+        // The result was a pane where every plain `Text` had switched back to
+        // English and every picker was still in Chinese.
+        //
+        // Re-identifying here rather than on each picker: there are eleven of
+        // them across four panes, and a twelfth added later would arrive with
+        // the bug and no way to notice.
+        .id(preferences.language)
         .tint(preferences.accentColor.color)
         .environment(\.codenotchAccentColor, preferences.accentColor.color)
         // Fills the window rather than claiming a fixed size. Under
@@ -539,9 +553,11 @@ struct SettingsView: View {
 
                 if preferences.usesCustomNotchScale {
                     HStack(spacing: 10) {
+                        // Continuous, with no step: a step quantises the drag
+                        // into a dozen visible jumps, which is exactly what
+                        // this control exists to avoid.
                         Slider(value: $preferences.customNotchScale,
-                               in: Preferences.customScaleRange,
-                               step: 0.05)
+                               in: Preferences.customScaleRange)
                         // Monospaced digits, so the number does not jitter
                         // sideways while the slider is being dragged.
                         Text(Self.scalePercent(preferences.customNotchScale))

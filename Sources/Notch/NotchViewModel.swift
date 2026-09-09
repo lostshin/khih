@@ -68,6 +68,13 @@ final class NotchViewModel: ObservableObject {
     var staysOpen: Bool { isPinned || isAlwaysOn }
     /// Providers with a fetch in flight, driven by the store.
     @Published var refreshing: Set<String> = []
+    /// Bumped each time the settings orb is clicked, by either route.
+    ///
+    /// A count rather than a flag: the gear turns to `spins * 360`, so a
+    /// second click while the first turn is still running carries on round
+    /// instead of restarting from wherever it had got to.
+    @Published var settingsSpins = 0
+
     @Published private(set) var refreshingCells: Set<String> = []
 
     func isRefreshing(_ snapshot: ProviderSnapshot) -> Bool {

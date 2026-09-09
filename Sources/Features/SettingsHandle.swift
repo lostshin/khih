@@ -24,6 +24,9 @@ struct SettingsOrb: View {
     /// where the two are the same object; back onto the corner when the button
     /// has had to move clear of the bar.
     var arcOffset: CGSize = .zero
+    /// How many times the gear has been asked to turn. See
+    /// `NotchViewModel.settingsSpins`.
+    var spins: Int = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -58,6 +61,13 @@ struct SettingsOrb: View {
 
     private var restingTrim: ClosedRange<CGFloat> { Self.restingTrim(for: edge, convex: convex) }
 
+    /// How far the button dips under a click.
+    ///
+    /// Shallow on purpose. This is a 22pt control tucked against the bezel, and
+    /// a deeper press reads as the whole notch flinching rather than as one
+    /// button being pushed.
+    private static let squeezeScale: CGFloat = 0.84
+
 
 
     var body: some View {
@@ -85,7 +95,15 @@ struct SettingsOrb: View {
                 .foregroundStyle(Palette.textPrimary)
                 .opacity(isHovered ? 1 : 0)
                 .scaleEffect(isHovered ? 1 : 0.5)
-                .rotationEffect(.degrees(isHovered ? 0 : -60))
+                // Two rotations on one glyph: the wake-up from the hover
+                // state, and a full turn per click. Summed rather than
+                // applied separately so a click mid-hover does not fight the
+                // -60 the gear is still arriving from.
+                .rotationEffect(.degrees((isHovered ? 0 : -60) + Double(spins) * 360))
+                .animation(NotchMotion.respectingReduceMotion(.spring(response: 0.55,
+                                                                      dampingFraction: 0.72),
+                                                              reduceMotion),
+                           value: spins)
         }
         // Sized to the larger of the two states, and never clipped: the arc
         // may sit well outside this frame when it has stayed back on the
@@ -98,5 +116,20 @@ struct SettingsOrb: View {
             ),
             value: isHovered
         )
+        // The press, on the same counter as the turn. A click reaches this
+        // view as one event — the panel's own hit test and the SwiftUI
+        // gesture both bump `spins`, and neither reports mouse-down and
+        // mouse-up separately — so the dip and the release are keyframed off
+        // that single tick rather than tracked from a press state that does
+        // not exist here.
+        //
+        // Down fast and back slower: a press is sharp, a release settles.
+        .keyframeAnimator(initialValue: CGFloat(1), trigger: spins) { orb, scale in
+            orb.scaleEffect(scale)
+        } keyframes: { _ in
+            SpringKeyframe(reduceMotion ? 1 : Self.squeezeScale,
+                           duration: 0.09, spring: .snappy)
+            SpringKeyframe(1, duration: 0.34, spring: .bouncy)
+        }
     }
 }
