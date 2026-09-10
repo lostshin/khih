@@ -239,7 +239,14 @@ struct ProviderSnapshot: Identifiable, Equatable {
             return showsLocalPerformance ? (localPerformance?.headlineText ?? "— tok/s")
                 : (localModel?.memoryText ?? "—")
         }
-        if let usedFraction { return Percent.text(for: usedFraction) + "%" }
+        // A shut door leaves nothing available whatever the meter reads. Under
+        // the old spent-side label a paused account showing "16%" was at worst
+        // understated; on this side "84%" would be an offer the account cannot
+        // honour, so the block answers before the measurement does.
+        if block != nil, usedFraction != nil { return Percent.halves(for: 1).left + "%" }
+        // What is left, matching the arc. `halves` keeps the sub-one-percent
+        // honesty on this end too: ">99.9%" rather than a rounded "100%".
+        if let usedFraction { return Percent.halves(for: usedFraction).left + "%" }
         if let remaining = headline?.remaining { return LimitWindow.compact(remaining) }
         if let used = headline?.used { return LimitWindow.compact(used) }
         return "—"

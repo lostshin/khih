@@ -71,6 +71,30 @@ final class CodexAppServerTests: XCTestCase {
                 \(errorBranch)
             elif method == "account/read":
                 reply(mid, result=\(account))
+            elif method == "account/login/start":
+                reply(mid, result={"loginId": "login-1",
+                                   "userCode": "ABCD-1234",
+                                   "verificationUrl": "https://example.test/device"})
+                outcome = os.environ.get("FAKE_LOGIN_OUTCOME", "")
+                if outcome == "success":
+                    notify = {"method": "account/login/completed",
+                              "params": {"loginId": "login-1"}}
+                    sys.stdout.write(json.dumps(notify) + "\\n")
+                    sys.stdout.flush()
+                elif outcome == "denied":
+                    notify = {"method": "account/login/completed",
+                              "params": {"loginId": "login-1", "error": "access denied"}}
+                    sys.stdout.write(json.dumps(notify) + "\\n")
+                    sys.stdout.flush()
+                elif outcome == "other-attempt":
+                    notify = {"method": "account/login/completed",
+                              "params": {"loginId": "somebody-else"}}
+                    sys.stdout.write(json.dumps(notify) + "\\n")
+                    sys.stdout.flush()
+            elif method == "account/login/cancel":
+                with open(os.environ["FAKE_CODEX_LOG"], "a") as log:
+                    log.write("CANCEL " + str(message.get("params", {}).get("loginId")) + "\\n")
+                reply(mid, result={})
             else:
                 reply(mid, error={"message": "unexpected " + str(method)})
         """
@@ -273,6 +297,67 @@ final class CodexAppServerTests: XCTestCase {
         XCTAssertEqual(result.response, "OK")
         XCTAssertEqual(result.accountFingerprint, fingerprint)
         XCTAssertTrue(fakeLog().contains("HOME \(codexHome.path)"))
+    }
+
+    // MARK: - Device sign-in
+
+    private func setLoginOutcome(_ outcome: String) {
+        setenv("FAKE_LOGIN_OUTCOME", outcome, 1)
+        addTeardownBlock { unsetenv("FAKE_LOGIN_OUTCOME") }
+    }
+
+    func testDeviceLoginReturnsTheCodeToShowAndThenCompletes() throws {
+        let binary = try makeFakeCodex()
+        setLoginOutcome("success")
+
+        let login = try CodexDeviceLogin(binary: binary, codexHome: codexHome)
+        defer { login.cancel() }
+
+        XCTAssertEqual(login.code.userCode, "ABCD-1234")
+        XCTAssertEqual(login.code.verificationURL, "https://example.test/device")
+        XCTAssertEqual(try login.poll(timeout: 3), .completed)
+    }
+
+    func testADeniedSignInIsReportedRatherThanRetried() throws {
+        let binary = try makeFakeCodex()
+        setLoginOutcome("denied")
+
+        let login = try CodexDeviceLogin(binary: binary, codexHome: codexHome)
+        defer { login.cancel() }
+        XCTAssertEqual(try login.poll(timeout: 3), .failed("access denied"))
+    }
+
+    /// Two attempts can be open at once; a completion carrying somebody else's
+    /// id must not finish ours.
+    func testACompletionForAnotherAttemptIsIgnored() throws {
+        let binary = try makeFakeCodex()
+        setLoginOutcome("other-attempt")
+
+        let login = try CodexDeviceLogin(binary: binary, codexHome: codexHome)
+        defer { login.cancel() }
+        XCTAssertEqual(try login.poll(timeout: 1), .pending)
+    }
+
+    func testNothingHappeningYetIsPendingRatherThanAFailure() throws {
+        let binary = try makeFakeCodex()
+        setLoginOutcome("")
+
+        let login = try CodexDeviceLogin(binary: binary, codexHome: codexHome)
+        defer { login.cancel() }
+        XCTAssertEqual(try login.poll(timeout: 1), .pending)
+    }
+
+    /// An abandoned attempt has to be closed at the server, not just dropped.
+    func testCancellingTellsTheServer() throws {
+        let binary = try makeFakeCodex()
+        setLoginOutcome("")
+
+        let login = try CodexDeviceLogin(binary: binary, codexHome: codexHome)
+        login.cancel()
+        XCTAssertTrue(fakeLog().contains("CANCEL login-1"), fakeLog())
+        // Calling it twice must not send a second cancel.
+        login.cancel()
+        XCTAssertEqual(fakeLog().components(separatedBy: "CANCEL login-1").count - 1, 1)
     }
 
     // MARK: - Binary resolution

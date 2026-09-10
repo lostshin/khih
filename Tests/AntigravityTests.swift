@@ -1258,7 +1258,8 @@ final class StatusMenuTests: XCTestCase {
         let menu = NSMenu()
         controller.rebuild(menu: menu, now: now)
         let titles = menu.items.map(\.title)
-        XCTAssertTrue(titles[0].contains("Codex — 29%"), titles[0])
+        // The menu's headline is the ring's: what is left.
+        XCTAssertTrue(titles[0].contains("Codex — 71%"), titles[0])
         XCTAssertTrue(titles[0].contains("20 hr 21 min ago"), titles[0])
         XCTAssertTrue(titles[1].contains("Weekly limit"), titles[1])
         XCTAssertTrue(titles[1].contains("29% Used · 71% left"), titles[1])

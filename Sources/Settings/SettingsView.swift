@@ -493,6 +493,12 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+
+            // Only Codex takes more than one account: Claude and Antigravity
+            // are read through a single system-wide login.
+            if let quota {
+                AddCodexAccountSection(quota: quota)
+            }
         }
         .formStyle(.grouped)
         // A row switched off jumps from one group to the other. Scoped to that
@@ -787,6 +793,15 @@ struct SettingsView: View {
                         )
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                // The only unattended behaviour here that spends anything, so
+                // it is off until asked for and says what it costs.
+                Toggle(L10n.t("Keep weekly windows alive"),
+                       isOn: $preferences.quotaKeeperEnabled)
+                Text(L10n.t("When a weekly limit resets, Codenotch sends one small request to start the new countdown, so an allowance is not left unclaimed while you are away. It spends a little of that allowance to do it, stands aside whenever you are already working on the account, and never touches an account it cannot confirm."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             // An ordinary row here, not a bar pinned across every pane —
@@ -1159,7 +1174,11 @@ private struct AccountRow: View {
                     ProviderGlyphView(glyph: provider.glyph, size: 16)
                         .foregroundStyle(isConnected ? .primary : .tertiary)
 
+                    // One line: a managed account is named by whoever added
+                    // it, and the row repeats the full name underneath anyway.
                     Text(provider.name)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                         .foregroundStyle(isConnected ? .primary : .secondary)
                 }
                 // Without this only the drawn pixels are grabbable, and the

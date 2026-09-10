@@ -34,10 +34,10 @@ final class QuotaEngineTests: XCTestCase {
         }
 
         func poke(for account: QuotaAccountConfig,
-                  expectedFingerprint: String?) throws -> CodexPokeResult {
+                  expectedFingerprint: String?) throws -> QuotaPokeResult {
             poked += 1
             if let pokeError { throw pokeError }
-            return CodexPokeResult(model: Quota.defaultModel,
+            return QuotaPokeResult(model: Quota.defaultModel,
                                    response: pokeResponse,
                                    accountFingerprint: fingerprint)
         }

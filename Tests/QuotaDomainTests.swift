@@ -349,6 +349,81 @@ final class QuotaDomainTests: XCTestCase {
         XCTAssertEqual(first.snapshot?.rateLimitResetCredits?.availableCount, 2)
     }
 
+    /// Claude's file has no credits and its own bucket ids, plus two fields
+    /// Codex never writes: the 429 cooldown and the pending scheduled reset a
+    /// missing weekly window leaves behind. A field this decoder does not
+    /// declare is dropped on the next save, taking the Rust app's baseline
+    /// with it — which is why the assertion is on the re-encoded copy.
+    func testAClaudeStateFileSurvivesARoundTrip() throws {
+        let json = """
+        {"version":2,
+         "snapshot":{"observedAt":1786070000,
+           "buckets":[
+             {"limitId":"claude:five_hour","limitName":null,"individualLimit":null,
+              "primary":{"usedPercent":39,"windowDurationMins":300,"resetsAt":1786088000,"observedAt":1786070000,"countdownActive":true}},
+             {"limitId":"claude:seven_day","limitName":null,"individualLimit":null,
+              "primary":{"usedPercent":18,"windowDurationMins":10080,"resetsAt":1786600000,"observedAt":1786070000,"countdownActive":true}}]},
+         "accountFingerprint":"ff115e80c225",
+         "weeklyKeeper":{"countdownActive":true,"pendingScheduledResetAt":1786599999,
+           "lastHandledResetKey":"scheduled:1786599999"},
+         "fiveHourStarter":{"lastPoke":{"at":1786000020,"model":"claude-haiku-4-5-20251001",
+             "response":"OK","status":"not-attributed","attempt":1,"verifiedAt":1786000030}},
+         "burnRate":{"fiveHourDeltaTotal":0,"weeklyDeltaTotal":0},
+         "checkCooldownUntil":1786070900}
+        """
+        let decoder = JSONDecoder()
+        let first = try decoder.decode(AccountState.self, from: Data(json.utf8))
+        let second = try decoder.decode(AccountState.self, from: JSONEncoder().encode(first))
+        XCTAssertEqual(first, second)
+
+        XCTAssertEqual(second.checkCooldownUntil, 1786070900)
+        XCTAssertEqual(second.weeklyKeeper.pendingScheduledResetAt, 1786599999)
+        XCTAssertEqual(second.weeklyKeeper.lastHandledResetKey, "scheduled:1786599999")
+        XCTAssertEqual(second.fiveHourStarter.lastPoke?.status, .notAttributed)
+        XCTAssertEqual(second.snapshot?.uniqueBucket("claude:seven_day")?.primary?.usedPercent, 18)
+    }
+
+    /// Antigravity keeps a keeper, a starter and a burn rate *per group*, and
+    /// the two groups are at different stages — one has poked, one has not.
+    /// Both have to come back, or a save flattens the pool that was mid-flight.
+    func testAnAntigravityStateFileKeepsBothGroups() throws {
+        let json = """
+        {"version":2,
+         "snapshot":{"observedAt":1786070000,
+           "buckets":[
+             {"limitId":"antigravity:gemini",
+              "primary":{"usedPercent":0,"windowDurationMins":300,"resetsAt":1786088000,"observedAt":1786070000},
+              "secondary":{"usedPercent":94,"windowDurationMins":10080,"resetsAt":1786600000,"observedAt":1786070000,"countdownActive":true}},
+             {"limitId":"antigravity:claude_gpt",
+              "primary":{"usedPercent":0,"windowDurationMins":300,"resetsAt":1786088000,"observedAt":1786070000},
+              "secondary":{"usedPercent":34,"windowDurationMins":10080,"resetsAt":1786500000,"observedAt":1786070000,"countdownActive":true}}]},
+         "weeklyKeeper":{},
+         "fiveHourStarter":{},
+         "burnRate":{"fiveHourDeltaTotal":0,"weeklyDeltaTotal":0},
+         "antigravityGroups":{
+           "gemini":{"weeklyKeeper":{"countdownActive":true,"lastHandledResetKey":"early:1786000000:1786600000"},
+             "fiveHourStarter":{"lastPoke":{"at":1786057903,"model":"gemini-3.8-flash-low",
+               "response":"OK.","status":"unverified","attempt":1}},
+             "burnRate":{"fiveHourDeltaTotal":557,"weeklyDeltaTotal":91}},
+           "claude_gpt":{"weeklyKeeper":{"countdownActive":true},"fiveHourStarter":{},
+             "burnRate":{"fiveHourDeltaTotal":90,"weeklyDeltaTotal":31}}}}
+        """
+        let decoder = JSONDecoder()
+        let first = try decoder.decode(AccountState.self, from: Data(json.utf8))
+        let second = try decoder.decode(AccountState.self, from: JSONEncoder().encode(first))
+        XCTAssertEqual(first, second)
+
+        XCTAssertEqual(Set(second.antigravityGroups.keys), ["gemini", "claude_gpt"])
+        let gemini = second.antigravityGroups["gemini"]
+        XCTAssertEqual(gemini?.weeklyKeeper.lastHandledResetKey, "early:1786000000:1786600000")
+        XCTAssertEqual(gemini?.fiveHourStarter.lastPoke?.status, .unverified)
+        XCTAssertEqual(gemini?.burnRate.fiveHourDeltaTotal, 557)
+        // The pool that has not poked keeps its own empty state rather than
+        // borrowing the other's.
+        XCTAssertNil(second.antigravityGroups["claude_gpt"]?.fiveHourStarter.lastPoke)
+        XCTAssertEqual(second.antigravityGroups["claude_gpt"]?.burnRate.weeklyDeltaTotal, 31)
+    }
+
     /// `countdownActive: false` is omitted entirely, matching the Rust
     /// `skip_serializing_if = "is_false"`.
     func testFalseCountdownIsOmittedFromTheEncodedForm() throws {

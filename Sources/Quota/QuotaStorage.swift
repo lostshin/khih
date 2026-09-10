@@ -16,6 +16,24 @@ struct QuotaAccountConfig: Codable, Equatable, Identifiable {
     var enabled: Bool
 
     var codexHomeURL: URL { URL(fileURLWithPath: codexHome) }
+
+    /// The id Codenotch knows this account by.
+    ///
+    /// Codex is the only provider that takes more than one account, so it is
+    /// the only one whose id carries the account: Claude and Antigravity are
+    /// read through a single system-wide login and keep the plain provider id
+    /// the rest of the app already uses for them. Antigravity's is `gemini`
+    /// for historical reasons — that is what the rings, the ordering and the
+    /// stored preferences are keyed by, and renaming it would silently reset
+    /// everyone's arrangement.
+    var providerID: String {
+        switch provider {
+        case .codex:       return "codex-" + id
+        case .claude:      return "claude"
+        case .antigravity: return "gemini"
+        }
+    }
+
     var stateDirURL: URL { URL(fileURLWithPath: stateDir) }
 
     private enum CodingKeys: String, CodingKey {
@@ -43,6 +61,14 @@ struct QuotaAccountConfig: Codable, Equatable, Identifiable {
         enabled = try box.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
     }
 }
+
+extension Array where Element == QuotaAccountConfig {
+    /// The enabled account Codenotch shows under this id, if there is one.
+    func enabledAccount(forProviderID id: String) -> QuotaAccountConfig? {
+        first { $0.enabled && $0.providerID == id }
+    }
+}
+
 
 struct QuotaAccountsFile: Codable, Equatable {
     var version: Int
@@ -105,9 +131,21 @@ final class CheckLock {
     }
 }
 
-enum QuotaStorageError: Error {
+enum QuotaStorageError: LocalizedError {
     case noParentDirectory
     case accountNotFound(String)
+    /// Claude and Antigravity are read through a single system-wide login, so
+    /// a second account would just be two names for the same credential.
+    case singleAccountOnly(QuotaProvider)
+
+    var errorDescription: String? {
+        switch self {
+        case .noParentDirectory:          return "JSON 路徑沒有上層目錄"
+        case .accountNotFound(let id):    return "找不到帳號 \(id)"
+        case .singleAccountOnly(let provider):
+            return "\(provider.displayName) 只支援單一帳號；請使用既有帳號。"
+        }
+    }
 }
 
 /// Reads and writes the on-disk state the Rust engine created.
@@ -160,6 +198,109 @@ struct QuotaStorage {
 
     func saveAccounts(_ file: QuotaAccountsFile) throws {
         try Self.atomicJSON(file, to: accountsPath)
+    }
+
+    /// Adds an account with a home of its own.
+    ///
+    /// The isolated `CODEX_HOME` is the point: two accounts sharing one home
+    /// share one credential, and every reading after that belongs to whichever
+    /// of them signed in last. The config written into it forces a file
+    /// credential store — the system keychain is shared, and would put the
+    /// accounts back in each other's way.
+    @discardableResult
+    func createAccount(label: String, provider: QuotaProvider) throws -> QuotaAccountConfig {
+        var file = loadAccounts()
+        if provider != .codex, file.accounts.contains(where: { $0.provider == provider }) {
+            throw QuotaStorageError.singleAccountOnly(provider)
+        }
+
+        let suffix = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            .prefix(8).lowercased()
+        let id = "account-\(suffix)"
+        let root = baseDir.appendingPathComponent("accounts").appendingPathComponent(id)
+        let codexHome = root.appendingPathComponent("codex-home")
+        let stateDir = root.appendingPathComponent("monitor")
+        try Self.privateDirectory(codexHome)
+        try Self.privateDirectory(stateDir)
+
+        if provider == .codex {
+            let config = codexHome.appendingPathComponent("config.toml")
+            if !FileManager.default.fileExists(atPath: config.path) {
+                let contents = "cli_auth_credentials_store = \"file\"\n\n[analytics]\nenabled = false\n"
+                _ = FileManager.default.createFile(path: config, contents: Data(contents.utf8))
+            }
+        }
+
+        let account = QuotaAccountConfig(id: id, label: label, provider: provider,
+                                         codexHome: codexHome.path, stateDir: stateDir.path)
+        file.accounts.append(account)
+        try saveAccounts(file)
+        return account
+    }
+
+    /// Removes an account whose sign-in never finished.
+    ///
+    /// `createAccount` writes the entry before the device flow starts, because
+    /// the flow needs the directory to write the credential into. A cancelled
+    /// or abandoned attempt would otherwise leave a permanent signed-out row
+    /// that nothing in the app can remove.
+    ///
+    /// Both conditions are re-checked here rather than trusted from the
+    /// caller: this deletes a directory, and the cost of getting it wrong is
+    /// somebody's signed-in account.
+    func discardUnfinishedAccount(_ account: QuotaAccountConfig) {
+        let root = baseDir.appendingPathComponent("accounts")
+            .appendingPathComponent(account.id).standardizedFileURL
+        // Only a directory this method's own convention produced, holding no
+        // credential.
+        guard account.codexHomeURL.standardizedFileURL.path
+                == root.appendingPathComponent("codex-home").path,
+              !FileManager.default.fileExists(
+                  atPath: account.codexHomeURL.appendingPathComponent("auth.json").path)
+        else { return }
+
+        var file = loadAccounts()
+        guard file.accounts.contains(where: { $0.id == account.id }) else { return }
+        file.accounts.removeAll { $0.id == account.id }
+        try? saveAccounts(file)
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    /// Removes an account that turned out to be one already signed in.
+    ///
+    /// The device flow cannot know which ChatGPT account someone will pick, so
+    /// a duplicate is only visible once the credential is written. Two entries
+    /// over one account would each keep their own baseline and each run the
+    /// weekly transaction — two requests against a single window.
+    ///
+    /// Unlike `discardUnfinishedAccount` this deletes a real credential, so it
+    /// does not take the caller's word for the match: both fingerprints are
+    /// recomputed here from the two directories.
+    func discardDuplicateAccount(_ account: QuotaAccountConfig,
+                                 matching existing: QuotaAccountConfig) {
+        let root = baseDir.appendingPathComponent("accounts")
+            .appendingPathComponent(account.id).standardizedFileURL
+        guard account.id != existing.id,
+              account.codexHomeURL.standardizedFileURL.path
+                == root.appendingPathComponent("codex-home").path,
+              let fingerprint = CodexFingerprint.of(codexHome: account.codexHomeURL),
+              fingerprint == CodexFingerprint.of(codexHome: existing.codexHomeURL)
+        else { return }
+
+        var file = loadAccounts()
+        guard file.accounts.contains(where: { $0.id == account.id }) else { return }
+        file.accounts.removeAll { $0.id == account.id }
+        try? saveAccounts(file)
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    /// The Codex account already signed in as the same person, if there is one.
+    func codexAccount(sharingFingerprintWith account: QuotaAccountConfig) -> QuotaAccountConfig? {
+        guard let fingerprint = CodexFingerprint.of(codexHome: account.codexHomeURL) else { return nil }
+        return loadAccounts().accounts.first {
+            $0.provider == .codex && $0.id != account.id
+                && CodexFingerprint.of(codexHome: $0.codexHomeURL) == fingerprint
+        }
     }
 
     func loadSettings() -> QuotaSettings {

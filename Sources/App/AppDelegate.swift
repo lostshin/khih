@@ -162,6 +162,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // quota rather than reading it. Absent when there is no `codex`
             // binary to run, in which case the rows simply show no button.
             let quota = QuotaController()
+            // Read through the closure rather than captured: the user can turn
+            // the keeper on or off while the app is running, and the next tick
+            // has to see that.
+            quota.isKeeperEnabled = { [weak preferences] in
+                preferences?.quotaKeeperEnabled ?? false
+            }
             self.quota = quota
             // Only the accounts the engine actually manages; a `~/.codex`
             // profile it never adopted has no state directory to hold a
@@ -468,6 +474,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Poll usage hard only while something is actually running.
         store?.isBusy = { monitors.values.contains { m in m.sessions.contains { $0.state == .busy } } }
         self.monitors = monitors
+
+        // The weekly keeper stands aside for an account whose own work is
+        // about to anchor the window anyway. Recomputed whenever any monitor
+        // reports, so it is current at the moment the keeper reads it.
+        if let quota {
+            for (_, monitor) in monitors {
+                monitor.sessionsPublisher
+                    .receive(on: RunLoop.main)
+                    .sink { [weak quota] _ in
+                        guard let quota else { return }
+                        let busy = Set(monitors.compactMap { id, monitor in
+                            monitor.sessions.contains { $0.state == .busy } ? id : nil
+                        })
+                        quota.inUse.update(busy)
+                    }
+                    .store(in: &cancellables)
+            }
+            quota.start()
+        }
 
         // Applied last, right before the panel goes up: every one of these
         // calls a `NotchFleet.apply(...)` that can trigger `reconcile()` on

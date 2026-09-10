@@ -68,12 +68,22 @@ actor ClaudeOAuthProvider: UsageProvider {
     /// is installed but signed out costs a process on every tick, forever.
     private var lastCLIAttempt: Date?
 
+    /// How `claude-code/<version>` is obtained — see `ClaudeVersion`.
+    private let readUserAgent: @Sendable () -> String?
+    /// Resolved once, on the first request that needs it, and kept even when
+    /// the answer is nil. Doubly optional so "asked, and there is none" is
+    /// distinguishable from "not asked yet": a Mac without Claude Code
+    /// installed must not pay for a spawn on every poll.
+    private var resolvedUserAgent: String??
+
     init(profile: ClaudeProfile = .default(),
          session: URLSession = .shared,
          archive: UsageArchive = UsageArchive(),
          loadCredentials: (@Sendable () throws -> ClaudeCredentials)? = nil,
          cli: ClaudeUsageCLI? = ClaudeUsageCLI.locate(),
-         cliRefreshInterval: TimeInterval = 5 * 60) {
+         cliRefreshInterval: TimeInterval = 5 * 60,
+         readUserAgent: @escaping @Sendable () -> String? = { ClaudeVersion.installed() }) {
+        self.readUserAgent = readUserAgent
         self.cli = cli
         self.cliRefreshInterval = cliRefreshInterval
         self.profile = profile
@@ -147,6 +157,18 @@ actor ClaudeOAuthProvider: UsageProvider {
     /// endpoint instead, not a reason to fail the refresh. The endpoint's
     /// errors are also the ones `UsageStore` knows how to word, and a status
     /// invented here would be a second vocabulary saying the same things.
+    /// Spawning `claude --version` off the actor, the way a `/usage` read
+    /// goes: it is a subprocess either way.
+    private func userAgent() async -> String? {
+        if let resolvedUserAgent { return resolvedUserAgent }
+        let read = readUserAgent
+        let value = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async { continuation.resume(returning: read()) }
+        }
+        resolvedUserAgent = value
+        return value
+    }
+
     private func cliWindows() async -> [LimitWindow]? {
         guard let cli else { return nil }
         let now = Date()
@@ -179,6 +201,12 @@ actor ClaudeOAuthProvider: UsageProvider {
         var request = URLRequest(url: endpoint)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        // Without this the request is rate-limited far harder than Claude
+        // Code's own — see `ClaudeVersion`. Left off entirely when the version
+        // cannot be read, rather than sent as a guess.
+        if let agent = await userAgent() {
+            request.setValue(agent, forHTTPHeaderField: "User-Agent")
+        }
         request.timeoutInterval = 15
 
         Log.usage.debug("GET /api/oauth/usage")
