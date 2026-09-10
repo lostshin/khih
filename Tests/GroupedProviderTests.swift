@@ -20,6 +20,33 @@ final class GroupedProviderTests: XCTestCase {
                          ])
     }
 
+    func testSameNameGroupsKeepTheirSourceAndIgnoreGaps() {
+        let accounts = ["codex-a", "codex-b", "codex-c"].map { id in
+            ProviderSnapshot(id: id, displayName: "Same name", glyph: .openai,
+                fidelity: .official, status: .ok, windows: [
+                    LimitWindow(id: "primary", label: "5h", usedFraction: 0, duration: 18000),
+                    LimitWindow(id: "secondary", label: "Weekly", usedFraction: 0.2, duration: 604800)])
+        }
+        let cell = ProviderOrder.cells(from: accounts, keeping: [], activeCodexID: nil)[0]
+        let groups = TooltipWindowGroup.groups(cell.windows)
+        XCTAssertEqual(groups.map(\.sourceProviderID), ["codex-a", "codex-b", "codex-c"])
+        XCTAssertEqual(groups.map { $0.windows.count }, [2, 2, 2])
+        XCTAssertEqual(cell.windowGroupCount, 3)
+        let frames = ["codex-a": CGRect(x: 0, y: 0, width: 100, height: 80),
+                      "codex-b": CGRect(x: 0, y: 100, width: 100, height: 80)]
+        XCTAssertEqual(NotchWindowController.groupTarget(at: CGPoint(x: 50, y: 120), snapshot: cell, frames: frames), "codex-b")
+        XCTAssertNil(NotchWindowController.groupTarget(at: CGPoint(x: 50, y: 90), snapshot: cell, frames: frames))
+    }
+
+    func testCheckingFeedbackIsVisibleWithoutAReading() {
+        let cell = account("claude", used: 1, weekly: 1)
+        let model = NotchViewModel()
+        model.checkingCells.insert(cell.id)
+        XCTAssertTrue(model.isRefreshing(cell))
+        model.checkingCells.remove(cell.id)
+        XCTAssertFalse(model.isRefreshing(cell))
+    }
+
     func testThreeAccountsBecomeOneCellWithSixDistinctWindows() {
         let accounts = [account("codex-a", used: 0.1, weekly: 0.2),
                         account("codex-b", used: 0.3, weekly: 0.7),
@@ -197,7 +224,8 @@ final class GroupedTooltipRenderTests: XCTestCase {
                                         ("antigravity", agy, 400.0), ("claude", claude, 150.0)] {
             for scheme in [ColorScheme.light, .dark] {
                 let view = TooltipCard(snapshot: snapshot, activity: nil,
-                                       now: Date(timeIntervalSince1970: Double(now)))
+                                       now: Date(timeIntervalSince1970: Double(now)),
+                                       groupMessages: ["codex-2": L10n.t("Not sent — a five-hour countdown is already running.")])
                     .environment(\.colorScheme, scheme)
                     .padding(20).background(Color.gray.opacity(0.15))
                 let renderer = ImageRenderer(content: view)

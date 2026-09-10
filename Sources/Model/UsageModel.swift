@@ -74,6 +74,8 @@ enum Percent {
 struct LimitWindow: Identifiable, Codable, Equatable {
     let id: String
     let group: String?
+    var groupID: String? = nil
+    var sourceProviderID: String? = nil
     let label: String
     /// 0...1+, where 1 means the limit is spent. Nil when the provider reports
     /// what is left but never says what the limit was — Perplexity does exactly
@@ -176,6 +178,7 @@ struct UsageBlock: Equatable {
 }
 
 struct ProviderSnapshot: Identifiable, Equatable {
+    var updateWarning: String? = nil
     let id: String
     let displayName: String
     let glyph: ProviderGlyph
@@ -261,7 +264,7 @@ struct ProviderSnapshot: Identifiable, Equatable {
     var hasReading: Bool { localRuntime != nil || localModel != nil || !windows.isEmpty }
 
     /// Group headings occupy space in both the card and its hover region.
-    var windowGroupCount: Int { Set(windows.compactMap(\.group)).count }
+    var windowGroupCount: Int { Set(windows.compactMap { $0.groupID ?? $0.group }).count }
 
     /// How many windows are count-only (no fraction, no bar) — they render as
     /// single-line rows and take less vertical space than full bar rows.
@@ -318,6 +321,7 @@ struct ProviderSnapshot: Identifiable, Equatable {
         case .accessDenied:
             // Says what happened and what fixes it. "Sign in to Claude Code"
             // would send someone who *is* signed in to fix the wrong thing.
+            if providerID == "claude" { return L10n.t("Claude sign-in access is unavailable. Allow access in Settings to update usage.", locale: locale) }
             return L10n.t("Codenotch was refused access to \(displayName)'s saved login. Click this ring to ask again, and choose Always Allow.", locale: locale)
         case .unsupported(let why): return why
         case .error(let why): return L10n.t("Couldn't read usage — \(why)", locale: locale)

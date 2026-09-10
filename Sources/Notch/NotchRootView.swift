@@ -66,8 +66,10 @@ struct NotchRootView: View {
                         direction: model.edge.tooltipDirection,
                         sessionCap: model.sessionCap,
                         resetTimeFormat: model.resetTimeFormat,
-                        checkMessage: model.checkMessages[snapshot.id],
-                        tailOffset: tooltipTailOffset(index: index, snapshot: snapshot)
+                        checkMessage: model.checkMessages[snapshot.id] ?? snapshot.updateWarning,
+                        tailOffset: tooltipTailOffset(index: index, snapshot: snapshot),
+                        groupMessages: model.checkMessages,
+                        onStartGroup: model.onStartGroup
                     )
                         // Deliberately *no* `.id` here: the card is one object
                         // that travels and resizes between cells, which reads
@@ -82,6 +84,8 @@ struct NotchRootView: View {
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
+            .coordinateSpace(name: "notchPanel")
+            .onPreferenceChange(TooltipGroupFrames.self) { model.groupFrames = $0 }
             // Swapping cards is a movement like any other here.
             .animation(motion(NotchMotion.glide), value: model.hoveredIndex)
         }
@@ -180,6 +184,7 @@ struct NotchRootView: View {
                 activity: model.activity(for: snapshot),
                 isRefreshing: model.isRefreshing(snapshot)
             )
+                .accessibilityAction { model.onCheckCell?(snapshot) }
                 // Pinned to what the cell claims along the stack, or the drawn
                 // rings stop lining up with the centres `ringCenter` hands to
                 // the hover bands and the tooltip tails. Across a horizontal
@@ -266,6 +271,7 @@ struct NotchRootView: View {
             ? NotchLayout.cardHeight(
                 windowCount: snapshot.windows.count,
                 groupCount: snapshot.windowGroupCount,
+            actionGroupCount: Set(snapshot.windows.compactMap(\.sourceProviderID)).count,
                 sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot)?.sessions.count ?? 0) : 0,
                 sessionCap: model.sessionCap,
                 statusMessage: snapshot.statusMessage,
@@ -275,7 +281,7 @@ struct NotchRootView: View {
                 showsLocalPerformance: snapshot.showsLocalPerformance,
                 compactRowCount: snapshot.compactRowCount,
                 burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
-                checkMessage: model.checkMessages[snapshot.id]
+                checkMessage: model.checkMessages[snapshot.id] ?? snapshot.updateWarning
             )
             : NotchLayout.cardWidth
     }
@@ -295,6 +301,7 @@ struct NotchRootView: View {
             : NotchLayout.cardHeight(
                 windowCount: snapshot.windows.count,
                 groupCount: snapshot.windowGroupCount,
+            actionGroupCount: Set(snapshot.windows.compactMap(\.sourceProviderID)).count,
                 sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot)?.sessions.count ?? 0) : 0,
                 sessionCap: model.sessionCap,
                 statusMessage: snapshot.statusMessage,
@@ -304,7 +311,7 @@ struct NotchRootView: View {
                 showsLocalPerformance: snapshot.showsLocalPerformance,
                 compactRowCount: snapshot.compactRowCount,
                 burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
-                checkMessage: model.checkMessages[snapshot.id]
+                checkMessage: model.checkMessages[snapshot.id] ?? snapshot.updateWarning
             )
         // The ring it points at has moved with the notch, so the tail follows
         // it — but the card beyond the tail is drawn at its own size, and

@@ -62,15 +62,12 @@ struct ProviderRing: View {
                             band.color(accent: accentColor),
                             style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
                         )
-                        // Refreshing spins the reading itself rather than
-                        // overlaying a separate spinner: the thing being
-                        // refetched is the thing that should move, and a second
-                        // arc on the same track only competes with it.
-                        .rotationEffect(.degrees(-90 + spin))
-                        // A ring that snaps to a new value reads as a glitch; one
-                        // that sweeps reads as a measurement being taken.
-                        .animation(NotchMotion.reading, value: sweep)
-                        .animation(NotchMotion.reading, value: band)
+                        // Reading changes must not retime a refresh already in flight.
+                        .animation(reduceMotion ? nil : NotchMotion.reading, value: sweep)
+                        .animation(reduceMotion ? nil : NotchMotion.reading, value: band)
+                        .animation(reduceMotion ? nil : NotchMotion.refreshTurn) { content in
+                            content.rotationEffect(.degrees(reduceMotion ? -90 : -90 + spin))
+                        }
                 }
 
                 ProviderGlyphView(glyph: glyph)
@@ -81,6 +78,19 @@ struct ProviderRing: View {
             }
             .opacity(isStale ? (reduceTransparency ? 0.75 : 0.45) : 1)
 
+            // Keep the arc mounted: inserting it at the destination angle loses
+            // the first turn. Opacity and rotation have separate transactions.
+            Circle()
+                .inset(by: NotchLayout.trackStroke / 2)
+                .trim(from: 0, to: 0.22)
+                .stroke(Palette.textPrimary, style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round))
+                .animation(NotchMotion.crossfade) { content in
+                    content.opacity(isRefreshing ? 1 : 0)
+                }
+                .animation(reduceMotion ? nil : NotchMotion.refreshTurn) { content in
+                    content.rotationEffect(.degrees(reduceMotion ? -90 : -90 + spin))
+                }
+                .accessibilityHidden(true)
             if let activity, activity.state != .idle {
                 ActivityArc(summary: activity)
             }
@@ -88,25 +98,14 @@ struct ProviderRing: View {
         .frame(width: NotchLayout.ringDiameter, height: NotchLayout.ringDiameter)
         // Pressed in while it works, and released when the answer lands. The
         // ring is the button, so the ring is what should feel pressed.
-        .scaleEffect(isRefreshing ? 0.93 : 1)
-        .animation(.spring(response: 0.3, dampingFraction: 0.62), value: isRefreshing)
-        .onChange(of: isRefreshing) { _, refreshing in
+        .animation(reduceMotion ? nil : NotchMotion.refreshPress) { content in
+            content.scaleEffect(isRefreshing && !reduceMotion ? 0.93 : 1)
+        }
+        .onChange(of: isRefreshing, initial: true) { _, refreshing in
             guard refreshing, !reduceMotion else { return }
-            // Exactly one turn, and it stops by itself.
-            //
-            // The obvious spelling is a `repeatForever` linear spin started on
-            // the way in and cancelled on the way out — but `repeatForever` does
-            // not stop when you set the value back, and if the value you set is
-            // the one it is already animating toward, nothing changes and it
-            // simply keeps going. The ring then spins for ever after a refresh
-            // that finished half a second in.
-            //
-            // A single finite turn has no cancellation problem at all: 360° is
-            // the same angle as 0°, so it lands exactly where the reading
-            // belongs. It eases out, so it settles rather than stopping dead.
-            withAnimation(.timingCurve(0.32, 0, 0.14, 1, duration: 0.95)) {
-                spin += 360
-            }
+            // A finite turn, isolated from reading and press animations. The
+            // short arc fades out on completion without cutting the turn off.
+            spin += 360
         }
     }
 }

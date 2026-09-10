@@ -29,6 +29,11 @@ enum NotchMotion {
     /// new value reads as a glitch, one that sweeps reads as a measurement.
     static let reading = Animation.spring(response: 0.9, dampingFraction: 0.9)
 
+    /// The original refresh gesture: one eased turn and a small spring press.
+    /// The turn is intentionally longer than a transition; it conveys a fetch.
+    static let refreshTurn = Animation.timingCurve(0.32, 0, 0.14, 1, duration: 0.95)
+    static let refreshPress = Animation.spring(response: 0.3, dampingFraction: 0.62)
+
     /// The settings arc being taken back into the notch.
     ///
     /// Quicker than `unfold` and with no delay, which is the whole point: on

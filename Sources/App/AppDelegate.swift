@@ -382,6 +382,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fleet.onRefreshProvider = { [weak store] id in
                 await store?.refresh(providerID: id)?.value
             }
+            fleet.onStartGroup = { [weak self] id in
+                guard let self, let quota = self.quota else { return nil }
+                guard !quota.isBusy else { return FiveHourReport.text(for: .skippedBusy) }
+                await quota.startFiveHour(id)
+                guard let result = quota.result(for: id) else { return nil }
+                await self.store?.refresh(providerID: id)?.value
+                return FiveHourReport.text(for: result)
+            }
             fleet.onManualCheck = { [weak self] ids in await self?.checkFromNotch(ids) }
             store.$refreshing
                 .receive(on: RunLoop.main)
@@ -546,7 +554,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // The same accounts: a card is clickable exactly when there is an
         // engine behind it to answer.
-        notchFleet?.manualCheckIDs = Set(managed.map(\.providerID))
+        notchFleet?.manualCheckIDs = Set(quota.enabledAccounts.map(\.providerID))
     }
 
     /// Checks each account behind one card and reports back in one line.
@@ -561,13 +569,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // for the account it is asked about — by the time the second pass
         // reaches an account, the first has already moved past it.
         guard !quota.isBusy else { return CheckOutcome.skippedBusy.message }
-        var outcomes: [CheckOutcome] = []
-        for id in providerIDs where !quota.isRunning(id) {
-            if let outcome = await quota.check(id, mode: .manual) { outcomes.append(outcome) }
-            // So the card shows the reading the check just produced, rather
-            // than the one it was drawn with.
-            await store?.refresh(providerID: id)?.value
-        }
+        store?.beginManualFeedback(providerIDs)
+        defer { store?.endManualFeedback(providerIDs) }
+        async let feedback: Void = Task.sleep(nanoseconds: 380_000_000)
+        let outcomes = await quota.checkBatch(providerIDs)
+        for id in providerIDs { await store?.refresh(providerID: id)?.value }
+        _ = try? await feedback
         return CheckSummaryCopy.line(for: outcomes)
     }
 

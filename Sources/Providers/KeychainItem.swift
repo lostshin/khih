@@ -49,7 +49,7 @@ enum KeychainItem {
         if let account { query[kSecAttrAccount] = account }
 
         var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess
+        guard (try? KeychainAccess.shared.perform { SecItemCopyMatching(query as CFDictionary, &result) }) == errSecSuccess
         else { return nil }
 
         // A single match still comes back as one dictionary rather than an
@@ -109,7 +109,7 @@ enum KeychainItem {
             kSecMatchLimit: kSecMatchLimitOne
         ]
         var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+        guard (try? KeychainAccess.shared.serialized { SecItemCopyMatching(query as CFDictionary, &result) }) == errSecSuccess,
               let data = result as? Data
         else { return nil }
         return String(data: data, encoding: .utf8)

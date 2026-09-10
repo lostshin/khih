@@ -346,23 +346,11 @@ private struct ProviderTooltip: View {
         return ElapsedCopy.ago(since: since, now: now)
     }
 
-    private struct WindowGroup: Identifiable {
-        let id: String
-        let title: String?
-        var windows: [LimitWindow]
-    }
+    var groupMessages: [String: String] = [:]
+    var onStartGroup: ((String) -> Void)?
+    @State private var hoveredGroup: String?
 
-    private var groupedWindows: [WindowGroup] {
-        var result: [WindowGroup] = []
-        for window in snapshot.windows {
-            if let last = result.last, last.title == window.group {
-                result[result.count - 1].windows.append(window)
-            } else {
-                result.append(WindowGroup(id: window.group ?? window.id, title: window.group, windows: [window]))
-            }
-        }
-        return result
-    }
+    private var groupedWindows: [TooltipWindowGroup] { TooltipWindowGroup.groups(snapshot.windows) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -409,6 +397,26 @@ private struct ProviderTooltip: View {
                                     RoundedRectangle(cornerRadius: Design.px(20))
                                         .stroke(Color.white.opacity(0.25), lineWidth: Design.px(1.5))
                                 )
+                                if let sourceID = group.sourceProviderID {
+                                    Text(groupMessages[sourceID] ?? " ")
+                                        .font(Typography.cardBody)
+                                        .foregroundStyle(Palette.textSecondary)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.65)
+                                        .frame(height: NotchLayout.cardBodyLineHeight)
+                                }
+                            }
+                            .background(RoundedRectangle(cornerRadius: Design.px(20))
+                                .fill(Palette.textPrimary.opacity(hoveredGroup == group.id && group.sourceProviderID != nil ? 0.06 : 0)))
+                            .contentShape(Rectangle())
+                            .onHover { hoveredGroup = $0 ? group.id : nil }
+                            .help(group.sourceProviderID == nil ? "" : L10n.t("Click to start this account’s 5-hour countdown"))
+                            .background(GeometryReader { proxy in
+                                Color.clear.preference(key: TooltipGroupFrames.self,
+                                    value: group.sourceProviderID.map { [$0: proxy.frame(in: .named("notchPanel"))] } ?? [:])
+                            })
+                            .accessibilityAction {
+                                if let id = group.sourceProviderID { onStartGroup?(id) }
                             }
                             .padding(.top, groupIndex == 0 ? NotchLayout.headerToBlock : Design.px(28))
                         } else {
@@ -767,6 +775,8 @@ struct TooltipCard: View {
     /// exactly like one that worked.
     var checkMessage: String? = nil
     var tailOffset: CGFloat = 0
+    var groupMessages: [String: String] = [:]
+    var onStartGroup: ((String) -> Void)?
 
     /// The same figure the hover region uses, so what is drawn and what is
     /// reachable can never drift apart.
@@ -774,6 +784,7 @@ struct TooltipCard: View {
         NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
             groupCount: snapshot.windowGroupCount,
+            actionGroupCount: Set(snapshot.windows.compactMap(\.sourceProviderID)).count,
             sessionCount: snapshot.localModel == nil ? (activity?.sessions.count ?? 0) : 0,
             sessionCap: sessionCap,
             statusMessage: snapshot.statusMessage,
@@ -783,7 +794,7 @@ struct TooltipCard: View {
             showsLocalPerformance: snapshot.showsLocalPerformance,
             compactRowCount: snapshot.compactRowCount,
                 burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
-            checkMessage: checkMessage
+            checkMessage: checkMessage ?? snapshot.updateWarning
         )
     }
 
@@ -795,15 +806,15 @@ struct TooltipCard: View {
             // drifts while the card resizes around them.
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ProviderTooltip(isThinking: snapshot.localModel != nil && activity?.state == .working, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat)
+                    ProviderTooltip(isThinking: snapshot.localModel != nil && activity?.state == .working, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat, groupMessages: groupMessages, onStartGroup: onStartGroup)
                     if let tokenUsage = snapshot.tokenUsage {
                         CodexUsageSection(usage: tokenUsage, now: now)
                     }
                     if let activity, snapshot.localModel == nil {
                         SessionList(summary: activity, now: now, cap: sessionCap)
                     }
-                    if let checkMessage {
-                        CheckResultRow(text: checkMessage)
+                    if let message = checkMessage ?? snapshot.updateWarning {
+                        CheckResultRow(text: message)
                             .padding(.top, NotchLayout.blockSpacing)
                     }
                 }
@@ -817,5 +828,33 @@ struct TooltipCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+    }
+}
+
+struct TooltipWindowGroup: Identifiable {
+    let id: String
+    let title: String?
+    let sourceProviderID: String?
+    var windows: [LimitWindow]
+
+    static func groups(_ windows: [LimitWindow]) -> [Self] {
+        var result: [Self] = []
+        for window in windows {
+            let id = window.groupID ?? window.group ?? window.id
+            if result.last?.id == id {
+                result[result.count - 1].windows.append(window)
+            } else {
+                result.append(Self(id: id, title: window.group,
+                    sourceProviderID: window.sourceProviderID, windows: [window]))
+            }
+        }
+        return result
+    }
+}
+
+struct TooltipGroupFrames: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }

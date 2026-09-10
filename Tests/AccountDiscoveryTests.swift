@@ -32,20 +32,21 @@ final class AccountDiscoveryTests: XCTestCase {
         store.stop()
     }
 
-    private func setupLogin(completes: Bool = true) throws -> (QuotaStorage, QuotaController, URL) {
+    private func setupLogin(completes: Bool = true, startDelay: Double = 0) throws -> (QuotaStorage, QuotaController, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         let binary = root.appendingPathComponent("codex")
         let source = """
         #!/usr/bin/env python3
-        import json,sys,os
+        import json,sys,os,time
         for line in sys.stdin:
             m=json.loads(line)
             if 'id' not in m: continue
             method=m.get('method')
             result={}
             if method=='account/login/start':
+                time.sleep(\(startDelay))
                 result={'loginId':'test','userCode':'TEST','verificationUrl':'https://example.test'}
             print(json.dumps({'id':m['id'],'result':result}),flush=True)
             if method=='account/login/start' and \(completes ? "True" : "False"):
@@ -80,6 +81,20 @@ final class AccountDiscoveryTests: XCTestCase {
         XCTAssertEqual(storage.loadAccounts().accounts.count, 1)
         XCTAssertEqual(store.providerSummaries.count, 1)
         store.stop()
+    }
+
+    func testCancelDuringStartupWaitsForCleanupBeforeReopening() async throws {
+        let (storage, quota, _) = try setupLogin(completes: false, startDelay: 0.15)
+        let pending = Task { await quota.beginAddCodexAccount(label: "Startup") }
+        while quota.addAccountState != .starting { await Task.yield() }
+        await quota.cancelAddAccount()
+        XCTAssertFalse(quota.isBusy)
+        XCTAssertTrue(storage.loadAccounts().accounts.isEmpty)
+        await pending.value
+        XCTAssertEqual(quota.addAccountState, .idle)
+        quota.loginWait = 0
+        await quota.beginAddCodexAccount(label: "Reopened")
+        XCTAssertTrue(storage.loadAccounts().accounts.isEmpty)
     }
 
     func testTimeoutAndCancellationRemoveUnfinishedAccount() async throws {
