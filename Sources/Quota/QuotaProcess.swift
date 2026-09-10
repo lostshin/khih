@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Running one provider command to completion, cancellably.
 ///
@@ -39,20 +40,44 @@ enum QuotaProcess {
 
         try process.run()
 
-        let deadline = Date().addingTimeInterval(timeout)
+        // Nonblocking descriptors let the deadline run even when the child is
+        // silent, and drain both pipes before either can fill up.
+        let handles = [out.fileHandleForReading, err.fileHandleForReading]
+        for handle in handles {
+            let fd = handle.fileDescriptor
+            _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
+        }
+        defer { for handle in handles { try? handle.close() } }
+        func drain(_ handle: FileHandle, into data: inout Data) {
+            var buffer = [UInt8](repeating: 0, count: 8192)
+            for _ in 0..<32 {
+                let count = Darwin.read(handle.fileDescriptor, &buffer, buffer.count)
+                guard count > 0 else { return }
+                data.append(contentsOf: buffer.prefix(count))
+            }
+        }
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
         var stdout = Data(), stderr = Data()
-        let outHandle = out.fileHandleForReading, errHandle = err.fileHandleForReading
         while process.isRunning {
-            if cancelled() || Date() >= deadline {
+            drain(handles[0], into: &stdout)
+            drain(handles[1], into: &stderr)
+            if cancelled() || ProcessInfo.processInfo.systemUptime >= deadline {
                 process.terminate()
+                let grace = ProcessInfo.processInfo.systemUptime + 1
+                while process.isRunning && ProcessInfo.processInfo.systemUptime < grace {
+                    drain(handles[0], into: &stdout)
+                    drain(handles[1], into: &stderr)
+                    Thread.sleep(forTimeInterval: 0.01)
+                }
+                if process.isRunning { kill(process.processIdentifier, SIGKILL) }
                 process.waitUntilExit()
                 throw cancelled() ? CodexError.cancelled : CodexError.timedOut(binary.lastPathComponent)
             }
-            stdout.append(outHandle.availableData)
-            stderr.append(errHandle.availableData)
+            Thread.sleep(forTimeInterval: 0.01)
         }
-        stdout.append(outHandle.readDataToEndOfFile())
-        stderr.append(errHandle.readDataToEndOfFile())
+        process.waitUntilExit()
+        drain(handles[0], into: &stdout)
+        drain(handles[1], into: &stderr)
 
         guard process.terminationStatus == 0 else {
             throw Failure(status: process.terminationStatus,

@@ -89,6 +89,7 @@ struct LimitWindow: Identifiable, Codable, Equatable {
 
     /// Exact cycle length when known; optional to keep older archives readable.
     let duration: TimeInterval?
+    var burnReading: QuotaBurnReading? = nil
 
     init(id: String, group: String? = nil, label: String, usedFraction: Double? = nil,
          remaining: Int? = nil, used: Int? = nil, resetsAt: Date? = nil,
@@ -180,7 +181,7 @@ struct ProviderSnapshot: Identifiable, Equatable {
     let glyph: ProviderGlyph
     let fidelity: Fidelity
     var status: ProviderStatus
-    let windows: [LimitWindow]
+    var windows: [LimitWindow]
     /// Which window the ring means, declared by the provider rather than left to
     /// position. Without it the headline is "whichever window happens to be
     /// first", and a window dropping out of the response silently promotes
@@ -198,7 +199,10 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// runtime that supplied it.
     var sourceProviderID: String?
 
+    /// Multiple source accounts can share one display cell without merging state.
+    var sourceProviderIDs: [String]? = nil
     var providerID: String { sourceProviderID ?? id }
+    var refreshProviderIDs: [String] { sourceProviderIDs ?? [providerID] }
 
     var notchSnapshots: [ProviderSnapshot] {
         guard kind == .localRuntime, localModel == nil else { return [self] }

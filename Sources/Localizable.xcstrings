@@ -4609,6 +4609,406 @@
           }
         }
       }
+    },
+    "Sign in using the official agy CLI.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請使用官方 agy CLI 登入。"
+          }
+        }
+      }
+    },
+    "Gemini Models": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini 模型群組"
+          }
+        }
+      }
+    },
+    "Claude and GPT models": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude／GPT 模型群組"
+          }
+        }
+      }
+    },
+    "Weekly Limit": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每週限額"
+          }
+        }
+      }
+    },
+    "5-hour Limit": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 小時限額"
+          }
+        }
+      }
+    },
+    "Some accounts have no current reading.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "部分帳號沒有最新讀值。"
+          }
+        }
+      }
+    },
+    "%@ weekly check failed": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 每週檢查失敗"
+          }
+        }
+      }
+    },
+    "Not sent — another quota operation is running.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——另一項額度操作仍在執行。"
+          }
+        }
+      }
+    },
+    "Not sent — this account is in use.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——這個帳號正在使用中。"
+          }
+        }
+      }
+    },
+    "Not connected — waiting for the rate-limit cooldown.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未連線——正在等候限流冷卻結束。"
+          }
+        }
+      }
+    },
+    "Baseline saved. No request was sent.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已建立基準讀值，未送出請求。"
+          }
+        }
+      }
+    },
+    "This weekly reset was already handled.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次每週重置已處理。"
+          }
+        }
+      }
+    },
+    "The weekly countdown is already running.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每週倒數已在進行中。"
+          }
+        }
+      }
+    },
+    "Waiting for the backend to confirm the weekly reset.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在等候後端確認每週重置。"
+          }
+        }
+      }
+    },
+    "No weekly reset detected. No request was sent.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未偵測到每週重置，未送出請求。"
+          }
+        }
+      }
+    },
+    "Dry run: the weekly window could be started.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模擬檢查：符合啟動每週倒數的條件。"
+          }
+        }
+      }
+    },
+    "The check failed: %@": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檢查失敗：%@"
+          }
+        }
+      }
+    },
+    "%@ is signed in. Its usage now appears under Codex.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已登入，額度已顯示在 Codex 明細中。"
+          }
+        }
+      }
+    },
+    "When safe, sends a minimal request to start the weekly countdown. Refresh only reads usage.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "符合安全條件時，會送出最小請求啟動每週倒數。「重新整理」則只讀取額度。"
+          }
+        }
+      }
+    },
+    "Start 5-hour windows once": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "單次啟動 5 小時倒數"
+          }
+        }
+      }
+    },
+    "Taiwan time": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "台灣時間"
+          }
+        }
+      }
+    },
+    "Schedule": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預約"
+          }
+        }
+      }
+    },
+    "Cancel schedule": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消預約"
+          }
+        }
+      }
+    },
+    "Runs once for all enabled accounts. Codenotch must stay open; it waits while asleep or busy and cancels if more than one hour late.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到點會依序處理所有啟用帳號，僅執行一次。Codenotch 需保持執行；睡眠或忙碌時會等候，逾時超過一小時則取消。"
+          }
+        }
+      }
+    },
+    "Could not save the schedule: %@": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法儲存預約：%@"
+          }
+        }
+      }
+    },
+    "%@ scheduled 5-hour start": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 的 5 小時預約結果"
+          }
+        }
+      }
+    },
+    "Burn-rate unavailable": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚無法估算消耗速度"
+          }
+        }
+      }
+    },
+    "The reading is out of date.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "讀值已過期。"
+          }
+        }
+      }
+    },
+    "The usage is unknown.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用量不明。"
+          }
+        }
+      }
+    },
+    "Not enough usage to estimate yet.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "累積用量不足以估算。"
+          }
+        }
+      }
+    },
+    "Full 5h ≈ %@%% weekly": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每滿 5h 約用 %@%% 週額度"
+          }
+        }
+      }
+    },
+    "Weekly deadline unavailable": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚無法估算每週期限"
+          }
+        }
+      }
+    },
+    "At least %@%% may expire unused": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "估計至少 %@%% 可能來不及用完"
+          }
+        }
+      }
+    },
+    "Start by %@ (Taiwan)": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最晚 %@ 開始（台灣）"
+          }
+        }
+      }
+    },
+    "In use": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中"
+          }
+        }
+      }
+    },
+    "Other tools": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他工具"
+          }
+        }
+      }
+    },
+    "The notch draws these in this order. Drag one by its handle to move it, within its group.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "瀏海會依這個順序繪製。用把手拖曳可在同一組內調整位置。"
+          }
+        }
+      }
+    },
+    "Checked.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已檢查。"
+          }
+        }
+      }
+    },
+    "Checked %lld accounts — nothing to do.": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已檢查 %lld 個帳號，沒有需要處理的項目。"
+          }
+        }
+      }
+    },
+    "(%lld more)": {
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（另有 %lld 筆）"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

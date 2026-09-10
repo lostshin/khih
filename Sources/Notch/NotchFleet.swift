@@ -20,6 +20,9 @@ final class NotchFleet {
     private var edge: NotchEdge
     private var visibility: NotchVisibility = .onHover
     private var snapshots: [ProviderSnapshot] = []
+    /// Remembered beside the readings: a display attached later has to build
+    /// its cells from the same account as every other screen.
+    private var activeCodexID: String?
     private(set) var thinkingModels: [String: Date] = [:]
     private var performances: [String: LocalModelPerformance] = [:]
     private var localMetricsEnabled = false
@@ -58,6 +61,19 @@ final class NotchFleet {
     /// when there is no quota engine or no managed account, in which case the
     /// menu shows nothing about it.
     var fiveHourItems: [(title: String, action: () -> Void)] = []
+    /// Accounts a click on their card may check. Pushed to panels already on
+    /// screen, not only to ones built afterwards: an account added while the
+    /// notch is open must become clickable without a relaunch.
+    var manualCheckIDs: Set<String> = [] {
+        didSet {
+            for controller in controllers.values { controller.manualCheckIDs = manualCheckIDs }
+        }
+    }
+    var onManualCheck: (([String]) async -> String?)? {
+        didSet {
+            for controller in controllers.values { controller.onManualCheck = onManualCheck }
+        }
+    }
     /// An ⌥-drag on any one panel settled at a new offset. Persisting it is
     /// Preferences' job, same division `apply(edge:)` already keeps.
     var onReposition: ((CGFloat) -> Void)?
@@ -169,11 +185,12 @@ final class NotchFleet {
 
     // MARK: - Readings
 
-    func setSnapshots(_ snapshots: [ProviderSnapshot]) {
+    func setSnapshots(_ snapshots: [ProviderSnapshot], activeCodexID: String?) {
         self.snapshots = snapshots
+        self.activeCodexID = activeCodexID
         let now = Date()
         for controller in controllers.values {
-            controller.model.updateSnapshots(snapshots)
+            controller.model.updateSnapshots(snapshots, activeCodexID: activeCodexID)
             controller.model.now = now
         }
     }
@@ -316,7 +333,9 @@ final class NotchFleet {
         controller.onReposition = onReposition
         controller.signInItems = signInItems
         controller.fiveHourItems = fiveHourItems
-        controller.model.updateSnapshots(snapshots)
+        controller.manualCheckIDs = manualCheckIDs
+        controller.onManualCheck = onManualCheck
+        controller.model.updateSnapshots(snapshots, activeCodexID: activeCodexID)
         controller.model.thinkingModels = thinkingModels
         controller.model.setLocalMetricsEnabled(localMetricsEnabled)
         controller.model.updatePerformances(performances)

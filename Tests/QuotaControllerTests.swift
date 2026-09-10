@@ -24,7 +24,7 @@ final class QuotaControllerTests: XCTestCase {
             return stamped
         }
 
-        func poke(for account: QuotaAccountConfig,
+        func poke(for account: QuotaAccountConfig, target: PokeTarget,
                   expectedFingerprint: String?) throws -> QuotaPokeResult {
             poked += 1
             return QuotaPokeResult(model: Quota.defaultModel, response: "OK",

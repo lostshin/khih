@@ -9,13 +9,86 @@ import Foundation
 enum ProviderOrder {
     /// A runtime's inventory can arrive alphabetically on every poll. Keep its
     /// existing cells in place and append newly loaded models.
+    ///
+    /// `activeCodexID` is the account the `codex` command is signed in to, and
+    /// has no default: both the store and the notch merge, and a default would
+    /// let one of them quietly compute a different headline from the other.
     static func cells(from snapshots: [ProviderSnapshot],
-                      keeping previous: [ProviderSnapshot]) -> [ProviderSnapshot] {
-        snapshots.flatMap { snapshot in
+                      keeping previous: [ProviderSnapshot],
+                      activeCodexID: String?) -> [ProviderSnapshot] {
+        let expanded = snapshots.flatMap { snapshot in
             let cells = snapshot.notchSnapshots
             return snapshot.kind == .localRuntime
                 ? arrange(cells, by: previous.map(\.id), id: \.id) : cells
         }
+        let codex = expanded.filter { CodexProfile.isCodex(providerID: $0.id) }
+        guard codex.count > 1 else { return expanded }
+        let grouped = codexCell(codex, activeID: activeCodexID)
+        var emitted = false
+        return expanded.compactMap { snapshot in
+            guard codex.contains(where: { $0.id == snapshot.id }) else { return snapshot }
+            guard !emitted else { return nil }
+            emitted = true
+            return grouped
+        }
+    }
+
+    private static let fiveHours: TimeInterval = 5 * 3600
+
+    private static func codexCell(_ accounts: [ProviderSnapshot], activeID: String?) -> ProviderSnapshot {
+        let windows = accounts.flatMap { account -> [LimitWindow] in
+            // Says which group the ring is quoting. Without it the cell shows
+            // one number over several accounts and no way to tell whose.
+            let name = account.id == activeID
+                ? account.displayName + " · " + L10n.t("In use") : account.displayName
+            let title = account.status == .ok ? name
+                : name + " · " + (account.statusMessage ?? L10n.t("No reading"))
+            guard !account.windows.isEmpty else {
+                return [LimitWindow(id: "\(account.id):unavailable", group: title, label: L10n.t("No reading"))]
+            }
+            return account.windows.map { window in
+                var copied = LimitWindow(id: "\(account.id):\(window.id)", group: title, label: window.label,
+                            usedFraction: window.usedFraction, remaining: window.remaining,
+                            used: window.used, resetsAt: window.resetsAt, duration: window.duration)
+                copied.burnReading = window.burnReading
+                return copied
+            }
+        }
+        let status: ProviderStatus
+        if let oldest = accounts.compactMap({ $0.status.staleSince }).min() {
+            status = .stale(since: oldest)
+        } else if accounts.contains(where: { $0.status != .ok }) {
+            status = .error(L10n.t("Some accounts have no current reading."))
+        } else {
+            status = .ok
+        }
+        return ProviderSnapshot(id: "codex:accounts", displayName: "Codex", glyph: accounts[0].glyph,
+                                fidelity: .official, status: status, windows: windows,
+                                headlineID: headlineID(accounts, activeID: activeID, windows: windows),
+                                block: accounts.compactMap(\.block).first,
+                                sourceProviderIDs: accounts.flatMap(\.refreshProviderIDs))
+    }
+
+    /// The five-hour window of the account being spent.
+    ///
+    /// The rule used to be "whichever window is closest to full", which is what
+    /// `UsageModel`'s own note about headlines warns against: across four
+    /// accounts and three window lengths it settled on whichever account had
+    /// exhausted its session, so the ring read 0% while the account actually in
+    /// use was untouched. A headline has to answer one question, and the
+    /// question is whether the next prompt goes through.
+    private static func headlineID(_ accounts: [ProviderSnapshot], activeID: String?,
+                                   windows: [LimitWindow]) -> String? {
+        func fiveHour(of account: ProviderSnapshot) -> String? {
+            account.windows.first { $0.duration == fiveHours }.map { "\(account.id):\($0.id)" }
+        }
+        if let activeID, let active = accounts.first(where: { $0.id == activeID }),
+           let id = fiveHour(of: active) { return id }
+        // Signed in to an account this app does not manage, or that account
+        // reports no session window — a plan billed by the month does not have
+        // one. Naming an account is still better than naming none.
+        if let id = accounts.lazy.compactMap(fiveHour).first { return id }
+        return windows.filter { $0.usedFraction != nil }.max { $0.usedFraction! < $1.usedFraction! }?.id
     }
 
     /// `items` in the user's order, then everything the order has never seen, in

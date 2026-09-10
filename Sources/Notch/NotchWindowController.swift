@@ -21,6 +21,14 @@ final class NotchWindowController {
     /// One "Sign in to …" item per provider that needs a browser session.
     var signInItems: [(title: String, action: () -> Void)] = []
     var fiveHourItems: [(title: String, action: () -> Void)] = []
+    /// Accounts a click on their card may check. Empty for anything the quota
+    /// engine does not manage, which is what keeps a click on an Ollama card
+    /// doing what it always did.
+    var manualCheckIDs: Set<String> = []
+    /// Runs a check over those accounts and answers with the one line the card
+    /// should show. Returns a string rather than an outcome so the notch stays
+    /// clear of the engine's vocabulary.
+    var onManualCheck: (([String]) async -> String?)?
     /// Refetch a single provider, asked for by clicking its ring.
     var onRefreshProvider: ((String) async -> Void)?
     /// Open the settings window, asked for by clicking the handle.
@@ -345,14 +353,16 @@ final class NotchWindowController {
         let cardHeight = NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
             groupCount: snapshot.windowGroupCount,
-            sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot.id)?.sessions.count ?? 0) : 0,
+            sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot)?.sessions.count ?? 0) : 0,
             sessionCap: model.sessionCap,
             statusMessage: snapshot.statusMessage,
             blockMessage: snapshot.block?.summary(now: model.now),
             hasTokenUsage: snapshot.tokenUsage != nil,
             localModelName: snapshot.localModel?.name,
             showsLocalPerformance: snapshot.showsLocalPerformance,
-            compactRowCount: snapshot.compactRowCount
+            compactRowCount: snapshot.compactRowCount,
+                burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
+            checkMessage: model.checkMessages[snapshot.id]
         )
         // Across the stack the region is the card, its tail, and the gap the
         // pointer has to cross. Along it, the card's own extent.
@@ -578,7 +588,41 @@ final class NotchWindowController {
             }
             return
         }
+        // The open card, if the click landed on it. A check spends real quota
+        // when the account is at a weekly reset, so it is deliberately not on
+        // the ring — that is a refetch — and starting a five-hour window is not
+        // here at all, only behind the right-click submenu.
+        if let index = model.hoveredIndex, let card = tooltipRect(index: index),
+           card.contains(local), model.snapshots.indices.contains(index) {
+            let snapshot = model.snapshots[index]
+            let targets = Self.manualCheckTargets(for: snapshot, among: manualCheckIDs)
+            if !targets.isEmpty, let onManualCheck {
+                runManualCheck(targets, on: snapshot.id, using: onManualCheck)
+                return
+            }
+        }
         togglePinned()
+    }
+
+    /// Which accounts a card stands for. The merged Codex cell stands for
+    /// several, and its own id belongs to no account at all.
+    static func manualCheckTargets(for snapshot: ProviderSnapshot,
+                                   among known: Set<String>) -> [String] {
+        snapshot.refreshProviderIDs.filter { known.contains($0) }
+    }
+
+    private func runManualCheck(_ targets: [String], on cellID: String,
+                                using check: @escaping ([String]) async -> String?) {
+        // One at a time: the engine serialises anyway, and a second click while
+        // the first is still going would answer twice on one card.
+        guard manualCheckTask == nil else { return }
+        model.showCheckMessage(L10n.t("Checking…"), for: cellID, clearAfter: nil)
+        manualCheckTask = Task { [weak self] in
+            let message = await check(targets)
+            guard let self else { return }
+            self.manualCheckTask = nil
+            self.model.showCheckMessage(message ?? L10n.t("Checked."), for: cellID)
+        }
     }
 
     /// Move the notch to another screen edge.
@@ -946,6 +990,8 @@ final class NotchWindowController {
         ).isEnabled = true
         return menu
     }
+
+    private var manualCheckTask: Task<Void, Never>?
 
     private lazy var menuActions = MenuActions(
         refresh: { [weak self] in self?.onRefresh?() },

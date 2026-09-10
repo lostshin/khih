@@ -26,7 +26,7 @@ struct FiveHourButton: View {
             }
         }
         .buttonStyle(.borderless)
-        .disabled(quota.isRunning(providerID))
+        .disabled(quota.isBusy)
         .help(L10n.t("Start 5-hour window") + " — "
               + L10n.t("Sends one minimal request to open this account's five-hour window. It refuses without sending anything if a countdown is already running, if the account cannot be confirmed, or if there is no reading to compare against."))
     }
@@ -49,6 +49,12 @@ struct FiveHourReport: View {
             if let result = quota.result(for: providerID) {
                 Text(Self.text(for: result))
                     .foregroundStyle(Self.tint(for: result))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let outcome = quota.checkResults[providerID] {
+                Text(outcome.message)
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -87,7 +93,7 @@ struct FiveHourReport: View {
         }
     }
 
-    private static func text(for result: FiveHourResult) -> String {
+    nonisolated static func text(for result: FiveHourResult) -> String {
         switch result {
         case .started(.verified):
             return L10n.t("Started — the backend confirmed this request opened the window.")
@@ -109,6 +115,8 @@ struct FiveHourReport: View {
             return L10n.t("Not sent — a five-hour countdown is already running.")
         case .skippedBusy:
             return L10n.t("Not sent — another check is running for this account.")
+        case .groups(let results):
+            return results.map { "\($0.group.name): " + text(for: FiveHourResult($0.outcome)) }.joined(separator: "\n")
         case .failed(let detail):
             return L10n.t("The request could not be made: \(detail)")
         }
@@ -120,5 +128,23 @@ struct FiveHourReport: View {
         case .refused, .skippedBusy: return .secondary
         default:                     return .primary
         }
+    }
+}
+
+struct ManualCheckButton: View {
+    @ObservedObject var quota: QuotaController
+    let providerID: String
+
+    var body: some View {
+        Button {
+            Task { await quota.check(providerID, mode: .manual) }
+        } label: {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.borderless)
+        .disabled(quota.isBusy)
+        .help(L10n.t("Check now") + " — " + L10n.t("When safe, sends a minimal request to start the weekly countdown. Refresh only reads usage."))
     }
 }

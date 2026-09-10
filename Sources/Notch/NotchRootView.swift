@@ -66,6 +66,7 @@ struct NotchRootView: View {
                         direction: model.edge.tooltipDirection,
                         sessionCap: model.sessionCap,
                         resetTimeFormat: model.resetTimeFormat,
+                        checkMessage: model.checkMessages[snapshot.id],
                         tailOffset: tooltipTailOffset(index: index, snapshot: snapshot)
                     )
                         // Deliberately *no* `.id` here: the card is one object
@@ -265,14 +266,16 @@ struct NotchRootView: View {
             ? NotchLayout.cardHeight(
                 windowCount: snapshot.windows.count,
                 groupCount: snapshot.windowGroupCount,
-                sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot.id)?.sessions.count ?? 0) : 0,
+                sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot)?.sessions.count ?? 0) : 0,
                 sessionCap: model.sessionCap,
                 statusMessage: snapshot.statusMessage,
                 blockMessage: snapshot.block?.summary(now: model.now),
                 hasTokenUsage: snapshot.tokenUsage != nil,
                 localModelName: snapshot.localModel?.name,
                 showsLocalPerformance: snapshot.showsLocalPerformance,
-                compactRowCount: snapshot.compactRowCount
+                compactRowCount: snapshot.compactRowCount,
+                burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
+                checkMessage: model.checkMessages[snapshot.id]
             )
             : NotchLayout.cardWidth
     }
@@ -292,14 +295,16 @@ struct NotchRootView: View {
             : NotchLayout.cardHeight(
                 windowCount: snapshot.windows.count,
                 groupCount: snapshot.windowGroupCount,
-                sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot.id)?.sessions.count ?? 0) : 0,
+                sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot)?.sessions.count ?? 0) : 0,
                 sessionCap: model.sessionCap,
                 statusMessage: snapshot.statusMessage,
                 blockMessage: snapshot.block?.summary(now: model.now),
                 hasTokenUsage: snapshot.tokenUsage != nil,
                 localModelName: snapshot.localModel?.name,
                 showsLocalPerformance: snapshot.showsLocalPerformance,
-                compactRowCount: snapshot.compactRowCount
+                compactRowCount: snapshot.compactRowCount,
+                burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
+                checkMessage: model.checkMessages[snapshot.id]
             )
         // The ring it points at has moved with the notch, so the tail follows
         // it — but the card beyond the tail is drawn at its own size, and

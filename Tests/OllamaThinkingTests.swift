@@ -82,7 +82,7 @@ final class OllamaThinkingActivityTests: XCTestCase {
         let snapshot = ProviderSnapshot(id: "ollama-local", displayName: "Ollama", glyph: .ollama,
             fidelity: .official, status: .ok, windows: [], kind: .localRuntime, localRuntime: reading)
         let model = NotchViewModel()
-        model.updateSnapshots([snapshot])
+        model.updateSnapshots([snapshot], activeCodexID: nil)
         let gemma = model.snapshots[0], qwen = model.snapshots[1]
         model.thinkingModels = ["gemma4:e4b": Date()]
         XCTAssertEqual(model.activity(for: gemma)?.state, .working)

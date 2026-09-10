@@ -33,7 +33,7 @@ final class CursorUsageTests: XCTestCase {
         XCTAssertEqual(CursorUsage.headlineID(in: w), "auto")
     }
 
-    func testMonthlyPaceUsesActualBillingDates() throws {
+    func testMonthlyDurationUsesActualBillingDates() throws {
         for days in [28, 29, 30, 31] {
             let start = Date(timeIntervalSince1970: 1_800_000_000)
             let end = start.addingTimeInterval(Double(days) * 86400)
@@ -44,10 +44,7 @@ final class CursorUsageTests: XCTestCase {
              "individualUsage":{"plan":{"autoPercentUsed":80}}}
             """)
             let window = try XCTUnwrap(result.first)
-            let halfway = start.addingTimeInterval(Double(days) * 43200)
             XCTAssertEqual(window.duration, Double(days) * 86400)
-            XCTAssertEqual(try XCTUnwrap(window.usagePace(now: halfway)).percentagePoints, 30,
-                           accuracy: 0.00001)
         }
     }
 

@@ -41,7 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let claudeProfiles = ClaudeProfile.discover()
     // Both the `~/.codex*` convention and the accounts the quota engine
     // manages, each of which has its own CODEX_HOME elsewhere on disk.
-    private let codexProfiles = CodexProfile.discoverAll()
+    private var codexProfiles = CodexProfile.discoverAll()
+    /// Which of those the `codex` command is signed in to, which is the account
+    /// the merged Codex ring quotes.
+    private let codexActiveAccount = CodexActiveAccount()
     /// Held as concrete providers, not just handed to the store: the token
     /// refresher needs to ask one of them how long its token has left, and the
     /// protocol has no business carrying that.
@@ -73,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // `CODENOTCH_DEMO=1` puts the design frame's three providers on screen
         // with its numbers, for screenshots and for eyeballing the layout.
         if ProcessInfo.processInfo.environment["CODENOTCH_DEMO"] == "1" {
-            fleet.setSnapshots(Fixtures.snapshots())
+            fleet.setSnapshots(Fixtures.snapshots(), activeCodexID: nil)
         } else {
             // Nothing needs a browser session at the moment. `WebSessionProvider`
             // and `Sites.perplexity` are kept: they are the working pattern for a
@@ -100,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 providers: claudeProviders
                     + [CursorLocalProvider()]
                     + codexProfiles.map { CodexLocalProvider(profile: $0) }
-                    + [AntigravityProvider(),
+                    + [AntigravityCLIProvider(),
                        GLMProvider(), GrokLocalProvider(), OpenCodeProvider(),
                        CommandCodeProvider(), GitHubCopilotProvider(),
                        OllamaLocalProvider(endpoint: URL(string: preferences.ollamaEndpoint)!),
@@ -117,7 +120,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // same reason `disconnected` is: the sink delivers a run loop
                 // turn later, so without this every launch draws the built-in
                 // order for a frame and then visibly shuffles.
-                order: preferences.providerOrder
+                order: preferences.providerOrder,
+                activeCodexProviderID: { [weak self] in self?.activeCodexProviderID() }
             )
 
             let updater = Updater()
@@ -168,19 +172,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             quota.isKeeperEnabled = { [weak preferences] in
                 preferences?.quotaKeeperEnabled ?? false
             }
+            quota.isEnabledInUI = { [weak preferences] id in
+                !(preferences?.disconnectedProviders.contains(id) ?? true)
+            }
+            quota.onBurnReadings = { [weak store] in store?.setBurnReadings($0) }
+            Task { await quota.publishBurnReadings() }
             self.quota = quota
-            // Only the accounts the engine actually manages; a `~/.codex`
-            // profile it never adopted has no state directory to hold a
-            // baseline or a lock, so there is nothing to start.
-            fleet.fiveHourItems = codexProfiles
-                .filter { quota.canStartFiveHour($0.id) }
-                .map { profile in
-                    (title: profile.displayName,
-                     action: { [weak quota] in
-                         guard let quota else { return }
-                         Task { await quota.startFiveHour(profile.id) }
-                     })
-                }
+            quota.onAccountsChanged = { [weak self] in self?.discoverCodexAccounts() }
+            updateFiveHourItems()
 
             let settings = SettingsWindowController(
                 preferences: preferences,
@@ -366,7 +365,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             store.$notchSnapshots
                 .receive(on: RunLoop.main)
-                .sink { [weak fleet] in fleet?.setSnapshots($0) }
+                .sink { [weak self, weak fleet] in
+                    fleet?.setSnapshots($0, activeCodexID: self?.activeCodexProviderID())
+                }
                 .store(in: &cancellables)
 
             store.$snapshots
@@ -381,6 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fleet.onRefreshProvider = { [weak store] id in
                 await store?.refresh(providerID: id)?.value
             }
+            fleet.onManualCheck = { [weak self] ids in await self?.checkFromNotch(ids) }
             store.$refreshing
                 .receive(on: RunLoop.main)
                 .sink { [weak fleet] ids in fleet?.setRefreshing(ids) }
@@ -457,42 +459,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             refresher.start()
             tokenRefresher = refresher
         }
-        for (id, monitor) in monitors {
-            monitor.sessionsPublisher
-                .receive(on: RunLoop.main)
-                .sink { [weak self, weak fleet] live in
-                    guard let fleet else { return }
-                    fleet.setSessions(providerID: id, sessions: live)
-                    // The publisher delivers on the main run loop, but the
-                    // closure itself is nonisolated — the same assertion the
-                    // notch controller's timers make.
-                    MainActor.assumeIsolated { self?.announceCompletions(sessions: fleet.sessions) }
-                }
-                .store(in: &cancellables)
-            monitor.start()
-        }
-        // Poll usage hard only while something is actually running.
-        store?.isBusy = { monitors.values.contains { m in m.sessions.contains { $0.state == .busy } } }
         self.monitors = monitors
-
-        // The weekly keeper stands aside for an account whose own work is
-        // about to anchor the window anyway. Recomputed whenever any monitor
-        // reports, so it is current at the moment the keeper reads it.
-        if let quota {
-            for (_, monitor) in monitors {
-                monitor.sessionsPublisher
-                    .receive(on: RunLoop.main)
-                    .sink { [weak quota] _ in
-                        guard let quota else { return }
-                        let busy = Set(monitors.compactMap { id, monitor in
-                            monitor.sessions.contains { $0.state == .busy } ? id : nil
-                        })
-                        quota.inUse.update(busy)
-                    }
-                    .store(in: &cancellables)
-            }
-            quota.start()
+        for (id, monitor) in monitors { connectMonitor(id: id, monitor: monitor) }
+        store?.isBusy = { [weak self] in
+            self?.monitors.values.contains { m in m.sessions.contains { $0.state == .busy } } ?? false
         }
+        quota?.start()
 
         // Applied last, right before the panel goes up: every one of these
         // calls a `NotchFleet.apply(...)` that can trigger `reconcile()` on
@@ -563,12 +535,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    @MainActor private func updateFiveHourItems() {
+        guard let quota else { return }
+        let managed = quota.enabledAccounts.filter { quota.canStartFiveHour($0.providerID) }
+        notchFleet?.fiveHourItems = managed.map { account in
+            (title: account.label, action: { [weak quota] in
+                guard let quota else { return }
+                Task { await quota.startFiveHour(account.providerID) }
+            })
+        }
+        // The same accounts: a card is clickable exactly when there is an
+        // engine behind it to answer.
+        notchFleet?.manualCheckIDs = Set(managed.map(\.providerID))
+    }
+
+    /// Checks each account behind one card and reports back in one line.
+    ///
+    /// Sequential on purpose. The engine serialises through its own lock, and
+    /// four Codex accounts asked at once would queue on it anyway while opening
+    /// four app-server processes to wait in.
+    @MainActor private func checkFromNotch(_ providerIDs: [String]) async -> String? {
+        guard let quota else { return nil }
+        // The whole engine, not this card: every screen has its own notch, so
+        // two panels can be clicked in turn and `isRunning` only ever answers
+        // for the account it is asked about — by the time the second pass
+        // reaches an account, the first has already moved past it.
+        guard !quota.isBusy else { return CheckOutcome.skippedBusy.message }
+        var outcomes: [CheckOutcome] = []
+        for id in providerIDs where !quota.isRunning(id) {
+            if let outcome = await quota.check(id, mode: .manual) { outcomes.append(outcome) }
+            // So the card shows the reading the check just produced, rather
+            // than the one it was drawn with.
+            await store?.refresh(providerID: id)?.value
+        }
+        return CheckSummaryCopy.line(for: outcomes)
+    }
+
+    /// Asked for on every poll rather than cached here: the account is switched
+    /// in another program, so the app never gets told.
+    @MainActor private func activeCodexProviderID() -> String? {
+        codexActiveAccount.providerID(among: codexProfiles)
+    }
+
+    @MainActor private func discoverCodexAccounts() {
+        let profiles = CodexProfile.discoverAll()
+        let added = profiles.filter { profile in !codexProfiles.contains { $0.id == profile.id } }
+        codexProfiles = profiles
+        _ = store?.addProviders(added.map { CodexLocalProvider(profile: $0) })
+        for profile in added {
+            let monitor = CodexActivityMonitor(profile: profile)
+            monitors[profile.id] = monitor
+            connectMonitor(id: profile.id, monitor: monitor)
+        }
+        updateFiveHourItems()
+    }
+
+    @MainActor private func connectMonitor(id: String, monitor: any AgentActivityMonitor) {
+        monitor.sessionsPublisher
+            .receive(on: RunLoop.main)
+            .sink { [weak self] live in
+                MainActor.assumeIsolated {
+                    guard let self, let fleet = self.notchFleet else { return }
+                    fleet.setSessions(providerID: id, sessions: live)
+                    self.announceCompletions(sessions: fleet.sessions)
+                    let busy = Set(self.monitors.compactMap { id, monitor in
+                        monitor.sessions.contains { $0.state == .busy } ? id : nil
+                    })
+                    self.quota?.inUse.update(busy)
+                }
+            }
+            .store(in: &cancellables)
+        monitor.start()
+    }
+
     @MainActor func openSettings() { settings?.show() }
 
     func applicationWillTerminate(_ notification: Notification) {
         ollamaRelay?.configure(enabled: false, endpoint: OllamaEndpoint.defaultAddress)
         tokenRefresher?.stop()
         store?.stop()
+        quota?.stop()
+        AntigravityClient.shared.stop()
         monitors.values.forEach { $0.stop() }
         notchFleet?.stop()
     }

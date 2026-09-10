@@ -899,7 +899,7 @@ final class NotchFleetScopeTests: XCTestCase {
             fidelity: .official, status: .ok,
             windows: [LimitWindow(id: "primary", label: "5h limit", usedFraction: 0.27)],
             headlineID: "primary")
-        fleet.setSnapshots([reading])
+        fleet.setSnapshots([reading], activeCodexID: nil)
         for controller in fleet.controllersForTesting {
             XCTAssertEqual(controller.model.snapshots, [reading])
         }

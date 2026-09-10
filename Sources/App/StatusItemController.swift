@@ -126,7 +126,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
         let header = NSMenuItem(title: title, action: #selector(refreshProvider(_:)), keyEquivalent: "")
         header.target = self
-        header.representedObject = snapshot.id
+        header.representedObject = snapshot.providerID
         return header
     }
 
@@ -149,7 +149,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// One metered window on one line: label, percentage burned, and reset —
     /// the same three the tooltip spreads over three lines.
     static func windowLine(for window: LimitWindow, now: Date) -> String {
-        var line = "\(window.label): \(window.summary)"
+        var line = (window.group.map { $0 + " · " } ?? "") + "\(window.label): \(window.summary)"
         if let resetsAt = window.resetsAt {
             line += " · \(ResetCopy.text(for: resetsAt, now: now))"
         }

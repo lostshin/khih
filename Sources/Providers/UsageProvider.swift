@@ -9,6 +9,8 @@ enum ProviderKind: Equatable {
 /// and the UI never dresses a derived number up as an official one.
 protocol UsageProvider {
     var kind: ProviderKind { get }
+    var minimumRefreshInterval: TimeInterval { get }
+    var fetchDeadline: TimeInterval { get }
     var id: String { get }
     /// Enough to draw the cell even when a fetch has never succeeded.
     var displayName: String { get }
@@ -56,6 +58,8 @@ protocol UsageProvider {
 
 extension UsageProvider {
     var isVisibleWhenAbsent: Bool { true }
+    var minimumRefreshInterval: TimeInterval { 0 }
+    var fetchDeadline: TimeInterval { 0 }
 }
 
 extension UsageProvider {

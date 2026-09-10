@@ -276,3 +276,20 @@ final class QuotaStorageTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: second.codexHome))
     }
 }
+
+extension QuotaStorageTests {
+    func testLongTransactionKeepsItsLockFresh() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("check.lock")
+        let descriptor = open(path.path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        let lock = CheckLock(path: path, descriptor: descriptor, heartbeatInterval: 0.02)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 0)], ofItemAtPath: path.path)
+        Thread.sleep(forTimeInterval: 0.1)
+        let date = try XCTUnwrap(FileManager.default.attributesOfItem(atPath: path.path)[.modificationDate] as? Date)
+        XCTAssertLessThan(Date().timeIntervalSince(date), 1)
+        withExtendedLifetime(lock) {}
+    }
+}
