@@ -122,7 +122,8 @@ final class CursorUsageTests: XCTestCase {
             fidelity: .official, status: .ok, windows: w,
             headlineID: CursorUsage.headlineID(in: w)
         )
-        XCTAssertEqual(snap.headlineText, "20%")
+        // The ring reports what is left of the blend, not what it has spent.
+        XCTAssertEqual(snap.headlineText, "80%")
     }
 }
 

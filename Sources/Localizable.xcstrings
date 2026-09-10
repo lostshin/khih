@@ -4264,7 +4264,7 @@
         "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "送出一次最小請求，開啟這個帳號的 5 小時 window。若倒數已在進行、無法確認帳號，或還沒有可比對的讀值，就會直接拒絕，不送出任何請求。"
+            "value": "送出一次最小請求，開啟這個帳號的 5 小時倒數。若倒數已在進行、無法確認帳號，或還沒有可比對的讀值，就會直接拒絕，不送出任何請求。"
           }
         }
       }
@@ -4297,7 +4297,7 @@
         "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "已啟動——backend 確認這次請求開啟了 window。"
+            "value": "已啟動——backend 確認這次請求開啟了倒數。"
           }
         }
       }
@@ -4352,7 +4352,7 @@
         "zh-Hant-TW": {
           "stringUnit": {
             "state": "translated",
-            "value": "未送出——backend 沒有回報唯一的 5 小時 window。"
+            "value": "未送出——backend 沒有回報唯一的 5 小時額度。"
           }
         }
       }
@@ -4397,6 +4397,215 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法送出請求：%@"
+          }
+        }
+      }
+    },
+    "%@ is signed in. Its ring appears the next time Codenotch starts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已登入。下次啟動 Codenotch 時就會出現它的圓環。"
+          }
+        }
+      }
+    },
+    "%@ weekly window kept": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 的週限額已守住"
+          }
+        }
+      }
+    },
+    "A minimal request opened the new weekly window.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最小請求開啟了新的每週倒數。"
+          }
+        }
+      }
+    },
+    "A request was sent, but the backend has not confirmed the countdown.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請求已送出，但 backend 尚未確認倒數。"
+          }
+        }
+      }
+    },
+    "A weekly countdown is running, but something else started it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每週倒數正在進行，但是由其他使用行為啟動的。"
+          }
+        }
+      }
+    },
+    "Add a Codex account": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新增 Codex 帳號"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
+          }
+        }
+      }
+    },
+    "Each account gets its own configuration directory, so their sign-ins never overwrite one another.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每個帳號都有自己的設定目錄，登入資料不會互相覆蓋。"
+          }
+        }
+      }
+    },
+    "Enter this code in your browser to finish signing in:": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在瀏覽器輸入這組代碼完成登入："
+          }
+        }
+      }
+    },
+    "Keep weekly windows alive": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "守護每週額度倒數"
+          }
+        }
+      }
+    },
+    "Name this account": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "為這個帳號命名"
+          }
+        }
+      }
+    },
+    "No codex command was found on this Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台 Mac 上找不到 codex 指令。"
+          }
+        }
+      }
+    },
+    "Open the sign-in page": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟登入頁面"
+          }
+        }
+      }
+    },
+    "Sign in…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入…"
+          }
+        }
+      }
+    },
+    "Starting sign-in…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在開始登入…"
+          }
+        }
+      }
+    },
+    "The sign-in was not completed in time.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入未在時限內完成。"
+          }
+        }
+      }
+    },
+    "This is the same ChatGPT account as %@. It was not added a second time.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這與 %@ 是同一個 ChatGPT 帳號，沒有重複新增。"
+          }
+        }
+      }
+    },
+    "When a weekly limit resets, Codenotch sends one small request to start the new countdown, so an allowance is not left unclaimed while you are away. It spends a little of that allowance to do it, stands aside whenever you are already working on the account, and never touches an account it cannot confirm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每週限額重置時，Codenotch 會送出一次小請求啟動新的倒數，避免你不在時整週額度就這樣空著。這會花掉一點該週額度；你正在使用該帳號時它會讓開，也絕不碰無法確認身分的帳號。"
+          }
+        }
+      }
+    },
+    "Not sent — the command this account is read through is not installed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未送出——讀取這個帳號所需的指令沒有安裝。"
           }
         }
       }

@@ -3,21 +3,32 @@ import SwiftUI
 /// Starts one account's five-hour countdown.
 ///
 /// The only control in Codenotch that spends quota rather than reading it, so
-/// it is deliberately plain, sits at the end of its row, and has no keyboard
-/// shortcut: it should be pressed on purpose or not at all.
+/// it has no keyboard shortcut: it should be pressed on purpose or not at all.
+///
+/// A glyph rather than a labelled button, matching the mute bell beside it. A
+/// labelled one is what this started as, and on a row that already carries a
+/// name, a link and a switch it left the name three characters wide — an
+/// account called after a long relay address wrapped to six lines.
 struct FiveHourButton: View {
     @ObservedObject var quota: QuotaController
     let providerID: String
 
     var body: some View {
-        Button(quota.isRunning(providerID)
-               ? L10n.t("Starting…")
-               : L10n.t("Start 5-hour window")) {
+        Button {
             Task { await quota.startFiveHour(providerID) }
+        } label: {
+            if quota.isRunning(providerID) {
+                ProgressView().controlSize(.mini)
+            } else {
+                Image(systemName: "timer")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
         }
-        .controlSize(.small)
+        .buttonStyle(.borderless)
         .disabled(quota.isRunning(providerID))
-        .help(L10n.t("Sends one minimal request to open this account's five-hour window. It refuses without sending anything if a countdown is already running, if the account cannot be confirmed, or if there is no reading to compare against."))
+        .help(L10n.t("Start 5-hour window") + " — "
+              + L10n.t("Sends one minimal request to open this account's five-hour window. It refuses without sending anything if a countdown is already running, if the account cannot be confirmed, or if there is no reading to compare against."))
     }
 }
 
@@ -92,6 +103,8 @@ struct FiveHourReport: View {
             return L10n.t("Not sent — the backend did not report a single five-hour window.")
         case .refused(.unknownUsage):
             return L10n.t("Not sent — the five-hour usage came back unreadable.")
+        case .refused(.noBackend):
+            return L10n.t("Not sent — the command this account is read through is not installed.")
         case .refused(.alreadyRunning):
             return L10n.t("Not sent — a five-hour countdown is already running.")
         case .skippedBusy:

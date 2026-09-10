@@ -85,8 +85,21 @@ enum CodexFingerprint {
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tokens = root["tokens"] as? [String: Any],
               let accountId = tokens["account_id"] as? String else { return nil }
-        let digest = SHA256.hash(data: Data(accountId.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined().prefix(12).lowercased()
+        return QuotaFingerprint.short(of: accountId)
+    }
+}
+
+/// How every provider's account fingerprint is made.
+///
+/// Twelve hex digits of a SHA-256: enough to notice the signed-in account
+/// changed, and not enough to recover what it was. Shared so that Codex and
+/// Claude cannot drift into two different spellings of the same idea — a
+/// fingerprint that changes shape reads as a changed account, which blocks
+/// poking until a baseline is rebuilt.
+enum QuotaFingerprint {
+    static func short(of value: String) -> String {
+        SHA256.hash(data: Data(value.utf8))
+            .map { String(format: "%02x", $0) }.joined().prefix(12).lowercased()
     }
 }
 
@@ -159,6 +172,14 @@ private struct AccountReadResult: Decodable {
     }
 }
 
+private struct LoginStartResult: Decodable {
+    var loginId: String?
+    var userCode: String?
+    var verificationUrl: String?
+    /// Seen spelled both ways.
+    var verificationUri: String?
+}
+
 private struct RpcHeader: Decodable {
     var id: Int?
     var method: String?
@@ -193,7 +214,7 @@ final class CodexAppServerSession {
     private let stderrPipe = Pipe()
 
     private let condition = NSCondition()
-    private var pending: [(id: Int?, line: Data)] = []
+    private var pending: [(id: Int?, method: String?, line: Data)] = []
     private var finished = false
     private var didShutdown = false
     private var nextId = 1
@@ -280,7 +301,7 @@ final class CodexAppServerSession {
                 let data = Data(line)
                 let header = try? JSONDecoder().decode(RpcHeader.self, from: data)
                 self.condition.lock()
-                self.pending.append((header?.id, data))
+                self.pending.append((header?.id, header?.method, data))
                 self.condition.broadcast()
                 self.condition.unlock()
             }
@@ -297,7 +318,7 @@ final class CodexAppServerSession {
         try notify("initialized", params: [:])
     }
 
-    private struct DiscardedResult: Decodable {
+    struct DiscardedResult: Decodable {
         init(from decoder: Decoder) throws {}
     }
 
@@ -324,6 +345,24 @@ final class CodexAppServerSession {
     func accountInfo() throws -> CodexAccountInfo {
         let result = try request("account/read", params: [:], as: AccountReadResult.self)
         return CodexAccountInfo(email: result.email, planType: result.planType)
+    }
+
+    /// Begins a device-code sign-in and returns the code to show the user.
+    func startDeviceLogin() throws -> CodexDeviceCode {
+        let result = try request("account/login/start",
+                                 params: ["type": "chatgptDeviceCode"],
+                                 as: LoginStartResult.self)
+        guard let loginId = result.loginId, !loginId.isEmpty,
+              let userCode = result.userCode, !userCode.isEmpty,
+              let url = result.verificationUrl ?? result.verificationUri, !url.isEmpty else {
+            throw CodexError.malformed("Codex device auth 回應缺少必要欄位")
+        }
+        return CodexDeviceCode(loginId: loginId, userCode: userCode, verificationURL: url)
+    }
+
+    func cancelDeviceLogin(loginId: String) {
+        _ = try? request("account/login/cancel", params: ["loginId": loginId],
+                         as: DiscardedResult.self)
     }
 
     private func request<T: Decodable>(_ method: String,
@@ -363,17 +402,31 @@ final class CodexAppServerSession {
     /// Replies can arrive out of order, so anything that is not ours is left in
     /// the queue for whoever is waiting on it.
     private func waitForLine(id: Int, deadline: Date) throws -> Data? {
+        try waitForMessage(deadline: deadline) { $0.id == id }
+    }
+
+    /// Waits for a notification the server sends on its own initiative — the
+    /// device-login completion arrives this way, with no id to match on.
+    func waitForNotification(method: String, deadline: Date) throws -> [String: Any]? {
+        guard let line = try waitForMessage(deadline: deadline, where: {
+            $0.id == nil && $0.method == method
+        }) else { return nil }
+        let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any]
+        return (object?["params"] as? [String: Any]) ?? [:]
+    }
+
+    private func waitForMessage(deadline: Date,
+                                where matches: ((id: Int?, method: String?, line: Data)) -> Bool)
+        throws -> Data? {
         condition.lock()
         defer { condition.unlock() }
         while true {
             if cancelled() { throw CodexError.cancelled }
-            if let index = pending.firstIndex(where: { $0.id == id }) {
+            if let index = pending.firstIndex(where: matches) {
                 return pending.remove(at: index).line
             }
-            if finished && pending.allSatisfy({ $0.id != id }) {
-                // The child is gone and our reply is never coming.
-                if !process.isRunning { return nil }
-            }
+            // The child is gone and what we are waiting for is never coming.
+            if finished, !process.isRunning { return nil }
             if Date() >= deadline { return nil }
             _ = condition.wait(until: min(deadline, Date().addingTimeInterval(0.25)))
         }
@@ -382,7 +435,10 @@ final class CodexAppServerSession {
 
 // MARK: - The minimal request
 
-struct CodexPokeResult: Equatable {
+/// What a minimal request came back with, whichever provider sent it. The
+/// fingerprint is the account the request was actually billed to, as the
+/// provider itself reports it — not the one the caller expected.
+struct QuotaPokeResult: Equatable {
     var model: String
     var response: String
     var accountFingerprint: String?
@@ -423,54 +479,105 @@ enum CodexPoke {
                     expectedFingerprint: String?,
                     timeout: TimeInterval = defaultTimeout,
                     workingDirectory: URL = FileManager.default.temporaryDirectory,
-                    cancelled: () -> Bool = { false }) throws -> CodexPokeResult {
+                    cancelled: () -> Bool = { false }) throws -> QuotaPokeResult {
         let fingerprint = CodexFingerprint.of(codexHome: codexHome)
         if let expectedFingerprint, fingerprint != expectedFingerprint {
             throw CodexError.fingerprintChanged
         }
-        if cancelled() { throw CodexError.cancelled }
-
         let model = Quota.defaultModel
-        let process = Process()
-        process.executableURL = binary
-        process.arguments = arguments(model: model, workingDirectory: workingDirectory)
         var environment = ProcessInfo.processInfo.environment
         environment["CODEX_HOME"] = codexHome.path
-        process.environment = environment
-        process.standardInput = FileHandle.nullDevice
-        let out = Pipe(), err = Pipe()
-        process.standardOutput = out
-        process.standardError = err
 
-        try process.run()
-
-        let deadline = Date().addingTimeInterval(timeout)
-        var stdout = Data(), stderr = Data()
-        let outHandle = out.fileHandleForReading, errHandle = err.fileHandleForReading
-        while process.isRunning {
-            if cancelled() || Date() >= deadline {
-                process.terminate()
-                process.waitUntilExit()
-                throw cancelled() ? CodexError.cancelled : CodexError.timedOut("poke")
-            }
-            stdout.append(outHandle.availableData)
-            stderr.append(errHandle.availableData)
-        }
-        stdout.append(outHandle.readDataToEndOfFile())
-        stderr.append(errHandle.readDataToEndOfFile())
-
-        guard process.terminationStatus == 0 else {
-            let detail = String(data: stderr, encoding: .utf8) ?? ""
-            throw CodexError.pokeFailed(status: process.terminationStatus,
-                                        detail: String(detail.suffix(2_000)))
+        let stdout: Data
+        do {
+            stdout = try QuotaProcess.run(
+                binary: binary,
+                arguments: arguments(model: model, workingDirectory: workingDirectory),
+                environment: environment,
+                timeout: timeout,
+                cancelled: cancelled)
+        } catch let failure as QuotaProcess.Failure {
+            throw CodexError.pokeFailed(status: failure.status, detail: failure.detail)
         }
 
         // A completed request says the process finished, and nothing more.
         // Whether it anchored the window is decided by backend verification.
-        let response = (String(data: stdout, encoding: .utf8) ?? "")
+        let response = String(decoding: stdout, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return CodexPokeResult(model: model,
+        return QuotaPokeResult(model: model,
                                response: String(response.prefix(200)),
                                accountFingerprint: fingerprint)
+    }
+}
+
+// MARK: - Device sign-in
+
+struct CodexDeviceCode: Equatable {
+    var loginId: String
+    /// Shown to the user to type into the browser.
+    var userCode: String
+    var verificationURL: String
+}
+
+enum CodexLoginEvent: Equatable {
+    /// Nothing has happened yet; ask again.
+    case pending
+    case completed
+    case failed(String)
+}
+
+/// One device-code sign-in, alive for as long as the flow is on screen.
+///
+/// The app never sees the credential: the browser half happens at ChatGPT, and
+/// the CLI writes the result into this account's own `CODEX_HOME`. All this
+/// object does is start the attempt, hold the code to display, and wait for the
+/// server to say it finished.
+final class CodexDeviceLogin {
+    let code: CodexDeviceCode
+    private let session: CodexAppServerSession
+    private var finished = false
+
+    init(binary: URL, codexHome: URL, cancelled: @escaping () -> Bool = { false }) throws {
+        let session = try CodexAppServerSession(binary: binary, codexHome: codexHome,
+                                                cancelled: cancelled)
+        do {
+            self.code = try session.startDeviceLogin()
+        } catch {
+            session.shutdown()
+            throw error
+        }
+        self.session = session
+    }
+
+    deinit { cancel() }
+
+    /// Waits up to `timeout` for the browser half to finish.
+    ///
+    /// `pending` means "nothing yet" rather than "no": the user is off in a
+    /// browser, and the caller decides how long to keep offering the code.
+    func poll(timeout: TimeInterval) throws -> CodexLoginEvent {
+        let deadline = Date().addingTimeInterval(timeout)
+        while true {
+            guard let params = try session.waitForNotification(
+                method: "account/login/completed", deadline: deadline) else {
+                return .pending
+            }
+            // A completion belonging to a different attempt is not ours.
+            if let id = params["loginId"] as? String, id != code.loginId { continue }
+            finished = true
+            if let message = params["error"] as? String { return .failed(message) }
+            if params["success"] as? Bool == false { return .failed("Codex 登入失敗") }
+            return .completed
+        }
+    }
+
+    /// Ends the attempt. Safe to call more than once, and called on the way out
+    /// so an abandoned sign-in does not leave one open at the server.
+    func cancel() {
+        if !finished {
+            finished = true
+            session.cancelDeviceLogin(loginId: code.loginId)
+        }
+        session.shutdown()
     }
 }

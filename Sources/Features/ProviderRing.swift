@@ -30,7 +30,16 @@ struct ProviderRing: View {
     private var band: UsageBand {
         isBlocked ? .exhausted : UsageBand.band(for: usedFraction ?? 0)
     }
-    private var sweep: CGFloat { CGFloat(min(max(usedFraction ?? 0, 0), 1)) }
+    /// The arc is what is *left*, not what is spent: a full ring is a full
+    /// allowance, and it empties as the window is used. The band above still
+    /// reads the used fraction, so the colour thresholds — and everything
+    /// downstream of them — are unchanged by which way the arc runs.
+    private var sweep: CGFloat {
+        // Empty, not merely red: blocked is nothing left, and an arc still
+        // three-quarters drawn contradicts the colour it is drawn in.
+        guard !isBlocked else { return 0 }
+        return 1 - CGFloat(min(max(usedFraction ?? 0, 0), 1))
+    }
 
     var body: some View {
         ZStack {

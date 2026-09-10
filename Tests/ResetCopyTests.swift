@@ -192,12 +192,31 @@ final class WindowSummaryTests: XCTestCase {
         XCTAssertEqual(window(0.0004).summary, "<0.1% Used · >99.9% left")
     }
 
-    /// The ring's label keeps the same honesty, one decimal under one percent
-    /// and whole percents everywhere else.
-    func testTheRingLabelCarriesTheFractionToo() {
-        XCTAssertEqual(window(0.0034).usedFraction.map { snapshot($0).headlineText }, "0.3%")
-        XCTAssertEqual(window(0.12).usedFraction.map { snapshot($0).headlineText }, "12%")
-        XCTAssertEqual(window(0.0004).usedFraction.map { snapshot($0).headlineText }, "<0.1%")
+    /// The ring's label is what is left, matching the arc it sits inside, and
+    /// it keeps the same honesty at that end: a reading a ten-thousandth short
+    /// of nothing used says ">99.9%", not a rounded "100%".
+    func testTheRingLabelCountsWhatIsLeft() {
+        XCTAssertEqual(window(0.0034).usedFraction.map { snapshot($0).headlineText }, "99.7%")
+        XCTAssertEqual(window(0.12).usedFraction.map { snapshot($0).headlineText }, "88%")
+        XCTAssertEqual(window(0.0004).usedFraction.map { snapshot($0).headlineText }, ">99.9%")
+    }
+
+    /// A paused account has nothing left to offer, whatever its meter reads.
+    func testABlockedAccountOffersNothing() {
+        var snap = snapshot(0.16)
+        XCTAssertEqual(snap.headlineText, "84%")
+        snap.block = UsageBlock(reason: "Paused", resetsAt: nil)
+        XCTAssertEqual(snap.headlineText, "0%")
+    }
+
+    /// Whatever the label says, it is the far half of the line above it.
+    func testTheLabelIsTheOtherHalfOfTheSummary() {
+        for percent in stride(from: 0, through: 100, by: 7) {
+            let w = window(Double(percent) / 100)
+            let label = w.usedFraction.map { snapshot($0).headlineText }
+            XCTAssertNotNil(label)
+            XCTAssertTrue(w.summary.hasSuffix("\(label!) left"), "\(w.summary) vs \(label!)")
+        }
     }
 
     /// Counts have no denominator, so they keep their own wording.

@@ -89,7 +89,9 @@ final class ClaudeOAuthProviderTests: XCTestCase {
 
     private func makeProvider(source: CredentialSource,
                               cli: ClaudeUsageCLI? = nil,
-                              cliRefreshInterval: TimeInterval = 5 * 60) -> ClaudeOAuthProvider {
+                              cliRefreshInterval: TimeInterval = 5 * 60,
+                              readUserAgent: @escaping @Sendable () -> String? = { "claude-code/1.2.3" },
+                              onReadUserAgent: (@Sendable () -> Void)? = nil) -> ClaudeOAuthProvider {
         // A private defaults suite per test: the archive persists the 429 back-off
         // deadline, and a leaked one would silently skip fetches in the next test.
         let name = "ClaudeOAuthProviderTests.\(UUID().uuidString)"
@@ -105,7 +107,70 @@ final class ClaudeOAuthProviderTests: XCTestCase {
                                    archive: UsageArchive(defaults: defaults),
                                    loadCredentials: { try source.read() },
                                    cli: cli,
-                                   cliRefreshInterval: cliRefreshInterval)
+                                   cliRefreshInterval: cliRefreshInterval,
+                                   readUserAgent: { onReadUserAgent?(); return readUserAgent() })
+    }
+
+    // MARK: - The user agent
+
+    /// Not the first request — *every* request. The endpoint answers a
+    /// Codenotch-shaped user agent from a far stricter bucket, and one call in
+    /// ten missing the header is enough to sit in a 429 for hours.
+    func testEveryRequestCarriesClaudeCodesUserAgent() async throws {
+        StubEndpoint.reset([
+            .init(status: 200, body: Self.usagePayload),
+            .init(status: 200, body: Self.usagePayload),
+            .init(status: 200, body: Self.usagePayload)
+        ])
+        let provider = makeProvider(source: CredentialSource(readable: true))
+
+        for _ in 0..<3 { _ = try await provider.fetchSnapshot() }
+
+        XCTAssertEqual(StubEndpoint.userAgents, Array(repeating: "claude-code/1.2.3", count: 3))
+    }
+
+    /// A retry is a request like any other.
+    func testTheRetryAfterA401CarriesItToo() async throws {
+        StubEndpoint.reset([.init(status: 401), .init(status: 401)])
+        let provider = makeProvider(source: CredentialSource(readable: true))
+
+        await assertNeedsAuth(from: provider)
+
+        XCTAssertEqual(StubEndpoint.userAgents, ["claude-code/1.2.3", "claude-code/1.2.3"])
+    }
+
+    /// The version is read from a subprocess. Paying for it on every poll is
+    /// what the cache exists to avoid.
+    func testTheVersionIsReadOnceHoweverManyRequestsFollow() async throws {
+        StubEndpoint.reset([
+            .init(status: 200, body: Self.usagePayload),
+            .init(status: 200, body: Self.usagePayload)
+        ])
+        let reads = Counter()
+        let provider = makeProvider(source: CredentialSource(readable: true),
+                                    onReadUserAgent: { reads.increment() })
+
+        for _ in 0..<2 { _ = try await provider.fetchSnapshot() }
+
+        XCTAssertEqual(reads.value, 1)
+    }
+
+    /// A Mac without Claude Code installed still asks — it just does not
+    /// invent a version, and it does not spawn again hoping for a better answer.
+    func testNoInstalledClaudeCodeMeansNoHeaderAndNoSecondSpawn() async throws {
+        StubEndpoint.reset([
+            .init(status: 200, body: Self.usagePayload),
+            .init(status: 200, body: Self.usagePayload)
+        ])
+        let reads = Counter()
+        let provider = makeProvider(source: CredentialSource(readable: true),
+                                    readUserAgent: { nil },
+                                    onReadUserAgent: { reads.increment() })
+
+        for _ in 0..<2 { _ = try await provider.fetchSnapshot() }
+
+        XCTAssertEqual(StubEndpoint.userAgents, [nil, nil])
+        XCTAssertEqual(reads.value, 1)
     }
 
     // MARK: - The CLI path
@@ -262,9 +327,23 @@ private final class StubEndpoint: URLProtocol {
     private static let lock = NSLock()
     private static var queued: [Answer] = []
     private static var served = 0
+    /// One entry per request, in order, nil where the header was absent. Every
+    /// request is checked, not just the first: the header is what keeps the
+    /// endpoint out of its strict rate-limit bucket, and one call slipping
+    /// through without it is the whole problem.
+    private static var agents: [String?] = []
 
     static func reset(_ answers: [Answer]) {
-        lock.lock(); queued = answers; served = 0; lock.unlock()
+        lock.lock(); queued = answers; served = 0; agents = []; lock.unlock()
+    }
+
+    static var userAgents: [String?] {
+        lock.lock(); defer { lock.unlock() }
+        return agents
+    }
+
+    static func record(userAgent: String?) {
+        lock.lock(); agents.append(userAgent); lock.unlock()
     }
 
     static var requestCount: Int {
@@ -290,6 +369,7 @@ private final class StubEndpoint: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
+        Self.record(userAgent: request.value(forHTTPHeaderField: "User-Agent"))
         let answer = Self.next()
         let response = HTTPURLResponse(url: request.url!,
                                        statusCode: answer.status,
@@ -341,5 +421,32 @@ final class ClaudeAccountSourceTests: XCTestCase {
     /// A source that has nothing is no account, and no crash.
     func testNoCredentialIsNoAccount() {
         XCTAssertNil(provider { throw UsageProviderError.needsAuth }.account())
+    }
+}
+
+/// Parsing `claude --version`. The command's output format is not a contract,
+/// so the parser takes the first thing shaped like a version and ignores the
+/// rest rather than matching a whole line.
+final class ClaudeVersionTests: XCTestCase {
+    func testItTakesTheVersionOutOfTheUsualOutput() {
+        XCTAssertEqual(ClaudeVersion.userAgent(output: "1.0.44 (Claude Code)\n"),
+                       "claude-code/1.0.44")
+    }
+
+    func testAPrereleaseSuffixSurvives() {
+        XCTAssertEqual(ClaudeVersion.parse("2.1.0-beta.3 (Claude Code)"), "2.1.0-beta.3")
+    }
+
+    /// Extra wording around it — a banner, a warning on stderr's way past — is
+    /// not a reason to give up on a version that is right there.
+    func testItFindsAVersionInAWordierAnswer() {
+        XCTAssertEqual(ClaudeVersion.parse("Claude Code version 1.2.3, up to date"), "1.2.3")
+    }
+
+    /// Nothing recognisable means no header, never a guess.
+    func testNothingVersionShapedMeansNoUserAgent() {
+        XCTAssertNil(ClaudeVersion.userAgent(output: ""))
+        XCTAssertNil(ClaudeVersion.userAgent(output: "command not found\n"))
+        XCTAssertNil(ClaudeVersion.userAgent(output: "1.0"))
     }
 }

@@ -179,4 +179,100 @@ final class QuotaStorageTests: XCTestCase {
         XCTAssertNotNil(try storage.acquireCheckLock(for: account, staleAfter: 600))
         held = nil
     }
+
+    // MARK: - Abandoning a sign-in
+
+    func testAnUnfinishedSignInIsTakenBackWithItsDirectory() throws {
+        let created = try storage.createAccount(label: "Second", provider: .codex)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: created.codexHome))
+
+        storage.discardUnfinishedAccount(created)
+
+        XCTAssertFalse(storage.loadAccounts().accounts.contains { $0.id == created.id })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: created.codexHome))
+    }
+
+    func testAnAccountThatSignedInIsNeverTakenBack() throws {
+        let created = try storage.createAccount(label: "Second", provider: .codex)
+        // The one thing that distinguishes a finished sign-in from an
+        // abandoned one.
+        try Data("{}".utf8).write(
+            to: created.codexHomeURL.appendingPathComponent("auth.json"))
+
+        storage.discardUnfinishedAccount(created)
+
+        XCTAssertTrue(storage.loadAccounts().accounts.contains { $0.id == created.id })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: created.codexHome))
+    }
+
+    /// The delete is derived from the account id, not from the stored path, so
+    /// a doctored `accounts.json` cannot aim it somewhere else.
+    func testADirectoryOutsideTheConventionIsLeftAlone() throws {
+        let elsewhere = root.appendingPathComponent("not-an-account")
+        try QuotaStorage.privateDirectory(elsewhere)
+        var file = storage.loadAccounts()
+        let planted = QuotaAccountConfig(id: "account-planted", label: "Planted",
+                                         codexHome: elsewhere.path,
+                                         stateDir: elsewhere.path)
+        file.accounts.append(planted)
+        try storage.saveAccounts(file)
+
+        storage.discardUnfinishedAccount(planted)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: elsewhere.path))
+        XCTAssertTrue(storage.loadAccounts().accounts.contains { $0.id == planted.id })
+    }
+
+    // MARK: - A second sign-in to the same account
+
+    private func signIn(_ account: QuotaAccountConfig, accountID: String) throws {
+        try Data(#"{"tokens":{"account_id":"\#(accountID)"}}"#.utf8)
+            .write(to: account.codexHomeURL.appendingPathComponent("auth.json"))
+    }
+
+    func testASecondSignInToTheSameChatGPTAccountIsFound() throws {
+        let first = try storage.createAccount(label: "First", provider: .codex)
+        let second = try storage.createAccount(label: "Second", provider: .codex)
+        try signIn(first, accountID: "acct-1")
+        try signIn(second, accountID: "acct-1")
+
+        XCTAssertEqual(storage.codexAccount(sharingFingerprintWith: second)?.id, first.id)
+    }
+
+    func testADifferentChatGPTAccountIsNotAMatch() throws {
+        let first = try storage.createAccount(label: "First", provider: .codex)
+        let second = try storage.createAccount(label: "Second", provider: .codex)
+        try signIn(first, accountID: "acct-1")
+        try signIn(second, accountID: "acct-2")
+
+        XCTAssertNil(storage.codexAccount(sharingFingerprintWith: second))
+    }
+
+    func testTheDuplicateIsDiscardedWithItsCredential() throws {
+        let first = try storage.createAccount(label: "First", provider: .codex)
+        let second = try storage.createAccount(label: "Second", provider: .codex)
+        try signIn(first, accountID: "acct-1")
+        try signIn(second, accountID: "acct-1")
+
+        storage.discardDuplicateAccount(second, matching: first)
+
+        XCTAssertFalse(storage.loadAccounts().accounts.contains { $0.id == second.id })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: second.codexHome))
+        // The one that was already there is untouched.
+        XCTAssertTrue(storage.loadAccounts().accounts.contains { $0.id == first.id })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.codexHome))
+    }
+
+    /// The caller saying "duplicate" is not enough to delete a credential.
+    func testTwoDifferentAccountsAreNeverDiscardedAsDuplicates() throws {
+        let first = try storage.createAccount(label: "First", provider: .codex)
+        let second = try storage.createAccount(label: "Second", provider: .codex)
+        try signIn(first, accountID: "acct-1")
+        try signIn(second, accountID: "acct-2")
+
+        storage.discardDuplicateAccount(second, matching: first)
+
+        XCTAssertTrue(storage.loadAccounts().accounts.contains { $0.id == second.id })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: second.codexHome))
+    }
 }

@@ -7,6 +7,11 @@ import os
 @MainActor
 final class Preferences: ObservableObject {
     static let showUsagePaceKey = "showUsagePace"
+    /// Off unless the user says otherwise. The keeper can spend quota without
+    /// being asked, and it shares its state files with the Rust app it is
+    /// replacing — two keepers running against one account would pay for the
+    /// same reset twice. Opting in is how that stays the user's decision.
+    static let quotaKeeperEnabledKey = "quotaKeeperEnabled"
 
     /// Disabled model IDs hide cells without stopping their shared runtime.
     @Published var disconnectedProviders: Set<String> {
@@ -133,6 +138,11 @@ final class Preferences: ObservableObject {
 
     @Published var showUsagePace: Bool {
         didSet { defaults.set(showUsagePace, forKey: Self.showUsagePaceKey) }
+    }
+
+    /// Whether the weekly keeper may send its own requests.
+    @Published var quotaKeeperEnabled: Bool {
+        didSet { defaults.set(quotaKeeperEnabled, forKey: Self.quotaKeeperEnabledKey) }
     }
 
     /// The colour used for positive usage and active-work indicators.
@@ -367,6 +377,9 @@ final class Preferences: ObservableObject {
         self.resetTimeFormat = defaults.string(forKey: Keys.resetTimeFormat)
             .flatMap(ResetTimeFormat.init(rawValue:)) ?? .automatic
         self.showUsagePace = defaults.bool(forKey: Self.showUsagePaceKey)
+        // `bool(forKey:)` is false for a key that was never written, which is
+        // the default we want here.
+        self.quotaKeeperEnabled = defaults.bool(forKey: Self.quotaKeeperEnabledKey)
         // Absent means never chosen. Main display only, because that is what a
         // single-panel setup always did — all-displays on a fresh install
         // would put notches where none were expected.
