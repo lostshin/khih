@@ -5185,6 +5185,83 @@
           }
         }
       }
+    },
+    "Show details only after clicking a ring": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "點擊 ring 才顯示詳細頁"
+          }
+        }
+      }
+    },
+    "Turn off to show details on hover. Clicking a ring still checks its usage.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉後，滑鼠懸停即顯示詳細頁。點擊 ring 仍會立即檢查額度。"
+          }
+        }
+      }
+    },
+    "Show remaining quota in details": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詳細頁顯示剩餘額度"
+          }
+        }
+      }
+    },
+    "Off shows used quota. This changes detail bars and percentages, not the ring.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉時顯示已用額度。此設定會切換詳細頁的進度條與百分比，主 ring 維持不變。"
+          }
+        }
+      }
+    },
+    "%@%% remaining": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@%% 剩餘"
+          }
+        }
+      }
+    },
+    "%@%% used": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@%% 已用"
+          }
+        }
+      }
+    },
+    "Details": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詳細頁"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

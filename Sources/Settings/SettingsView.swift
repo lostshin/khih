@@ -522,8 +522,16 @@ struct SettingsView: View {
     // where it turns up. Split across several it read as unrelated settings,
     // and "Where Codenotch appears" was a header long enough to look like a
     // warning.
-    private var appearancePane: some View {
+    var appearancePane: some View {
         Form {
+            Section(L10n.t("Details")) {
+                Toggle(L10n.t("Show details only after clicking a ring"), isOn: $preferences.detailsOnClick)
+                Text(L10n.t("Turn off to show details on hover. Clicking a ring still checks its usage."))
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle(L10n.t("Show remaining quota in details"), isOn: $preferences.detailsShowRemaining)
+                Text(L10n.t("Off shows used quota. This changes detail bars and percentages, not the ring."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section(L10n.t("Notch")) {
                 Picker(L10n.t("Reset time"), selection: $preferences.resetTimeFormat) {
                     ForEach(ResetTimeFormat.allCases) { Text($0.title).tag($0) }

@@ -92,6 +92,7 @@ struct NotchRootView: View {
         .animation(motion(NotchMotion.unfold), value: model.isExpanded)
         .tint(model.accentColor.color)
         .environment(\.codenotchAccentColor, model.accentColor.color)
+        .environment(\.quotaDetailsShowRemaining, model.detailsShowRemaining)
     }
 
     /// Opening and closing are not mirror images. Appearing, the arc waits its

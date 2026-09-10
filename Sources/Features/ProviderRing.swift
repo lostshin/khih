@@ -26,6 +26,7 @@ struct ProviderRing: View {
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
     @Environment(\.codenotchAccentColor) private var accentColor
     @State private var spin: Double = 0
+    @State private var isPressed = false
 
     private var band: UsageBand {
         isBlocked ? .exhausted : UsageBand.band(for: usedFraction ?? 0)
@@ -78,35 +79,59 @@ struct ProviderRing: View {
             }
             .opacity(isStale ? (reduceTransparency ? 0.75 : 0.45) : 1)
 
-            // Keep the arc mounted: inserting it at the destination angle loses
-            // the first turn. Opacity and rotation have separate transactions.
-            Circle()
-                .inset(by: NotchLayout.trackStroke / 2)
-                .trim(from: 0, to: 0.22)
-                .stroke(Palette.textPrimary, style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round))
-                .animation(NotchMotion.crossfade) { content in
-                    content.opacity(isRefreshing ? 1 : 0)
-                }
-                .animation(reduceMotion ? nil : NotchMotion.refreshTurn) { content in
-                    content.rotationEffect(.degrees(reduceMotion ? -90 : -90 + spin))
-                }
-                .accessibilityHidden(true)
+            if isRefreshing {
+                RefreshProgressArc(reduceMotion: reduceMotion)
+                    .transition(.opacity)
+                    .accessibilityHidden(true)
+            }
             if let activity, activity.state != .idle {
                 ActivityArc(summary: activity)
             }
         }
         .frame(width: NotchLayout.ringDiameter, height: NotchLayout.ringDiameter)
-        // Pressed in while it works, and released when the answer lands. The
-        // ring is the button, so the ring is what should feel pressed.
+        // The click gesture finishes on its own clock. Long backend work
+        // keeps only the pending arc moving, not the ring pressed down.
         .animation(reduceMotion ? nil : NotchMotion.refreshPress) { content in
-            content.scaleEffect(isRefreshing && !reduceMotion ? 0.93 : 1)
+            content.scaleEffect(isPressed && !reduceMotion ? 0.93 : 1)
+        }
+        .animation(NotchMotion.crossfade, value: isRefreshing)
+        .task(id: isRefreshing) {
+            guard isRefreshing else { isPressed = false; return }
+            isPressed = true
+            do { try await Task.sleep(nanoseconds: 380_000_000) }
+            catch { return }
+            isPressed = false
         }
         .onChange(of: isRefreshing, initial: true) { _, refreshing in
             guard refreshing, !reduceMotion else { return }
-            // A finite turn, isolated from reading and press animations. The
-            // short arc fades out on completion without cutting the turn off.
+            // The usage track keeps its original finite click gesture.
             spin += 360
         }
+    }
+}
+
+/// Pending work follows the clock, independently of the finite click gesture.
+/// Removing this view stops its timeline; no repeating animation survives it.
+private struct RefreshProgressArc: View {
+    let reduceMotion: Bool
+    @State private var startedAt = Date()
+
+    var body: some View {
+        if reduceMotion {
+            arc(angle: -90)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 60)) { context in
+                arc(angle: -90 + context.date.timeIntervalSince(startedAt) / 1.4 * 360)
+            }
+        }
+    }
+
+    private func arc(angle: Double) -> some View {
+        Circle()
+            .inset(by: NotchLayout.trackStroke / 2)
+            .trim(from: 0, to: 0.22)
+            .stroke(Palette.textPrimary, style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round))
+            .rotationEffect(.degrees(angle))
     }
 }
 

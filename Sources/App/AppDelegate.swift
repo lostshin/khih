@@ -312,6 +312,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 preferences?.setOffset(offset, for: preferences?.notchEdge ?? .right)
             }
 
+            preferences.$detailsOnClick
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.apply(detailsOnClick: $0) }
+                .store(in: &cancellables)
+            preferences.$detailsShowRemaining
+                .receive(on: RunLoop.main)
+                .sink { [weak fleet] in fleet?.apply(detailsShowRemaining: $0) }
+                .store(in: &cancellables)
+
             preferences.$resetTimeFormat
                 .receive(on: RunLoop.main)
                 .sink { [weak fleet] in fleet?.apply(resetTimeFormat: $0) }
@@ -490,6 +499,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fleet.apply(displayPreference: preferences.displayPreference)
         fleet.apply(alongOffset: preferences.offset(for: preferences.notchEdge))
         fleet.apply(scale: preferences.notchScale)
+        fleet.apply(detailsOnClick: preferences.detailsOnClick)
+        fleet.apply(detailsShowRemaining: preferences.detailsShowRemaining)
         fleet.apply(resetTimeFormat: preferences.resetTimeFormat)
         fleet.apply(accentColor: preferences.accentColor)
         fleet.show()
