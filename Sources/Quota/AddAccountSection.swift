@@ -7,6 +7,11 @@ import SwiftUI
 /// result into that directory.
 struct AddCodexAccountSection: View {
     @ObservedObject var quota: QuotaController
+    /// Told when an account actually joins, because the list above this section
+    /// is a snapshot taken when the window opened. Without this the new account
+    /// appeared in the notch immediately and in Settings only after the window
+    /// lost and regained focus — the same window saying two different things.
+    var onAdded: () -> Void = {}
     @State private var label = ""
 
     private var trimmed: String {
@@ -39,7 +44,10 @@ struct AddCodexAccountSection: View {
                     await quota.beginAddCodexAccount(label: trimmed)
                     // Leaving the name in place would offer it again as the
                     // name of the next account.
-                    if case .added = quota.addAccountState { label = "" }
+                    if case .added = quota.addAccountState {
+                        label = ""
+                        onAdded()
+                    }
                 }
             }
             .controlSize(.small)
@@ -53,9 +61,7 @@ struct AddCodexAccountSection: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         if case .added(let name) = quota.addAccountState {
-            // The profile list is read once at launch, so the new ring is not
-            // there yet — saying so beats looking like nothing happened.
-            Text(L10n.t("\(name) is signed in. Its ring appears the next time Codenotch starts."))
+            Text(L10n.t("\(name) is signed in. Its usage now appears under Codex."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -80,7 +86,7 @@ struct AddCodexAccountSection: View {
                 if let url = URL(string: code.verificationURL) {
                     Link(L10n.t("Open the sign-in page"), destination: url)
                 }
-                Button(L10n.t("Cancel")) { quota.cancelAddAccount() }
+                Button(L10n.t("Cancel")) { Task { await quota.cancelAddAccount() } }
                     .controlSize(.small)
             }
         }

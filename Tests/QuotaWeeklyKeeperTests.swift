@@ -30,7 +30,7 @@ final class QuotaWeeklyKeeperTests: XCTestCase {
             return stamped
         }
 
-        func poke(for account: QuotaAccountConfig,
+        func poke(for account: QuotaAccountConfig, target: PokeTarget,
                   expectedFingerprint: String?) throws -> QuotaPokeResult {
             poked += 1
             if let pokeError { throw pokeError }
@@ -343,5 +343,51 @@ final class QuotaWeeklyKeeperTests: XCTestCase {
         XCTAssertEqual(try makeEngine().checkAccount(account: account, mode: .live), .noReset)
         XCTAssertEqual(backend.poked, 0, "a lagging read was mistaken for a reset")
         XCTAssertEqual(storage.loadState(for: account).snapshot?.weeklyWindow()?.usedPercent, 88)
+    }
+}
+
+extension QuotaWeeklyKeeperTests {
+    func testClaudeFirstAbsentWeeklyDoesNotPokeEvenManually() throws {
+        account.provider = .claude
+        let old = RateLimitsSnapshot(observedAt: clock - 60, buckets: [
+            RateLimitBucket(limitId: "claude:seven_day", primary: QuotaWindow(
+                usedPercent: 60, windowDurationMins: 10080, resetsAt: clock - 5, observedAt: clock - 60))])
+        try seed(old)
+        let absent = RateLimitsSnapshot(observedAt: clock, buckets: [
+            RateLimitBucket(limitId: "claude:seven_day", primary: QuotaWindow(
+                usedPercent: 0, windowDurationMins: 10080, resetsAt: nil, observedAt: clock))])
+        backend.reads = [absent]
+        XCTAssertEqual(try makeEngine().checkAccount(account: account, mode: .manual), .resetPending)
+        XCTAssertEqual(backend.poked, 0)
+        XCTAssertEqual(storage.loadState(for: account).weeklyKeeper.pendingScheduledResetAt, clock - 5)
+        _ = try makeEngine().checkAccount(account: account, mode: .manual)
+        XCTAssertGreaterThan(backend.poked, 0, "only the second absence after the scheduled reset can start")
+    }
+
+    func testUnconfirmedFingerprintNeverPokes() throws {
+        try seedAResetIsAboutToBeSeen()
+        backend.fingerprint = nil
+        guard case .failed = try makeEngine().checkAccount(account: account, mode: .manual) else { return XCTFail() }
+        XCTAssertEqual(backend.poked, 0)
+    }
+
+    func testKnownCooldownSkipsFiveHourBackendAsWell() throws {
+        var saved = AccountState()
+        saved.checkCooldownUntil = clock + 300
+        try storage.saveState(saved, for: account)
+        backend.reads = []
+        guard case .failed = try makeEngine().startFiveHour(account: account, trigger: .manual) else { return XCTFail() }
+        XCTAssertEqual(backend.poked, 0)
+        XCTAssertEqual(storage.loadState(for: account), saved)
+    }
+}
+
+extension QuotaWeeklyKeeperTests {
+    func testReadOnlySamplingPersistsObservationButCannotPokeAConfirmedReset() throws {
+        try seedAResetIsAboutToBeSeen()
+        _ = try makeEngine().checkAccount(account: account, mode: .observe)
+        XCTAssertEqual(backend.poked, 0)
+        XCTAssertEqual(storage.loadState(for: account).snapshot?.observedAt, clock)
+        XCTAssertNil(storage.loadState(for: account).weeklyKeeper.lastPoke)
     }
 }

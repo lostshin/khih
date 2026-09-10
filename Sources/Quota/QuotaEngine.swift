@@ -54,17 +54,21 @@ enum FiveHourOutcome: Equatable {
     /// The request went out; the status says whether the backend attributed
     /// the countdown to it.
     case started(PokeStatus)
+    case failed(String)
+    case groups([AntigravityFiveHourOutcome])
 }
 
 /// Which window a verification is about.
 enum PokeTarget: Equatable {
     case fiveHour
     case weekly
+    case antigravityGroup(AntigravityGroup, weekly: Bool)
 
     func window(in snapshot: RateLimitsSnapshot, provider: QuotaProvider) -> QuotaWindow? {
         switch self {
         case .fiveHour: return snapshot.fiveHourWindow(for: provider)
         case .weekly:   return snapshot.weeklyWindow(for: provider)
+        case .antigravityGroup(let group, let weekly): return group.window(in: snapshot, weekly: weekly)
         }
     }
 }
@@ -81,6 +85,8 @@ enum CheckMode: Equatable {
     case manual
     /// Decide everything, write nothing, send nothing.
     case dryRun
+    /// Refresh baseline and burn-rate without entering a poke transaction.
+    case observe
 }
 
 enum CheckOutcome: Equatable {
@@ -107,6 +113,8 @@ enum CheckOutcome: Equatable {
     /// read and nothing is wrong with the account — there is simply no way to
     /// reach it from this Mac.
     case noBackend
+    case failed(String)
+    case groups([AntigravityCheckOutcome])
 }
 
 enum QuotaBackendError: Error, Equatable {
@@ -120,7 +128,7 @@ enum QuotaBackendError: Error, Equatable {
 protocol QuotaBackend {
     func accountFingerprint(for account: QuotaAccountConfig) -> String?
     func readRateLimits(for account: QuotaAccountConfig, observedAt: Int64) throws -> RateLimitsSnapshot
-    func poke(for account: QuotaAccountConfig, expectedFingerprint: String?) throws -> QuotaPokeResult
+    func poke(for account: QuotaAccountConfig, target: PokeTarget, expectedFingerprint: String?) throws -> QuotaPokeResult
 }
 
 struct CodexBackend: QuotaBackend {
@@ -143,7 +151,7 @@ struct CodexBackend: QuotaBackend {
         return try session.rateLimits(observedAt: observedAt)
     }
 
-    func poke(for account: QuotaAccountConfig,
+    func poke(for account: QuotaAccountConfig, target: PokeTarget,
               expectedFingerprint: String?) throws -> QuotaPokeResult {
         try CodexPoke.run(binary: binary,
                           codexHome: account.codexHomeURL,
@@ -233,6 +241,9 @@ final class QuotaEngine {
             return .noBackend
         }
 
+        if account.provider == .antigravity {
+            return .groups(try checkAntigravity(account: account, backend: backend, mode: mode, cancelled: cancelled))
+        }
         let provider = account.provider
         let moment = now()
         var state = storage.loadState(for: account)
@@ -330,14 +341,22 @@ final class QuotaEngine {
                 existing, countdownActive: currentWeekly.countdownActive, window: currentWeekly)
         }
 
+        if mode == .observe {
+            state.snapshot = current
+            try storage.saveState(state, for: account)
+            return .noReset
+        }
+
         let decision = QuotaDomain.detectReset(
             previous: previousWeekly, current: currentWeekly, nowSeconds: moment,
             pendingScheduledResetAt: state.weeklyKeeper.pendingScheduledResetAt)
 
         // A manual check is not a way around the gates: it still needs a weekly
         // window at 0% with no countdown anchored.
-        let manualStart = mode == .manual
+        let claudeAbsent = provider == .claude && currentWeekly.usedPercent == 0 && currentWeekly.resetsAt == nil
+        let manualStart = mode == .manual && !currentWeekly.countdownActive
             && QuotaDomain.pokeRetryAllowed(window: currentWeekly, attempt: 0)
+            && (!claudeAbsent || decision.scheduledResetAt.map { moment >= $0 } == true)
         let resetKey = manualStart
             ? (decision.resetKey
                ?? state.weeklyKeeper.lastHandledResetKey
@@ -359,7 +378,16 @@ final class QuotaEngine {
             try? activity("每週新倒數已由其他使用行為啟動，不送出自動請求。", for: account)
             outcome = .countdownAlreadyActive
 
+        } else if claudeAbsent, let previousWeekly,
+                  previousWeekly.usedPercent != 0 || previousWeekly.resetsAt != nil {
+            state.weeklyKeeper.pendingScheduledResetAt = decision.scheduledResetAt ?? previousWeekly.resetsAt
+            try? activity("Claude weekly window 第一次缺席；等待下一次檢查確認，不送出最小請求。", for: account)
+            outcome = .resetPending
+
         } else if decision.shouldPoke || manualStart {
+            guard fingerprint != nil else {
+                return .failed(L10n.t("Not sent — the signed-in account could not be confirmed."))
+            }
             // Standing aside costs nothing: the user's own request will anchor
             // the window, and this check runs again in five minutes.
             if mode == .live, isAccountInUse(account) {
@@ -377,7 +405,7 @@ final class QuotaEngine {
                     // A failure here propagates before the reset key is
                     // written, so a reset nothing anchored is retried rather
                     // than recorded as handled.
-                    let poke = try backend.poke(for: account, expectedFingerprint: fingerprint)
+                    let poke = try backend.poke(for: account, target: .weekly, expectedFingerprint: fingerprint)
                     let pokeAt = now()
 
                     state.weeklyKeeper.lastHandledResetKey = resetKey
@@ -492,9 +520,15 @@ final class QuotaEngine {
             return .refused(.noBackend)
         }
 
+        if account.provider == .antigravity {
+            return .groups(try startAntigravity(account: account, backend: backend, cancelled: cancelled))
+        }
         let provider = account.provider
-        let incoming = try backend.readRateLimits(for: account, observedAt: now())
         var state = storage.loadState(for: account)
+        if let cooldown = state.checkCooldownUntil, cooldown > now() {
+            return .failed(L10n.t("Not connected — waiting for the rate-limit cooldown."))
+        }
+        let incoming = try backend.readRateLimits(for: account, observedAt: now())
 
         // Gate 1: an account that has never observed itself has nothing to
         // compare against, and every other gate reads from that comparison.
@@ -544,7 +578,7 @@ final class QuotaEngine {
             try? activity("每週倒數尚未錨定；這次最小請求會同時啟動每週倒數。", for: account)
         }
 
-        let poke = try backend.poke(for: account, expectedFingerprint: fingerprint)
+        let poke = try backend.poke(for: account, target: .fiveHour, expectedFingerprint: fingerprint)
         let pokeAt = now()
 
         // Persist before verifying. A crash between the request and the

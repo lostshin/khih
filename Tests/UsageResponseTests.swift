@@ -46,9 +46,11 @@ final class UsageResponseTests: XCTestCase {
         XCTAssertEqual(windows.count, 2)
         XCTAssertEqual(windows.map(\.duration), [18000, 604800])
         XCTAssertEqual(windows[0].id, "session")
-        XCTAssertEqual(windows[0].label, "Current session")
+        // Named after the length it measures, the way Codex and Antigravity
+        // name theirs. The id stays the API's own kind.
+        XCTAssertEqual(windows[0].label, "5h limit")
         XCTAssertEqual(windows[0].usedFraction ?? -1, 0.52, accuracy: 0.0001)
-        XCTAssertEqual(windows[1].label, "All models")
+        XCTAssertEqual(windows[1].label, "Weekly limit")
         XCTAssertEqual(windows[1].usedFraction ?? -1, 0.17, accuracy: 0.0001)
     }
 
@@ -80,7 +82,7 @@ final class UsageResponseTests: XCTestCase {
           "seven_day": { "utilization": 16.0, "resets_at": "2026-09-02T17:00:00.316321+00:00" } }
         """
         let windows = try decode(json).limitWindows()
-        XCTAssertEqual(windows.map(\.label), ["Current session", "All models"])
+        XCTAssertEqual(windows.map(\.label), ["5h limit", "Weekly limit"])
     }
 
     /// The model-scoped weekly window reads "Scoped", because that is all its
@@ -97,7 +99,7 @@ final class UsageResponseTests: XCTestCase {
               "scope": { "model": { "display_name": "Fable", "id": "claude-fable-5-1" } } } ] }
         """
         let windows = try decode(json).limitWindows()
-        XCTAssertEqual(windows.map(\.label), ["Current session", "Fable"])
+        XCTAssertEqual(windows.map(\.label), ["5h limit", "Fable"])
         // The id stays the API's own kind: it keys the archive and the cell.
         XCTAssertEqual(windows.map(\.id), ["session", "weekly_scoped"])
     }

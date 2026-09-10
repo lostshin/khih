@@ -33,7 +33,7 @@ final class QuotaEngineTests: XCTestCase {
             return stamped
         }
 
-        func poke(for account: QuotaAccountConfig,
+        func poke(for account: QuotaAccountConfig, target: PokeTarget,
                   expectedFingerprint: String?) throws -> QuotaPokeResult {
             poked += 1
             if let pokeError { throw pokeError }

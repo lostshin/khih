@@ -66,7 +66,7 @@ struct ClaudeBackend: QuotaBackend {
         try readUsage(observedAt)
     }
 
-    func poke(for account: QuotaAccountConfig,
+    func poke(for account: QuotaAccountConfig, target: PokeTarget,
               expectedFingerprint: String?) throws -> QuotaPokeResult {
         try sendPoke(expectedFingerprint)
     }
@@ -149,20 +149,20 @@ extension ClaudeBackend {
     /// The account the CLI is signed in as. Nil whenever that cannot be
     /// established, which the engine treats as a refusal to poke rather than as
     /// a changed account.
-    static func fingerprint(binary: URL, timeout: TimeInterval = 20) -> String? {
+    static func fingerprint(binary: URL, timeout: TimeInterval = 20, cancelled: () -> Bool = { false }) -> String? {
         guard let data = try? QuotaProcess.run(binary: binary,
                                                arguments: ["auth", "status", "--json"],
                                                environment: ProcessInfo.processInfo.environment,
-                                               timeout: timeout)
+                                               timeout: timeout, cancelled: cancelled)
         else { return nil }
         return ClaudeIdentity.fingerprint(fromStatus: data)
     }
 
     static func send(binary: URL, expectedFingerprint: String?,
-                     timeout: TimeInterval = ClaudePoke.defaultTimeout) throws -> QuotaPokeResult {
+                     timeout: TimeInterval = ClaudePoke.defaultTimeout, cancelled: () -> Bool = { false }) throws -> QuotaPokeResult {
         // Re-checked immediately before spending anything: the signed-in
         // account can change between the decision to poke and the poke.
-        let observed = fingerprint(binary: binary)
+        let observed = fingerprint(binary: binary, cancelled: cancelled)
         if let expectedFingerprint, observed != expectedFingerprint {
             throw CodexError.fingerprintChanged
         }
@@ -170,7 +170,7 @@ extension ClaudeBackend {
             binary: binary,
             arguments: ClaudePoke.arguments(),
             environment: ClaudePoke.environment(from: ProcessInfo.processInfo.environment),
-            timeout: timeout)
+            timeout: timeout, cancelled: cancelled)
         let text = String(decoding: data, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return QuotaPokeResult(model: ClaudePoke.model,
@@ -236,6 +236,7 @@ extension ClaudeBackend {
     /// without it there is no way to establish which account a reading belongs
     /// to — which is a gate, not an inconvenience.
     static func live(session: URLSession = .shared,
+                     cancelled: @escaping () -> Bool = { false },
                      userAgent: Lazily<String?> = Lazily({ ClaudeVersion.installed() }))
     -> ClaudeBackend? {
         guard let binary = ClaudeCLI.standalone() else { return nil }
@@ -245,7 +246,7 @@ extension ClaudeBackend {
                 return try fetch(token: token, userAgent: userAgent.get(),
                                  session: session, observedAt: observedAt)
             },
-            readFingerprint: { fingerprint(binary: binary) },
-            sendPoke: { expected in try send(binary: binary, expectedFingerprint: expected) })
+            readFingerprint: { fingerprint(binary: binary, cancelled: cancelled) },
+            sendPoke: { expected in try send(binary: binary, expectedFingerprint: expected, cancelled: cancelled) })
     }
 }

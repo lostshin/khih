@@ -291,7 +291,8 @@ enum NotchLayout {
                            blockMessage: String? = nil,
                            hasTokenUsage: Bool = false,
                            localModelName: String? = nil, showsLocalPerformance: Bool = false,
-                           compactRowCount: Int = 0) -> CGFloat {
+                           compactRowCount: Int = 0, burnReadingCount: Int = 0,
+                           checkMessage: String? = nil) -> CGFloat {
         let header = max(glyphSize, cardTitleLineHeight)
         var height = 2 * cardPadding + header
 
@@ -334,6 +335,7 @@ enum NotchLayout {
             height += headerToBlock + bodyTextHeight(statusMessage ?? "")
         }
 
+        height += CGFloat(burnReadingCount) * (2 * cardBodyLineHeight + barToUsed)
         if hasTokenUsage {
             height += codexUsageTop + hairline + blockSpacing
                 + codexMetricTop + codexMetricHeight + codexMetricBottom
@@ -353,6 +355,10 @@ enum NotchLayout {
             if sessionCount > shown {
                 height += blockSpacing + cardBodyLineHeight
             }
+        }
+        // Last, under everything: it reports on what the card already shows.
+        if let checkMessage {
+            height += blockSpacing + bodyTextHeight(checkMessage)
         }
         return height
     }

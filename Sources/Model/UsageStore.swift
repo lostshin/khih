@@ -26,7 +26,7 @@ final class UsageStore: ObservableObject {
     /// would reproduce the bug.
     @Published private(set) var needsRenewal: Set<String> = []
 
-    private let providers: [UsageProvider]
+    private var providers: [UsageProvider]
     /// Provider IDs block fetching before credential access. Model IDs only hide
     /// their cells so disabling one model does not stop the shared runtime.
     @Published var disconnected: Set<String> = [] {
@@ -82,6 +82,7 @@ final class UsageStore: ObservableObject {
     /// spends rate-limit budget to re-read a number that has not changed.
     var isBusy: () -> Bool = { false }
 
+    private var providerAttempts: [String: Date] = [:]
     private let refreshInterval: TimeInterval
     private let localRefreshInterval: TimeInterval
     /// How long a snapshot stays believable after its last successful fetch.
@@ -133,6 +134,11 @@ final class UsageStore: ObservableObject {
     private let refreshDeadline: TimeInterval
     private var deadlineTask: Task<Void, Never>?
 
+    private let activeCodexProviderID: () -> String?
+    /// Last value the cells were built from, so a switch made in another app is
+    /// noticed even when no reading has changed.
+    private var lastActiveCodexID: String?
+
     init(
         providers: [UsageProvider],
         refreshInterval: TimeInterval = 60,
@@ -146,8 +152,12 @@ final class UsageStore: ObservableObject {
         archive: UsageArchive = UsageArchive(),
         disconnected: Set<String> = [],
         order: [String] = [],
+        // Which Codex account the `codex` command is signed in to, asked for
+        // rather than stored: it changes outside this app, at any moment.
+        activeCodexProviderID: @escaping () -> String? = { nil },
         pollingNow: @escaping () -> Date = Date.init
     ) {
+        self.activeCodexProviderID = activeCodexProviderID
         self.pollingNow = pollingNow
         self.providers = providers
         self.refreshInterval = refreshInterval
@@ -194,15 +204,31 @@ final class UsageStore: ObservableObject {
         updateNotchSnapshots()
     }
 
+    /// Append only newly discovered accounts; existing providers keep their caches and tasks.
+    @discardableResult
+    func addProviders(_ candidates: [UsageProvider]) -> [String] {
+        var known = Set(providers.map(\.id))
+        let added = candidates.filter { known.insert($0.id).inserted }
+        providers.append(contentsOf: added)
+        for provider in added where !disconnected.contains(provider.id) {
+            publish(Self.placeholder(provider))
+            _ = beginRefresh(provider)
+        }
+        return added.map(\.id)
+    }
+
     private func updateNotchSnapshots() {
-        let cells = ProviderOrder.cells(from: snapshots, keeping: notchSnapshots)
-        notchSnapshots = ProviderOrder.arrange(cells, by: order, id: \.id)
+        lastActiveCodexID = activeCodexProviderID()
+        let cells = ProviderOrder.cells(from: snapshots, keeping: notchSnapshots,
+                                        activeCodexID: lastActiveCodexID)
+        notchSnapshots = ProviderOrder.arrange(cells, by: order, id: { $0.sourceProviderIDs?.first ?? $0.id })
             .filter { !disconnected.contains($0.id) }
     }
 
     /// Model discovery does not need to re-read any cloud account's credential.
     var localModelSummaries: [ProviderSummary] {
-        ProviderOrder.cells(from: snapshots, keeping: notchSnapshots).compactMap { cell in
+        ProviderOrder.cells(from: snapshots, keeping: notchSnapshots,
+                            activeCodexID: activeCodexProviderID()).compactMap { cell in
             guard let model = cell.localModel else { return nil }
             return ProviderSummary(kind: .localRuntime, localModel: model,
                                    sourceProviderID: cell.providerID,
@@ -284,6 +310,11 @@ final class UsageStore: ObservableObject {
 
     /// Decides whether this tick is worth a request at all.
     private func tick() {
+        // Ahead of the guard below, and not folded into it: signing in to a
+        // different Codex account changes which reading the ring quotes without
+        // changing any reading, so waiting for a fetch to be due would leave the
+        // ring naming the wrong account for as long as nothing else happened.
+        if activeCodexProviderID() != lastActiveCodexID { updateNotchSnapshots() }
         let waited = lastAttempt.map { pollingNow().timeIntervalSince($0) } ?? .greatestFiniteMagnitude
         guard Self.shouldRefresh(
             isBusy: isBusy(),
@@ -358,7 +389,11 @@ final class UsageStore: ObservableObject {
         // nothing, and dropping it from the table would let the next pass
         // queue a second call behind the first — which is how one stuck
         // provider used to take all of them down.
-        let stuck = fetchTasks.keys.sorted()
+        let stuck = fetchTasks.keys.sorted().filter { id in
+            guard let provider = providers.first(where: { $0.id == id }),
+                  let started = providerAttempts[id] else { return true }
+            return pollingNow().timeIntervalSince(started) >= max(refreshDeadline, provider.fetchDeadline)
+        }
         Log.usage.error("refresh abandoned after \(self.refreshDeadline, format: .fixed(precision: 0))s; no answer from: \(stuck.joined(separator: ", "), privacy: .public)")
         for id in stuck {
             guard let provider = providers.first(where: { $0.id == id }) else { continue }
@@ -381,7 +416,11 @@ final class UsageStore: ObservableObject {
     func refresh() async {
         // The provider tasks below do not inherit this task's cancellation.
         guard !Task.isCancelled else { return }
-        let tasks = orderedProviders.filter { !disconnected.contains($0.id) }.map {
+        let tasks = orderedProviders.filter {
+            !disconnected.contains($0.id) && (providerAttempts[$0.id].map {
+                pollingNow().timeIntervalSince($0)
+            } ?? .greatestFiniteMagnitude) >= $0.minimumRefreshInterval
+        }.map {
             beginRefresh($0)
         }
         for task in tasks { await task.value }
@@ -419,10 +458,23 @@ final class UsageStore: ObservableObject {
 
     private func beginRefresh(_ provider: UsageProvider, holdIndicator: Bool = false) -> Task<Void, Never> {
         if let task = fetchTasks[provider.id] { return task }
+        providerAttempts[provider.id] = pollingNow()
         let generation = generations[provider.id, default: 0]
         refreshing.insert(provider.id)
         let task = Task { [weak self] in
             guard let self else { return }
+            let providerDeadline: Task<Void, Never>? = provider.fetchDeadline > 0 ? Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(provider.fetchDeadline * 1_000_000_000))
+                guard !Task.isCancelled, let self,
+                      generations[provider.id, default: 0] == generation else { return }
+                if let stale = degraded(provider: provider, error: UsageProviderError.timedOut) {
+                    publish(stale)
+                }
+                // Retain the task until its process has exited: no second reader.
+                fetchTasks[provider.id]?.cancel()
+                refreshing.remove(provider.id)
+            } : nil
+            defer { providerDeadline?.cancel() }
             if let fresh = await snapshot(from: provider, generation: generation) {
                 publish(fresh)
             } else if acceptsResult(from: provider, generation: generation) {
@@ -443,10 +495,36 @@ final class UsageStore: ObservableObject {
         refreshing.remove(providerID)
     }
 
+    private var burnReadings: [String: [QuotaBurnReading]] = [:]
+
+    func setBurnReadings(_ readings: [String: [QuotaBurnReading]]) {
+        burnReadings = readings
+        snapshots = snapshots.map(withBurnReadings)
+    }
+
+    private func withBurnReadings(_ snapshot: ProviderSnapshot) -> ProviderSnapshot {
+        var result = snapshot
+        result.windows = snapshot.windows.map { window in
+            var window = window
+            window.burnReading = nil
+            if window.duration == 604800 {
+                if snapshot.id == "gemini" {
+                    window.burnReading = burnReadings[snapshot.id]?.first {
+                        window.id == "antigravity:\($0.group ?? ""):weekly"
+                    }
+                } else if snapshot.id != "claude" || window.id == "weekly_all" {
+                    window.burnReading = burnReadings[snapshot.id]?.first
+                }
+            }
+            return window
+        }
+        return result
+    }
+
     private func publish(_ snapshot: ProviderSnapshot) {
         guard !disconnected.contains(snapshot.id) else { return }
         var current = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.id, $0) })
-        current[snapshot.id] = snapshot
+        current[snapshot.id] = withBurnReadings(snapshot)
         snapshots = orderedProviders.compactMap { disconnected.contains($0.id) ? nil : current[$0.id] }
     }
 
@@ -629,7 +707,8 @@ final class UsageStore: ObservableObject {
         // window it gets marked, and the ring dims.
         let age = Date().timeIntervalSince(previous.fetchedAt)
         var snapshot = previous.snapshot
-        snapshot.status = age > staleAfter ? .stale(since: previous.fetchedAt) : previous.snapshot.status
+        snapshot.status = provider.id == "gemini" || age > staleAfter
+            ? .stale(since: previous.fetchedAt) : previous.snapshot.status
         return snapshot
     }
 

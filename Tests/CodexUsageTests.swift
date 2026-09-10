@@ -50,8 +50,6 @@ final class CodexUsageTests: XCTestCase {
             """.utf8), now: now)
             let window = try XCTUnwrap(result.first)
             XCTAssertEqual(window.duration, Double(seconds))
-            XCTAssertEqual(try XCTUnwrap(window.usagePace(now: now)).percentagePoints, 30,
-                           accuracy: 0.00001)
         }
     }
 

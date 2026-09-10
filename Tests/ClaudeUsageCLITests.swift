@@ -34,7 +34,18 @@ final class ClaudeUsageCLITests: XCTestCase {
         let windows = try ClaudeUsageCLI.parse(live, now: date("2026-09-07T06:00:00Z"))
 
         XCTAssertEqual(windows.map(\.id), ["session", "weekly_all"])
-        XCTAssertEqual(windows.map(\.label), ["Current session", "All models"])
+        // The CLI still says "Current session:" in its own output — that is
+        // the text being parsed, not the wording the card shows.
+        XCTAssertEqual(windows.map(\.label), ["5h limit", "Weekly limit"])
+    }
+
+    func testTheWindowNamesReadInTaiwaneseChinese() throws {
+        let windows = try ClaudeUsageCLI.parse(live, now: date("2026-09-07T06:00:00Z"))
+        let locale = Locale(identifier: "zh-Hant-TW")
+        XCTAssertEqual(windows.map { L10n.t("\($0.label)", locale: locale) },
+                       ["5h limit", "Weekly limit"], "labels are already resolved strings")
+        XCTAssertEqual(L10n.t("\(5)h limit", locale: locale), "5 小時額度")
+        XCTAssertEqual(L10n.t("Weekly limit", locale: locale), "每週額度")
     }
 
     /// The one number the ring is drawn from.

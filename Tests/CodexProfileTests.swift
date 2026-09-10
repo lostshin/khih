@@ -111,18 +111,39 @@ final class CodexProfileTests: XCTestCase {
         let managed = try managedAccount(id: "account-a", label: "主帳號")
         let storage = try managedStorage([managed])
 
+        // `~/.codex` is absent: it holds whichever account `codex` is signed in
+        // to, which is normally one of the managed ones, so listing it as well
+        // showed the same account twice.
         let all = CodexProfile.discoverAll(home: home, storage: storage)
-        XCTAssertEqual(all.map(\.id), ["codex", "codex-work", "codex-account-a"])
+        XCTAssertEqual(all.map(\.id), ["codex-work", "codex-account-a"])
 
         // The same directory reached both ways must still produce one ring:
         // a duplicate id traps when the store publishes.
         let overlapping = QuotaAccountConfig(id: "account-dup", label: "Dup",
-                                             codexHome: home.appendingPathComponent(".codex").path,
+                                             codexHome: home.appendingPathComponent(".codex-work").path,
                                              stateDir: home.appendingPathComponent("m").path)
         let overlapStorage = try managedStorage([overlapping])
         let deduped = CodexProfile.discoverAll(home: home, storage: overlapStorage)
-        XCTAssertEqual(deduped.map(\.id), ["codex", "codex-work"])
+        XCTAssertEqual(deduped.map(\.id), ["codex-work"])
         XCTAssertEqual(Set(deduped.map(\.id)).count, deduped.count)
+    }
+
+    func testTheDefaultProfileIsKeptWhenNothingIsManaged() throws {
+        let home = try home([".codex": ["auth.json"], ".codex-work": ["auth.json"]])
+        let storage = try managedStorage([])
+
+        // Dropping it here would leave a fresh install with no Codex ring at
+        // all, and nothing for it to be a duplicate of.
+        XCTAssertEqual(CodexProfile.discoverAll(home: home, storage: storage).map(\.id),
+                       ["codex", "codex-work"])
+    }
+
+    func testAnEnabledAccountThatIsNotCodexDoesNotHideTheDefaultProfile() throws {
+        let home = try home([".codex": ["auth.json"]])
+        let claude = try managedAccount(id: "account-c", label: "Claude", provider: .claude)
+        let storage = try managedStorage([claude])
+
+        XCTAssertEqual(CodexProfile.discoverAll(home: home, storage: storage).map(\.id), ["codex"])
     }
 
     func testDefaultIdentityAndPathsStayCompatible() {

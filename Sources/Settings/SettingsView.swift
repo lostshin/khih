@@ -436,37 +436,48 @@ struct SettingsView: View {
             // Split in two, because ordering only means anything for the
             // first group: a provider switched off has no ring in the notch,
             // so dragging it was arranging something that is not on screen.
-            Section(L10n.t("Connected")) {
-                if needsSetup { setupNote }
-                ForEach(connected) { account in
-                    AccountRow(provider: account, preferences: preferences,
-                               signOut: signOut, signIn: signIn,
-                               switchAccount: switchAccount, retry: retry,
-                               isOrderable: true,
-                               quota: quota,
-                               drag: drag,
-                               cursorRefresh: cursorRefresh,
-                               onDrop: { cursorRefresh += 1 },
-                               takePlaceOf: { move($0, onto: account.id) },
-                               didConnect: { connect(account.id) })
-                }
-                if connected.isEmpty {
+            // One section per company rather than one long list of peers: with
+            // several Codex accounts signed in, the rows that belong together
+            // were only adjacent by luck of the stored order, and told apart by
+            // a name the user typed.
+            if connected.isEmpty {
+                Section(L10n.t("Connected")) {
+                    if needsSetup { setupNote }
                     Text(L10n.t("Nothing is connected, so the notch has no rings to draw."))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if !connected.isEmpty {
-                    Text(L10n.t("The notch draws these in this order. Drag one by its handle to move it."))
+                    connectedFooter
+                }
+            } else {
+                if needsSetup {
+                    Section(L10n.t("Connected")) { setupNote }
+                }
+                ForEach(ProviderFamily.groups(connected, id: \.id)) { group in
+                    Section(group.family.title) {
+                        ForEach(group.items) { account in
+                            AccountRow(provider: account, preferences: preferences,
+                                       signOut: signOut, signIn: signIn,
+                                       switchAccount: switchAccount, retry: retry,
+                                       isOrderable: true,
+                                       quota: quota,
+                                       drag: drag,
+                                       cursorRefresh: cursorRefresh,
+                                       onDrop: { cursorRefresh += 1 },
+                                       takePlaceOf: { move($0, onto: account.id) },
+                                       didConnect: { connect(account.id) })
+                        }
+                    }
+                }
+                // Once, under the groups it describes, rather than repeated at
+                // the foot of each one.
+                Section {
+                    Text(L10n.t("The notch draws these in this order. Drag one by its handle to move it, within its group."))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
+                    connectedFooter
                 }
-                // Beside the switches it explains, not stranded at the end of
-                // the page.
-                Text(L10n.t("Codenotch never signs in — each reading is borrowed from the tool that already holds the account. Signing out here stops the credential being read and forgets the numbers, but leaves you signed in to that tool. macOS asks once per tool the first time, and again whenever you sign in to a different account; Always Allow keeps it quiet."))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             // Absent rather than empty when everything is on: a titled, empty
@@ -497,7 +508,8 @@ struct SettingsView: View {
             // Only Codex takes more than one account: Claude and Antigravity
             // are read through a single system-wide login.
             if let quota {
-                AddCodexAccountSection(quota: quota)
+                AddCodexAccountSection(quota: quota, onAdded: refreshVisibleState)
+                FiveHourScheduleSection(quota: quota, schedule: quota.schedule)
             }
         }
         .formStyle(.grouped)
@@ -519,12 +531,6 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.resetTimeFormat.explanation)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Toggle(L10n.t("Show usage pace"), isOn: $preferences.showUsagePace)
-                Text(L10n.t("Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -958,6 +964,11 @@ struct SettingsView: View {
         guard let from = accounts.firstIndex(where: { $0.id == movedID }),
               let to = accounts.firstIndex(where: { $0.id == targetID })
         else { return false }
+        // Refused across groups, because the groups are drawn from the stored
+        // order: dropping a Claude row between two Codex rows would split the
+        // OpenAI heading in two and leave the drag looking like it failed.
+        guard ProviderFamily.of(providerID: movedID) == ProviderFamily.of(providerID: targetID)
+        else { return false }
         guard from != to else { return true }
 
         var reordered = accounts
@@ -967,6 +978,14 @@ struct SettingsView: View {
         // a provider switched off today still has a place to come back to.
         preferences.setProviderOrder(accounts.map(\.id))
         return true
+    }
+
+    /// Beside the switches it explains, not stranded at the end of the page.
+    private var connectedFooter: some View {
+        Text(L10n.t("Codenotch never signs in — each reading is borrowed from the tool that already holds the account. Signing out here stops the credential being read and forgets the numbers, but leaves you signed in to that tool. macOS asks once per tool the first time, and again whenever you sign in to a different account; Always Allow keeps it quiet."))
+            .font(.caption)
+            .foregroundStyle(.tertiary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var setupNote: some View {
@@ -1279,6 +1298,7 @@ private struct AccountRow: View {
                 // before the switch so it reads as the row's heaviest action,
                 // and shown only for accounts the engine actually manages.
                 if isConnected, let quota, quota.canStartFiveHour(provider.id) {
+                    ManualCheckButton(quota: quota, providerID: provider.id)
                     FiveHourButton(quota: quota, providerID: provider.id)
                 }
 

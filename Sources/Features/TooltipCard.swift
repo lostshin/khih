@@ -268,7 +268,6 @@ private struct LimitWindowRow: View {
     let fidelity: Fidelity
     let now: Date
     let resetTimeFormat: ResetTimeFormat
-    let showsUsagePace: Bool
     @Environment(\.codenotchAccentColor) private var accentColor
 
     private var band: UsageBand { UsageBand.band(for: window.usedFraction ?? 0) }
@@ -276,14 +275,6 @@ private struct LimitWindowRow: View {
     private var fillWidth: CGFloat {
         let fraction = CGFloat(min(max(window.usedFraction ?? 0, 0), 1))
         return max(NotchLayout.barHeight, trackWidth * fraction)
-    }
-
-    private var paceText: Text {
-        guard showsUsagePace, let pace = window.usagePace(now: now) else {
-            return Text("")
-        }
-        return Text(" · \(pace.summary)")
-            .foregroundColor(pace.isDeficit ? .orange : Palette.textSecondary)
     }
 
     /// Blank rather than invented: some providers never say when the window rolls.
@@ -316,12 +307,25 @@ private struct LimitWindowRow: View {
                     .padding(.top, NotchLayout.labelToBar)
                 }
 
-                Text("\(window.usedFraction == nil ? "" : fidelity.qualifier)\(window.summary)\(paceText)")
+                Text("\(window.usedFraction == nil ? "" : fidelity.qualifier)\(window.summary)")
                     .font(Typography.cardBody)
                     .foregroundStyle(Palette.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                     .padding(.top, NotchLayout.barToUsed)
+                if let reading = window.burnReading {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(reading.lines(now: Int64(now.timeIntervalSince1970)).enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .font(Typography.cardBody)
+                                .foregroundStyle(Palette.textSecondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                                .frame(height: NotchLayout.cardBodyLineHeight)
+                        }
+                    }
+                    .padding(.top, NotchLayout.barToUsed)
+                }
             }
         }
     }
@@ -332,7 +336,6 @@ private struct ProviderTooltip: View {
     let snapshot: ProviderSnapshot
     let now: Date
     let resetTimeFormat: ResetTimeFormat
-    let showUsagePace: Bool
 
     /// Only worth saying when the numbers are not current. A remembered reading
     /// has to be dated, or it quietly passes itself off as live.
@@ -397,7 +400,7 @@ private struct ProviderTooltip: View {
 
                                 VStack(alignment: .leading, spacing: NotchLayout.blockSpacing) {
                                     ForEach(Array(group.windows.enumerated()), id: \.element.id) { windowIndex, window in
-                                        LimitWindowRow(window: window, inset: 2 * Design.px(16), fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat, showsUsagePace: showUsagePace)
+                                        LimitWindowRow(window: window, inset: 2 * Design.px(16), fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat)
                                             .padding(.top, windowIndex == 0 ? 0 : NotchLayout.blockSpacing)
                                     }
                                 }
@@ -410,7 +413,7 @@ private struct ProviderTooltip: View {
                             .padding(.top, groupIndex == 0 ? NotchLayout.headerToBlock : Design.px(28))
                         } else {
                             ForEach(Array(group.windows.enumerated()), id: \.element.id) { windowIndex, window in
-                                LimitWindowRow(window: window, fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat, showsUsagePace: showUsagePace)
+                                LimitWindowRow(window: window, fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat)
                                     .padding(.top, (groupIndex == 0 && windowIndex == 0) ? NotchLayout.headerToBlock : NotchLayout.blockSpacing)
                             }
                         }
@@ -619,6 +622,25 @@ private struct CodexUsageSection: View {
 /// Deliberately loud where the rest of the card is quiet: it is the one thing
 /// here that changes what you can do next, and it can be true while the
 /// percentage beside it still reads comfortable.
+/// The answer to a click on the card, in the card's own voice: quieter than a
+/// blocked reading, which is about the account rather than about what you just
+/// did.
+private struct CheckResultRow: View {
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: NotchLayout.statusDotGap) {
+            Image(systemName: "arrow.trianglehead.2.clockwise")
+                .font(.system(size: NotchLayout.statusDot))
+            Text(text)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .font(Typography.cardBody)
+        .foregroundStyle(Palette.textSecondary)
+    }
+}
+
 private struct BlockedRow: View {
     let text: String
 
@@ -740,8 +762,11 @@ struct TooltipCard: View {
     /// rather than fixed, so a big screen hides nothing.
     var sessionCap: Int = NotchLayout.defaultSessionCap
     var resetTimeFormat: ResetTimeFormat = .automatic
+    /// What the last click on this card did. A manual check deliberately posts
+    /// no notification, so without a line here a click that was refused looks
+    /// exactly like one that worked.
+    var checkMessage: String? = nil
     var tailOffset: CGFloat = 0
-    @AppStorage(Preferences.showUsagePaceKey) private var showUsagePace = false
 
     /// The same figure the hover region uses, so what is drawn and what is
     /// reachable can never drift apart.
@@ -756,7 +781,9 @@ struct TooltipCard: View {
             hasTokenUsage: snapshot.tokenUsage != nil,
             localModelName: snapshot.localModel?.name,
             showsLocalPerformance: snapshot.showsLocalPerformance,
-            compactRowCount: snapshot.compactRowCount
+            compactRowCount: snapshot.compactRowCount,
+                burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
+            checkMessage: checkMessage
         )
     }
 
@@ -768,13 +795,16 @@ struct TooltipCard: View {
             // drifts while the card resizes around them.
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ProviderTooltip(isThinking: snapshot.localModel != nil && activity?.state == .working, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat,
-                                    showUsagePace: showUsagePace)
+                    ProviderTooltip(isThinking: snapshot.localModel != nil && activity?.state == .working, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat)
                     if let tokenUsage = snapshot.tokenUsage {
                         CodexUsageSection(usage: tokenUsage, now: now)
                     }
                     if let activity, snapshot.localModel == nil {
                         SessionList(summary: activity, now: now, cap: sessionCap)
+                    }
+                    if let checkMessage {
+                        CheckResultRow(text: checkMessage)
+                            .padding(.top, NotchLayout.blockSpacing)
                     }
                 }
                 // An identity, so one provider's rows are never interpolated

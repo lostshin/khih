@@ -465,8 +465,8 @@ struct UsageResponse: Decodable {
                                        usedFraction: window.utilization / 100,
                                        resetsAt: resetsAt, duration: Self.duration(forKind: id)))
         }
-        merge(fiveHour, id: "session", label: L10n.t("Current session"))
-        merge(sevenDay, id: "weekly_all", label: L10n.t("All models"))
+        merge(fiveHour, id: "session", label: Self.label(forKind: "session"))
+        merge(sevenDay, id: "weekly_all", label: Self.label(forKind: "weekly_all"))
 
         return windows.sorted(by: UsageResponse.displayOrder)
     }
@@ -478,10 +478,19 @@ struct UsageResponse: Decodable {
     }
 
     /// The frame's wording, for the kinds it drew.
+    ///
+    /// The two windows every plan has are named after the length they measure,
+    /// the same way Codex and Antigravity name theirs. They used to be called
+    /// "Current session" and "All models", which described Claude's own
+    /// vocabulary rather than the card's: three providers stacked in one notch
+    /// read as three different measurements when only the wording differed,
+    /// and "session" collided with the live-process list drawn below.
     static func label(forKind kind: String) -> String {
         switch kind {
-        case "session":       return L10n.t("Current session")
-        case "weekly_all":    return L10n.t("All models")
+        // Fixed at five hours by `duration(forKind:)`, so the length is not a
+        // guess. Shares the interpolated key Codex already uses.
+        case "session":       return L10n.t("\(5)h limit")
+        case "weekly_all":    return L10n.t("Weekly limit")
         case "weekly_opus":   return L10n.t("Opus")
         case "weekly_sonnet": return L10n.t("Sonnet")
         // Only reached when the response names no model for the window, which

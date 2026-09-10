@@ -93,7 +93,7 @@ final class OllamaPerformanceViewTests: XCTestCase {
         vm.setLocalMetricsEnabled(true)
         let runtime = try runtime(names: ["qwen3:latest", "gemma4:e4b"])
         let cloud = Fixtures.snapshots()[0]
-        vm.updateSnapshots([cloud, runtime])
+        vm.updateSnapshots([cloud, runtime], activeCodexID: nil)
         vm.hoveredIndex = 2
         let hoveredID = vm.hoveredSnapshot?.id
         vm.updatePerformances(relay.performances)
@@ -101,7 +101,7 @@ final class OllamaPerformanceViewTests: XCTestCase {
         XCTAssertEqual(vm.snapshots.first { $0.localModel?.name == "qwen3:latest" }?.localPerformance, new)
         XCTAssertNil(vm.snapshots.first { $0.localModel?.name == "gemma4:e4b" }?.localPerformance)
         XCTAssertEqual(vm.snapshots[0], cloud)
-        vm.updateSnapshots([cloud, runtime])
+        vm.updateSnapshots([cloud, runtime], activeCodexID: nil)
         XCTAssertEqual(vm.snapshots.last?.localPerformance, new)
         relay.configure(enabled: false, endpoint: OllamaEndpoint.defaultAddress)
         vm.updatePerformances(relay.performances)
@@ -111,7 +111,7 @@ final class OllamaPerformanceViewTests: XCTestCase {
 
     func testDisabledCaptureShowsMemoryAndClearsPreviousResponse() throws {
         let vm = NotchViewModel()
-        vm.updateSnapshots([try runtime(names: ["qwen3:latest"])])
+        vm.updateSnapshots([try runtime(names: ["qwen3:latest"])], activeCodexID: nil)
         let cell = try XCTUnwrap(vm.snapshots.first)
         XCTAssertEqual(cell.headlineText, expectedGigabytes(4.5))
         XCTAssertFalse(cell.showsLocalPerformance)
@@ -170,7 +170,7 @@ final class OllamaPerformanceViewTests: XCTestCase {
         let names = ["deepseek-r1:1.5b", "gemma4:e4b", "llama3.2:1b", "ministral-3:3b", "qwen3:0.6b"]
         let vm = NotchViewModel()
         vm.setLocalMetricsEnabled(true)
-        vm.updateSnapshots([Fixtures.snapshots()[0], try runtime(names: names)])
+        vm.updateSnapshots([Fixtures.snapshots()[0], try runtime(names: names)], activeCodexID: nil)
         let speeds = [999, 30, 15, 5]
         let date = Date(timeIntervalSince1970: 1_700_000_000)
         vm.now = date.addingTimeInterval(120)

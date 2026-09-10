@@ -57,6 +57,12 @@ struct CodexProfile: Equatable, Hashable {
         return slug.map { "Codex (\($0))" } ?? "Codex"
     }
 
+    /// Whether a provider id belongs to Codex at all, in one place rather than
+    /// spelled out at each call site. Mirrors `ClaudeProfile.isClaude`.
+    static func isCodex(providerID id: String) -> Bool {
+        id == defaultID || id.hasPrefix(defaultID + "-")
+    }
+
     static func slug(fromProviderID id: String) -> String? {
         let prefix = defaultID + "-"
         guard id.hasPrefix(prefix) else { return nil }
@@ -111,12 +117,24 @@ extension CodexProfile {
     /// Home-directory profiles first, then managed ones, with any directory
     /// that appears in both kept only once. Order is stable so a ring does not
     /// move between launches.
+    ///
+    /// `~/.codex` drops out once any account is managed here. It is not a
+    /// separate account — it is whichever account the `codex` command is signed
+    /// in to right now, which is normally one of the managed ones, so keeping
+    /// it listed the same ChatGPT account twice on one card and once more in
+    /// Settings. It stays the answer to *which* account is in use
+    /// (`CodexActiveAccount`), it just stops being a row of its own.
+    ///
+    /// Kept when nothing is managed, because then it is the only Codex there
+    /// is and dropping it would leave no ring at all.
     static func discoverAll(home: URL = homeDirectory,
                             storage: QuotaStorage = QuotaStorage.systemDefault(),
                             fileManager: FileManager = .default) -> [CodexProfile] {
+        let managed = discoverManaged(storage: storage, fileManager: fileManager)
+        let fromHome = discover(home: home, fileManager: fileManager)
+            .filter { managed.isEmpty || $0.slug != nil }
         var seen = Set<String>()
-        return (discover(home: home, fileManager: fileManager)
-                + discoverManaged(storage: storage, fileManager: fileManager))
+        return (fromHome + managed)
             .filter { seen.insert($0.configDirectory.standardizedFileURL.path).inserted }
     }
 }

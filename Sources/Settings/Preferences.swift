@@ -6,7 +6,6 @@ import os
 /// What the user has chosen, kept in `UserDefaults`.
 @MainActor
 final class Preferences: ObservableObject {
-    static let showUsagePaceKey = "showUsagePace"
     /// Off unless the user says otherwise. The keeper can spend quota without
     /// being asked, and it shares its state files with the Rust app it is
     /// replacing — two keepers running against one account would pay for the
@@ -136,9 +135,7 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(resetTimeFormat.rawValue, forKey: Keys.resetTimeFormat) }
     }
 
-    @Published var showUsagePace: Bool {
-        didSet { defaults.set(showUsagePace, forKey: Self.showUsagePaceKey) }
-    }
+
 
     /// Whether the weekly keeper may send its own requests.
     @Published var quotaKeeperEnabled: Bool {
@@ -376,7 +373,6 @@ final class Preferences: ObservableObject {
             .map(DisplayPreference.display) ?? .followActiveWindow
         self.resetTimeFormat = defaults.string(forKey: Keys.resetTimeFormat)
             .flatMap(ResetTimeFormat.init(rawValue:)) ?? .automatic
-        self.showUsagePace = defaults.bool(forKey: Self.showUsagePaceKey)
         // `bool(forKey:)` is false for a key that was never written, which is
         // the default we want here.
         self.quotaKeeperEnabled = defaults.bool(forKey: Self.quotaKeeperEnabledKey)

@@ -89,7 +89,7 @@ final class OllamaModelCellTests: XCTestCase {
             fidelity: .official, status: .ok,
             windows: [LimitWindow(id: "session", label: "Session", usedFraction: 0.4)])
         let model = NotchViewModel()
-        model.updateSnapshots([cloud, ollamaSnapshot(reading)])
+        model.updateSnapshots([cloud, ollamaSnapshot(reading)], activeCodexID: nil)
         XCTAssertEqual(model.snapshots.count, 3)
         XCTAssertEqual(model.snapshots[0], cloud)
         XCTAssertEqual(model.snapshots.dropFirst().map(\.providerID), ["ollama-local", "ollama-local"])
@@ -105,7 +105,7 @@ final class OllamaModelCellTests: XCTestCase {
         let model = NotchViewModel()
         func update(_ names: [String]) throws {
             let data = try JSONSerialization.data(withJSONObject: ["models": names.map { ["name": $0] }])
-            model.updateSnapshots([ollamaSnapshot(try OllamaLocalUsage.parse(data))])
+            model.updateSnapshots([ollamaSnapshot(try OllamaLocalUsage.parse(data))], activeCodexID: nil)
         }
         try update(["b-model", "a-model"])
         model.hoveredIndex = 1
@@ -126,7 +126,7 @@ final class OllamaModelCellTests: XCTestCase {
             let data = try JSONSerialization.data(withJSONObject: ["models": names.map {
                 ["name": $0, "size": size] as [String: Any]
             }])
-            model.updateSnapshots([cloud, ollamaSnapshot(try OllamaLocalUsage.parse(data))])
+            model.updateSnapshots([cloud, ollamaSnapshot(try OllamaLocalUsage.parse(data))], activeCodexID: nil)
         }
         try update(["qwen3:8b", "llama3.1:8b"], size: 100)
         model.hoveredIndex = 2
@@ -150,7 +150,7 @@ final class OllamaModelCellTests: XCTestCase {
     func testLocalClickFeedbackIsIndependentFromPollingAndOtherModelClicks() async throws {
         let model = NotchViewModel()
         model.updateSnapshots([Fixtures.snapshots()[0], ollamaSnapshot(try OllamaLocalUsage.parse(
-            Data(#"{"models":[{"name":"llama3.1:8b"},{"name":"qwen3:8b"}]}"#.utf8)))])
+            Data(#"{"models":[{"name":"llama3.1:8b"},{"name":"qwen3:8b"}]}"#.utf8)))], activeCodexID: nil)
         let cloud = model.snapshots[0], first = model.snapshots[1], second = model.snapshots[2]
         model.refreshing = ["ollama-local", cloud.providerID]
         XCTAssertTrue(model.isRefreshing(cloud))
@@ -194,7 +194,7 @@ final class OllamaModelCellTests: XCTestCase {
         for size in NotchSize.allCases {
             for edge in NotchEdge.allCases {
                 let controller = NotchWindowController()
-                controller.model.updateSnapshots([Fixtures.snapshots()[0], runtime])
+                controller.model.updateSnapshots([Fixtures.snapshots()[0], runtime], activeCodexID: nil)
                 controller.model.edge = edge
                 controller.model.sizeScale = size.scale
                 controller.model.isExpanded = true
@@ -232,7 +232,7 @@ final class OllamaModelCellTests: XCTestCase {
             outputTokens: 30, durationNanoseconds: 1_000_000_000))
         let fleet = NotchFleet(scope: .allDisplays, edge: .right)
         fleet.setLocalMetricsEnabled(true)
-        fleet.setSnapshots([cloud, runtime])
+        fleet.setSnapshots([cloud, runtime], activeCodexID: nil)
         fleet.setThinkingModels([key: Date()])
         fleet.setPerformances([key: measurement])
         fleet.onRefreshProvider = { _ in }
@@ -252,7 +252,7 @@ final class OllamaModelCellTests: XCTestCase {
         }
 
         // Provider ordering still applies while one provider expands to many cells.
-        fleet.setSnapshots([runtime, cloud])
+        fleet.setSnapshots([runtime, cloud], activeCodexID: nil)
         fleet.setThinkingModels([:])
         fleet.setPerformances([:])
         for controller in fleet.controllersForTesting {
@@ -260,7 +260,7 @@ final class OllamaModelCellTests: XCTestCase {
             XCTAssertTrue(controller.model.snapshots.allSatisfy { $0.localPerformance == nil })
             XCTAssertTrue(controller.model.thinkingModels.isEmpty)
         }
-        fleet.setSnapshots([cloud])
+        fleet.setSnapshots([cloud], activeCodexID: nil)
         for controller in fleet.controllersForTesting {
             XCTAssertEqual(controller.model.snapshots, [cloud])
         }
@@ -464,7 +464,7 @@ final class OllamaLifecycleTests: XCTestCase {
 
         let fleet = NotchFleet(scope: .allDisplays, edge: .right)
         fleet.setLocalMetricsEnabled(true)
-        fleet.setSnapshots(store.notchSnapshots)
+        fleet.setSnapshots(store.notchSnapshots, activeCodexID: nil)
         fleet.show()
         defer { fleet.stop() }
         for controller in fleet.controllersForTesting {
@@ -914,7 +914,7 @@ final class OllamaRenderTests: XCTestCase {
             LocalRuntimeReading.Model(name: "qwen3:8b",
                 memoryBytes: 6_442_450_944, contextLength: 8_192, quantizationLevel: nil)
         ]
-        model.updateSnapshots([ollamaSnapshot(LocalRuntimeReading(models: models))])
+        model.updateSnapshots([ollamaSnapshot(LocalRuntimeReading(models: models))], activeCodexID: nil)
         XCTAssertEqual(model.snapshots.count, 2)
         model.isExpanded = true
         model.hoveredIndex = 0
@@ -937,7 +937,7 @@ final class OllamaRenderTests: XCTestCase {
         let reading = try OllamaLocalUsage.parse(Data(#"{"models":[{"name":"a-long-model-name/with-a-long-variant:8b","size":4831838208,"context_length":2048},{"name":"b-model:8b","size":15569256448,"context_length":8192},{"name":"c-model:8b"}]}"#.utf8))
         let controller = NotchWindowController()
         let model = controller.model
-        model.updateSnapshots(clouds + [ollamaSnapshot(reading)])
+        model.updateSnapshots(clouds + [ollamaSnapshot(reading)], activeCodexID: nil)
         model.isExpanded = true
         model.screenSize = CGSize(width: 1512, height: 982)
         XCTAssertEqual(model.snapshots.count, 6)
@@ -960,7 +960,7 @@ final class OllamaRenderTests: XCTestCase {
                 try save(XCTUnwrap(renderer.nsImage), name: "ollama-mixed-\(edge.rawValue)-\(index).png")
             }
         }
-        model.updateSnapshots([])
+        model.updateSnapshots([], activeCodexID: nil)
         model.isHoveringSettings = true
         let size = model.panelSize
         let renderer = ImageRenderer(content: NotchRootView(model: model)
@@ -976,7 +976,7 @@ final class OllamaRenderTests: XCTestCase {
             memoryBytes: 1_610_612_736, contextLength: 2_048, quantizationLevel: "Q4_K_M") }
         let runtime = ollamaSnapshot(LocalRuntimeReading(models: models))
         let model = NotchViewModel()
-        model.updateSnapshots([runtime])
+        model.updateSnapshots([runtime], activeCodexID: nil)
         model.isExpanded = true
         model.screenSize = CGSize(width: 1920, height: 1080)
         for edge in NotchEdge.allCases {

@@ -96,7 +96,7 @@ struct QuotaSettings: Codable, Equatable {
     /// countdown to be started. Cleared as soon as it fires or expires.
     var fiveHourStartAt: Int64?
 
-    init(version: Int = 0, fiveHourStartAt: Int64? = nil) {
+    init(version: Int = 1, fiveHourStartAt: Int64? = nil) {
         self.version = version
         self.fiveHourStartAt = fiveHourStartAt
     }
@@ -105,7 +105,7 @@ struct QuotaSettings: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let box = try decoder.container(keyedBy: CodingKeys.self)
-        version = try box.decodeIfPresent(Int.self, forKey: .version) ?? 0
+        version = try box.decodeIfPresent(Int.self, forKey: .version) ?? 1
         fiveHourStartAt = try box.decodeIfPresent(Int64.self, forKey: .fiveHourStartAt)
     }
 }
@@ -119,13 +119,23 @@ struct QuotaSettings: Codable, Equatable {
 final class CheckLock {
     private let path: URL
     private let descriptor: Int32
+    private let heartbeatQueue = DispatchQueue(label: "Codenotch.check-lock")
+    private let heartbeat: DispatchSourceTimer
 
-    init(path: URL, descriptor: Int32) {
+    init(path: URL, descriptor: Int32, heartbeatInterval: TimeInterval = 30) {
         self.path = path
         self.descriptor = descriptor
+        heartbeat = DispatchSource.makeTimerSource(queue: heartbeatQueue)
+        // Two Antigravity transactions can exceed the stale-lock grace. Keep
+        // this same inode fresh while held; Rust also checks its modification time.
+        heartbeat.schedule(deadline: .now() + heartbeatInterval, repeating: heartbeatInterval)
+        heartbeat.setEventHandler { _ = futimes(descriptor, nil) }
+        heartbeat.resume()
     }
 
     deinit {
+        heartbeat.cancel()
+        heartbeatQueue.sync {}
         close(descriptor)
         try? FileManager.default.removeItem(at: path)
     }

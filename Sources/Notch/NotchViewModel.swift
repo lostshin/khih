@@ -4,8 +4,29 @@ import Combine
 @MainActor
 final class NotchViewModel: ObservableObject {
     @Published var snapshots: [ProviderSnapshot] = []
+    /// What the last click on a card did, keyed by cell id.
+    ///
+    /// A manual check sends no system notification on purpose, so this line is
+    /// the only place its answer appears. Held per cell rather than as one
+    /// value, because clicking a second card must not blank the first.
+    @Published private(set) var checkMessages: [String: String] = [:]
+    private var checkMessageTasks: [String: Task<Void, Never>] = [:]
     private var performances: [String: LocalModelPerformance] = [:]
     private var localMetricsEnabled = false
+
+    /// Shows `message` on a card. A nil `clearAfter` keeps it until it is
+    /// replaced, which is what the in-progress line needs.
+    func showCheckMessage(_ message: String, for cellID: String, clearAfter: TimeInterval? = 6) {
+        checkMessageTasks[cellID]?.cancel()
+        checkMessageTasks[cellID] = nil
+        checkMessages[cellID] = message
+        guard let clearAfter else { return }
+        checkMessageTasks[cellID] = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(clearAfter * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.checkMessages[cellID] = nil
+        }
+    }
 
     func setLocalMetricsEnabled(_ enabled: Bool) {
         localMetricsEnabled = enabled
@@ -13,9 +34,10 @@ final class NotchViewModel: ObservableObject {
         snapshots = snapshots.map(withPerformance)
     }
 
-    func updateSnapshots(_ providerSnapshots: [ProviderSnapshot]) {
+    func updateSnapshots(_ providerSnapshots: [ProviderSnapshot], activeCodexID: String?) {
         let hoveredID = hoveredSnapshot?.id
-        let next = ProviderOrder.cells(from: providerSnapshots, keeping: snapshots).map(withPerformance)
+        let next = ProviderOrder.cells(from: providerSnapshots, keeping: snapshots,
+                                       activeCodexID: activeCodexID).map(withPerformance)
         let nextHoveredIndex = hoveredID.flatMap { id in next.firstIndex { $0.id == id } }
         if hoveredIndex != nextHoveredIndex { hoveredIndex = nextHoveredIndex }
         snapshots = next
@@ -79,13 +101,13 @@ final class NotchViewModel: ObservableObject {
 
     func isRefreshing(_ snapshot: ProviderSnapshot) -> Bool {
         snapshot.localModel == nil
-            ? refreshing.contains(snapshot.providerID)
+            ? snapshot.refreshProviderIDs.contains(where: refreshing.contains)
             : refreshingCells.contains(snapshot.id)
     }
 
     func refresh(_ snapshot: ProviderSnapshot, using refreshProvider: (String) async -> Void) async {
         guard snapshot.localModel != nil else {
-            await refreshProvider(snapshot.providerID)
+            for id in snapshot.refreshProviderIDs { await refreshProvider(id) }
             return
         }
         guard refreshingCells.insert(snapshot.id).inserted else { return }
@@ -390,8 +412,20 @@ final class NotchViewModel: ObservableObject {
 
     /// A provider with no activity source gets none, rather than borrowing
     /// somebody else's.
+    ///
+    /// Claude is excluded on purpose. Its session monitor keeps a row for as
+    /// long as the CLI process is alive, idle included, so the list sat under
+    /// the quota rows permanently — while Codex, which needs a rollout write in
+    /// the last eight seconds, almost never showed one. The same card therefore
+    /// read as two different designs depending on which provider it described,
+    /// and the quota rows are what the card is for. Deciding it here rather
+    /// than in the view keeps the five places that size the card from the same
+    /// session count in agreement.
     func activity(for snapshot: ProviderSnapshot) -> ActivitySummary? {
-        guard let model = snapshot.localModel else { return activity(for: snapshot.providerID) }
+        guard let model = snapshot.localModel else {
+            guard !ClaudeProfile.isClaude(providerID: snapshot.id) else { return nil }
+            return ActivitySummary(sessions: snapshot.refreshProviderIDs.flatMap { sessions[$0] ?? [] })
+        }
         guard let since = thinkingModels[OllamaThinkingStream.modelKey(model.name)] else { return nil }
         return ActivitySummary(sessions: [AgentSession(id: snapshot.id, name: "Thinking",
             detail: "Ollama", state: .busy, waitingFor: nil, since: since)])
@@ -448,7 +482,11 @@ final class NotchViewModel: ObservableObject {
                 hasTokenUsage: snapshot.tokenUsage != nil,
                 localModelName: snapshot.localModel?.name,
                 showsLocalPerformance: snapshot.showsLocalPerformance,
-                compactRowCount: snapshot.compactRowCount)
+                compactRowCount: snapshot.compactRowCount,
+                burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
+                // The panel has to be tall enough for the line a click adds,
+                // or the answer to the click is the part that gets clipped.
+                checkMessage: checkMessages[snapshot.id])
         }.max() ?? 0
     }
 
