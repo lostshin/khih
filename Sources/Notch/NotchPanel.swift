@@ -21,6 +21,11 @@ final class NotchPanel: NSPanel {
     var onDragEnd: (() -> Void)?
 
     override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown, let view = contentView,
+           view.hitTest(event.locationInWindow) != nil {
+            mouseDown(with: event)
+            return
+        }
         guard event.type == .rightMouseDown,
               let menu = contextMenuProvider?(),
               let view = contentView,

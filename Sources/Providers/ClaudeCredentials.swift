@@ -42,7 +42,13 @@ struct ClaudeCredentials {
     /// authorization to read — only this second, targeted fetch of the
     /// winner's actual data does, which is why it costs the same single prompt
     /// as before, per profile.
-    static func read(services: [String]) throws -> ClaudeCredentials {
+    static func read(services: [String], interactive: Bool = false) throws -> ClaudeCredentials {
+        try KeychainAccess.shared.perform(interactive: interactive) {
+            try readUnlocked(services: services)
+        }
+    }
+
+    private static func readUnlocked(services: [String]) throws -> ClaudeCredentials {
         guard let winner = KeychainItem.newest(services: services) else {
             Log.usage.error("keychain read failed: no item under \(services.joined(separator: ", "), privacy: .public)")
             throw UsageProviderError.needsAuth
@@ -148,6 +154,10 @@ struct ClaudeCredentials {
 /// cache shared between them would hand the personal token to the work ring.
 final class ClaudeKeychain: @unchecked Sendable {
     let services: [String]
+    private let accessLock = NSLock()
+    private let modifiedAt: () -> Date?
+    private let read: (Bool) throws -> ClaudeCredentials
+    private var lastStamp: Date?
 
     /// Read once, then held until the token expires — see `CredentialCache`.
     /// Claude Code rotates this roughly hourly, so this is about one keychain
@@ -166,8 +176,11 @@ final class ClaudeKeychain: @unchecked Sendable {
         isExpired: { $0.isExpired }
     )
 
-    init(services: [String]) {
+    init(services: [String], modifiedAt: (() -> Date?)? = nil,
+         read: ((Bool) throws -> ClaudeCredentials)? = nil) {
         self.services = services
+        self.modifiedAt = modifiedAt ?? { KeychainItem.modifiedAt(services: services) }
+        self.read = read ?? { try ClaudeCredentials.read(services: services, interactive: $0) }
     }
 
     convenience init(profile: ClaudeProfile) {
@@ -179,15 +192,37 @@ final class ClaudeKeychain: @unchecked Sendable {
     /// profile's full candidate list, so it finds the token whether Claude Code
     /// filed it under the bare name or the suffixed one.
     static let `default` = ClaudeKeychain(services: ClaudeProfile.default().keychainServices)
+    private static let registryLock = NSLock()
+    private static var registry: [[String]: ClaudeKeychain] = [:]
+
+    static func shared(profile: ClaudeProfile) -> ClaudeKeychain {
+        let services = profile.keychainServices
+        if services == Self.default.services { return Self.default }
+        registryLock.lock(); defer { registryLock.unlock() }
+        if let existing = registry[services] { return existing }
+        let reader = ClaudeKeychain(services: services)
+        registry[services] = reader
+        return reader
+    }
+
+    var held: ClaudeCredentials? { cache.held }
+
+    func authorize() throws {
+        accessLock.lock(); defer { accessLock.unlock() }
+        cache.forget()
+        lastStamp = modifiedAt()
+        _ = try cache.value(itemModifiedAt: { lastStamp }, reload: { try read(true) })
+    }
 
     /// Reads whatever is stored, expired or not. Judging expiry is the caller's
     /// job, because "signed out" and "the token has aged out overnight" call for
     /// different behaviour and only one of them is worth alarming anyone about.
     func load() throws -> ClaudeCredentials {
-        try cache.value(
-            itemModifiedAt: { KeychainItem.modifiedAt(services: services) },
-            reload: { try ClaudeCredentials.read(services: services) }
-        )
+        accessLock.lock(); defer { accessLock.unlock() }
+        let stamp = modifiedAt()
+        if let stamp, let lastStamp, stamp != lastStamp { cache.forget() }
+        lastStamp = stamp
+        return try cache.value(itemModifiedAt: { stamp }, reload: { try read(false) })
     }
 
     /// Forget the held copy. Call when the server rejects it: signing into a

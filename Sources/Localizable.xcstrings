@@ -5009,6 +5009,182 @@
           }
         }
       }
+    },
+    "Click to start this account’s 5-hour countdown": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "點一下啟動此帳號的 5 小時倒數"
+          }
+        }
+      }
+    },
+    "Allow access to Claude sign-in…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允許存取 Claude 登入資料…"
+          }
+        }
+      }
+    },
+    "Add Codex account…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新增 Codex 帳號…"
+          }
+        }
+      }
+    },
+    "Name account": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "命名帳號"
+          }
+        }
+      }
+    },
+    "Browser sign-in": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "瀏覽器登入"
+          }
+        }
+      }
+    },
+    "Complete": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "Account name": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "帳號名稱"
+          }
+        }
+      }
+    },
+    "For example: Personal, Work": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例如：個人、工作"
+          }
+        }
+      }
+    },
+    "Copy code and open sign-in page": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製代碼並開啟登入頁"
+          }
+        }
+      }
+    },
+    "Waiting for browser sign-in…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待瀏覽器登入…"
+          }
+        }
+      }
+    },
+    "Done": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "Cancelling…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在取消…"
+          }
+        }
+      }
+    },
+    "Claude sign-in access is unavailable. Allow access in Settings to update usage.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法存取 Claude 登入資料。請至設定允許存取，以更新額度。"
+          }
+        }
+      }
+    },
+    "Allows this access request. You may need to authorize again when the saved login changes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允許這次存取。登入資料更新後，可能需要再次授權。"
+          }
+        }
+      }
+    },
+    "Saved login access was denied. Allow access in Settings to update usage.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登入資料存取遭拒。請至設定允許存取，以更新額度。"
+          }
+        }
+      }
+    },
+    "Claude sign-in access stays silent in the background. Use Allow access in Settings when needed; a changed login may need permission again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude 登入資料在背景保持靜默存取。需要授權時，請在設定點選允許存取；登入資料更新後，可能需要再次授權。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

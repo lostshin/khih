@@ -69,6 +69,21 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.orderFrontRegardless()
     }
 
+    private var closingAfterLogin = false
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard let quota, quota.isAddingCodexAccount else { return true }
+        guard !closingAfterLogin else { return false }
+        closingAfterLogin = true
+        Task {
+            await quota.cancelAddAccount()
+            if let sheet = sender.attachedSheet { sender.endSheet(sheet) }
+            closingAfterLogin = false
+            sender.close()
+        }
+        return false
+    }
+
     func windowWillClose(_ notification: Notification) {
         NSApp.setActivationPolicy(preferences.appPresence.activationPolicy)
     }
@@ -124,7 +139,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         if let window, window.isVisible, window.isKeyWindow {
             // `isReleasedWhenClosed` is false, so this hides it and keeps the
             // window itself for the next `show()`.
-            window.close()
+            window.performClose(nil)
             return
         }
         show()

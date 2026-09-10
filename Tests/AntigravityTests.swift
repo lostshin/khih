@@ -663,12 +663,12 @@ final class FirstRunCopyTests: XCTestCase {
                       "nothing warns that the Claude app is not Claude Code")
     }
 
-    /// The keychain prompt is the only interruption in the whole first run, and
-    /// choosing Allow rather than Always Allow is what makes it recur.
-    func testTheKeychainPromptIsExplainedBeforeItAppears() {
+    /// Authorization is explicit, and rotation can require another grant.
+    func testClaudeAuthorizationIsExplicitAndDoesNotPromisePermanentAccess() {
         let copy = SettingsView.keychainCopy
-        XCTAssertTrue(copy.contains("Always Allow"))
-        XCTAssertTrue(copy.lowercased().contains("macos will ask"))
+        XCTAssertTrue(copy.contains("silent in the background"))
+        XCTAssertTrue(copy.contains("Settings"))
+        XCTAssertTrue(copy.contains("permission again"))
     }
 }
 
@@ -882,8 +882,8 @@ final class KeychainRefusalTests: XCTestCase {
             fidelity: .official, status: .accessDenied, windows: []
         )
         let message = snapshot.statusMessage ?? ""
-        XCTAssertTrue(message.contains("refused"))
-        XCTAssertTrue(message.contains("Always Allow"))
+        XCTAssertTrue(message.contains("unavailable"))
+        XCTAssertTrue(message.contains("Settings"))
         XCTAssertFalse(message.contains("Sign in"), "it tells a signed-in user to sign in")
     }
 

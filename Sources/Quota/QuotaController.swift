@@ -198,7 +198,8 @@ final class QuotaController: ObservableObject {
         return engine.canReach(account)
     }
 
-    var isBusy: Bool { scheduledBatchRunning || !running.isEmpty || !checking.isEmpty || login != nil || addAccountState == .starting }
+    private var manualBatchRunning = false
+    var isBusy: Bool { addingAccount || manualBatchRunning || scheduledBatchRunning || !running.isEmpty || !checking.isEmpty || login != nil || addAccountState == .starting }
     func isRunning(_ providerID: String) -> Bool { running.contains(providerID) || checking.contains(providerID) }
 
     func result(for providerID: String) -> FiveHourResult? { results[providerID] }
@@ -242,6 +243,9 @@ final class QuotaController: ObservableObject {
     }
 
     @Published private(set) var addAccountState: AddAccountState = .idle
+    var isAddingCodexAccount: Bool { addingAccount }
+    private var addingAccount = false
+    private var loginFinished: [CheckedContinuation<Void, Never>] = []
     private var login: CodexDeviceLogin?
     /// The directory the pending sign-in is writing into, so an attempt that
     /// never finishes can take it away again.
@@ -268,6 +272,13 @@ final class QuotaController: ObservableObject {
             return
         }
         addAccountState = .starting
+        addingAccount = true
+        defer {
+            addingAccount = false
+            let waiting = loginFinished
+            loginFinished.removeAll()
+            for continuation in waiting { continuation.resume() }
+        }
 
         let storage = self.storage
         let started = await Self.offMainActor { () -> Result<(QuotaAccountConfig, CodexDeviceLogin), Error> in
@@ -286,11 +297,13 @@ final class QuotaController: ObservableObject {
 
         switch started {
         case .failure(let error):
-            addAccountState = .failed(error.localizedDescription)
+            if addAccountState == .starting { addAccountState = .failed(error.localizedDescription) }
         case .success(let (account, session)):
             guard addAccountState == .starting else {
-                session.cancel()
-                storage.discardUnfinishedAccount(account)
+                await Self.offMainActor {
+                    session.cancel()
+                    storage.discardUnfinishedAccount(account)
+                }
                 return
             }
             login = session
@@ -304,10 +317,14 @@ final class QuotaController: ObservableObject {
     }
 
     func cancelAddAccount() async {
-        login?.cancel()
+        let session = login
         login = nil
-        await discardPendingAccount()
         addAccountState = .idle
+        if let session { await Self.offMainActor { session.cancel() } }
+        await discardPendingAccount()
+        if addingAccount {
+            await withCheckedContinuation { loginFinished.append($0) }
+        }
     }
 
     /// Takes back the directory `createAccount` made for a sign-in that did
@@ -457,12 +474,28 @@ final class QuotaController: ObservableObject {
         }
     }
 
+    func checkBatch(_ providerIDs: [String]) async -> [CheckOutcome] {
+        guard !isBusy else { return [.skippedBusy] }
+        manualBatchRunning = true
+        defer { manualBatchRunning = false }
+        var seen = Set<String>()
+        var outcomes: [CheckOutcome] = []
+        for id in providerIDs where seen.insert(id).inserted && enabledAccounts.contains(where: { $0.providerID == id }) {
+            if let outcome = await performCheck(id, mode: .manual) { outcomes.append(outcome) }
+        }
+        return outcomes
+    }
+
     @discardableResult
     func check(_ providerID: String, mode: CheckMode) async -> CheckOutcome? {
         // Checked here as well as in `checkAll`: this is the layer that can
         // reach the backend, so it is the one that has to be switched off.
         if mode == .live, !isKeeperEnabled() { return nil }
         guard !isBusy else { checkResults[providerID] = .skippedBusy; return .skippedBusy }
+        return await performCheck(providerID, mode: mode)
+    }
+
+    private func performCheck(_ providerID: String, mode: CheckMode) async -> CheckOutcome? {
         guard let engine,
               let account = account(forProviderID: providerID) else { return nil }
 

@@ -11,11 +11,15 @@ final class QuotaControllerTests: XCTestCase {
         var reads: [RateLimitsSnapshot] = []
         private var index = 0
         var poked = 0
+        var visited: [String] = []
+        var onRead: (() -> Void)?
 
         func accountFingerprint(for account: QuotaAccountConfig) -> String? { fingerprint }
 
         func readRateLimits(for account: QuotaAccountConfig,
                             observedAt: Int64) throws -> RateLimitsSnapshot {
+            visited.append(account.providerID)
+            onRead?()
             guard !reads.isEmpty else { return RateLimitsSnapshot(observedAt: observedAt) }
             let snapshot = reads[min(index, reads.count - 1)]
             index += 1
@@ -181,6 +185,33 @@ final class QuotaControllerTests: XCTestCase {
     }
 
     // MARK: - The periodic check
+
+    func testManualBatchKeepsOrderDeduplicatesAndRejectsASecondScreen() async throws {
+        let first = try addAccount(id: "account-a")
+        let second = try addAccount(id: "account-b")
+        let off = try addAccount(id: "account-off", enabled: false)
+        try seedBaseline(first)
+        try seedBaseline(second)
+        backend.reads = [idleFiveHour()]
+        let controller = makeController()
+        let entered = expectation(description: "first backend entered")
+        let release = DispatchSemaphore(value: 0)
+        backend.onRead = {
+            self.backend.onRead = nil
+            entered.fulfill()
+            release.wait()
+        }
+        let batch = Task { await controller.checkBatch([second.providerID, first.providerID, second.providerID, off.providerID]) }
+        await fulfillment(of: [entered], timeout: 3)
+        XCTAssertTrue(controller.isBusy)
+        let overlapping = await controller.checkBatch([first.providerID])
+        XCTAssertEqual(overlapping, [.skippedBusy])
+        release.signal()
+        let outcomes = await batch.value
+        XCTAssertEqual(outcomes.count, 2)
+        XCTAssertEqual(backend.visited, [second.providerID, first.providerID])
+        XCTAssertFalse(controller.isBusy)
+    }
 
     func testCheckAllVisitsEveryEnabledCodexAccount() async throws {
         let first = try addAccount(id: "account-a")

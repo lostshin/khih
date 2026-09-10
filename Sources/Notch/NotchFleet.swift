@@ -69,6 +69,9 @@ final class NotchFleet {
             for controller in controllers.values { controller.manualCheckIDs = manualCheckIDs }
         }
     }
+    var onStartGroup: ((String) async -> String?)? {
+        didSet { for controller in controllers.values { controller.onStartGroup = onStartGroup } }
+    }
     var onManualCheck: (([String]) async -> String?)? {
         didSet {
             for controller in controllers.values { controller.onManualCheck = onManualCheck }
@@ -335,6 +338,7 @@ final class NotchFleet {
         controller.fiveHourItems = fiveHourItems
         controller.manualCheckIDs = manualCheckIDs
         controller.onManualCheck = onManualCheck
+        controller.onStartGroup = onStartGroup
         controller.model.updateSnapshots(snapshots, activeCodexID: activeCodexID)
         controller.model.thinkingModels = thinkingModels
         controller.model.setLocalMetricsEnabled(localMetricsEnabled)

@@ -13,6 +13,17 @@ final class UsageStore: ObservableObject {
     @Published private(set) var notchSnapshots: [ProviderSnapshot] = []
     /// Providers with a fetch in flight, so the cell can show it happening.
     @Published private(set) var refreshing: Set<String> = []
+    private var manualRefreshing: Set<String> = []
+
+    func beginManualFeedback(_ ids: [String]) {
+        manualRefreshing.formUnion(ids)
+        refreshing.formUnion(ids)
+    }
+
+    func endManualFeedback(_ ids: [String]) {
+        manualRefreshing.subtract(ids)
+        for id in ids where fetchTasks[id] == nil { refreshing.remove(id) }
+    }
     /// Providers whose last fetch was refused by macOS, cleared as soon as one
     /// succeeds. The settings row's only honest basis for offering to ask again.
     @Published private(set) var refusedAccess: Set<String> = []
@@ -472,7 +483,7 @@ final class UsageStore: ObservableObject {
                 }
                 // Retain the task until its process has exited: no second reader.
                 fetchTasks[provider.id]?.cancel()
-                refreshing.remove(provider.id)
+                if !manualRefreshing.contains(provider.id) { refreshing.remove(provider.id) }
             } : nil
             defer { providerDeadline?.cancel() }
             if let fresh = await snapshot(from: provider, generation: generation) {
@@ -482,7 +493,7 @@ final class UsageStore: ObservableObject {
             }
             if holdIndicator { try? await Task.sleep(nanoseconds: 380_000_000) }
             guard generations[provider.id, default: 0] == generation else { return }
-            refreshing.remove(provider.id)
+            if !manualRefreshing.contains(provider.id) { refreshing.remove(provider.id) }
             fetchTasks.removeValue(forKey: provider.id)
         }
         fetchTasks[provider.id] = task
@@ -492,7 +503,7 @@ final class UsageStore: ObservableObject {
     private func cancelRefresh(providerID: String) {
         generations[providerID, default: 0] += 1
         fetchTasks.removeValue(forKey: providerID)?.cancel()
-        refreshing.remove(providerID)
+        if !manualRefreshing.contains(providerID) { refreshing.remove(providerID) }
     }
 
     private var burnReadings: [String: [QuotaBurnReading]] = [:]
@@ -590,7 +601,23 @@ final class UsageStore: ObservableObject {
     /// first is the part that matters: a plain refresh is served from the cache
     /// whenever the token is still valid, so the keychain is never touched and
     /// the prompt never returns — the button would appear to do nothing.
+    private var authorizing: Set<String> = []
+
     func reauthorize(providerID: String) {
+        if let claude = providers.first(where: { $0.id == providerID }) as? ClaudeOAuthProvider {
+            guard authorizing.insert(providerID).inserted else { return }
+            Task {
+                defer { authorizing.remove(providerID) }
+                let result = await Task.detached { Result { try claude.authorizeCredential() } }.value
+                switch result {
+                case .success:
+                    await refresh(providerID: providerID)?.value
+                case .failure(let error):
+                    if let snapshot = degraded(provider: claude, error: error) { publish(snapshot) }
+                }
+            }
+            return
+        }
         providers.first { $0.id == providerID }?.forgetCachedCredential()
         refresh(providerID: providerID)
     }
@@ -707,7 +734,10 @@ final class UsageStore: ObservableObject {
         // window it gets marked, and the ring dims.
         let age = Date().timeIntervalSince(previous.fetchedAt)
         var snapshot = previous.snapshot
-        snapshot.status = provider.id == "gemini" || age > staleAfter
+        if case .accessDenied = status {
+            snapshot.updateWarning = L10n.t("Saved login access was denied. Allow access in Settings to update usage.")
+        }
+        snapshot.status = provider.id == "gemini" || status == .accessDenied || age > staleAfter
             ? .stale(since: previous.fetchedAt) : previous.snapshot.status
         return snapshot
     }

@@ -931,7 +931,7 @@ struct SettingsView: View {
     /// it return on every read, which is what "it asks every time" turns out to
     /// be.
     static var keychainCopy: String {
-        L10n.t("macOS will ask once for permission to read Claude Code's, Antigravity's and cursor-agent's saved logins. Choose Always Allow — plain Allow makes it ask again every time.")
+        L10n.t("Claude sign-in access stays silent in the background. Use Allow access in Settings when needed; a changed login may need permission again.")
     }
 
     /// A provider has just been switched on: put it after the ones already
@@ -1282,10 +1282,10 @@ private struct AccountRow: View {
                 // permanent for any keychain-backed provider, which meant it sat
                 // there next to a working account offering to fix nothing — and
                 // when it *was* needed there was no way to tell the two apart.
-                if isConnected, provider.wasRefusedAccess {
-                    Button(L10n.t("Allow access…")) { retry(provider.id) }
+                if isConnected, provider.wasRefusedAccess || provider.id == "claude" {
+                    Button(provider.id == "claude" ? L10n.t("Allow access to Claude sign-in…") : L10n.t("Allow access…")) { retry(provider.id) }
                         .controlSize(.small)
-                        .help(L10n.t("Asks macOS for \(provider.name)'s saved login again. Choose Always Allow and it will stop asking."))
+                        .help(provider.id == "claude" ? L10n.t("Allows this access request. You may need to authorize again when the saved login changes.") : L10n.t("Asks macOS for \(provider.name)'s saved login again. Choose Always Allow and it will stop asking."))
                 }
 
                 if isConnected, let destination {
@@ -1489,7 +1489,7 @@ private struct AccountRow: View {
             // Not a sign-in problem, so do not send them off to sign in. The
             // credential is right there and macOS is the one saying no — the
             // remedy is the button on this same row.
-            Text(L10n.t("macOS is not letting Codenotch read \(provider.name)'s saved login. Choose Allow access… above, then Always Allow."))
+            Text(provider.id == "claude" ? L10n.t("Claude sign-in access is unavailable. Allow access in Settings to update usage.") : L10n.t("macOS is not letting Codenotch read \(provider.name)'s saved login. Choose Allow access… above, then Always Allow."))
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
         } else {

@@ -267,6 +267,10 @@ enum CursorAgentKeychain {
     /// Same two-step as Claude Code: attributes are free, the secret is not,
     /// and `kSecMatchLimitOne` has no ordering if a rotation left duplicates.
     static func read() throws -> String {
+        try KeychainAccess.shared.serialized { try readSerialized() }
+    }
+
+    private static func readSerialized() throws -> String {
         guard let winner = KeychainItem.newest(service: service, account: account) else {
             Log.usage.error("cursor-agent keychain read failed: no item under \(service, privacy: .public)")
             throw UsageProviderError.needsAuth

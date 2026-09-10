@@ -401,12 +401,13 @@ final class ClaudeAccountSourceTests: XCTestCase {
         // Claude Code's own config where it can find it, so without this the
         // answer would come from whatever the developer has installed rather
         // than from the credential this test handed it.
-        return ClaudeOAuthProvider(archive: UsageArchive(defaults: defaults),
+        return ClaudeOAuthProvider(profile: .default(home: FileManager.default.temporaryDirectory.appendingPathComponent(name)),
+                                   archive: UsageArchive(defaults: defaults),
                                    loadCredentials: load,
                                    cli: nil)
     }
 
-    func testTheAccountComesFromTheInjectedSource() throws {
+    func testTheAccountSummaryNeverLoadsASecret() throws {
         var reads = 0
         let account = provider {
             reads += 1
@@ -414,13 +415,13 @@ final class ClaudeAccountSourceTests: XCTestCase {
                                      subscriptionType: "team")
         }.account()
 
-        XCTAssertEqual(reads, 1, "the keychain must not be consulted behind our back")
-        XCTAssertEqual(account?.plan, "team")
+        XCTAssertEqual(reads, 0, "settings must never load a secret")
+        XCTAssertNil(account?.plan)
     }
 
     /// A source that has nothing is no account, and no crash.
     func testNoCredentialIsNoAccount() {
-        XCTAssertNil(provider { throw UsageProviderError.needsAuth }.account())
+        XCTAssertNotNil(provider { throw UsageProviderError.needsAuth }.account())
     }
 }
 

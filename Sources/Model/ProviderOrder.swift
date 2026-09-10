@@ -44,12 +44,17 @@ enum ProviderOrder {
             let title = account.status == .ok ? name
                 : name + " · " + (account.statusMessage ?? L10n.t("No reading"))
             guard !account.windows.isEmpty else {
-                return [LimitWindow(id: "\(account.id):unavailable", group: title, label: L10n.t("No reading"))]
+                var window = LimitWindow(id: "\(account.id):unavailable", group: title, label: L10n.t("No reading"))
+                window.groupID = account.id
+                window.sourceProviderID = account.providerID
+                return [window]
             }
             return account.windows.map { window in
                 var copied = LimitWindow(id: "\(account.id):\(window.id)", group: title, label: window.label,
                             usedFraction: window.usedFraction, remaining: window.remaining,
                             used: window.used, resetsAt: window.resetsAt, duration: window.duration)
+                copied.groupID = account.id
+                copied.sourceProviderID = account.providerID
                 copied.burnReading = window.burnReading
                 return copied
             }

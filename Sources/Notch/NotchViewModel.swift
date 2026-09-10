@@ -90,6 +90,10 @@ final class NotchViewModel: ObservableObject {
     var staysOpen: Bool { isPinned || isAlwaysOn }
     /// Providers with a fetch in flight, driven by the store.
     @Published var refreshing: Set<String> = []
+    @Published var checkingCells: Set<String> = []
+    var groupFrames: [String: CGRect] = [:]
+    var onCheckCell: ((ProviderSnapshot) -> Void)?
+    var onStartGroup: ((String) -> Void)?
     /// Bumped each time the settings orb is clicked, by either route.
     ///
     /// A count rather than a flag: the gear turns to `spins * 360`, so a
@@ -100,7 +104,8 @@ final class NotchViewModel: ObservableObject {
     @Published private(set) var refreshingCells: Set<String> = []
 
     func isRefreshing(_ snapshot: ProviderSnapshot) -> Bool {
-        snapshot.localModel == nil
+        if checkingCells.contains(snapshot.id) { return true }
+        return snapshot.localModel == nil
             ? snapshot.refreshProviderIDs.contains(where: refreshing.contains)
             : refreshingCells.contains(snapshot.id)
     }
@@ -474,7 +479,8 @@ final class NotchViewModel: ObservableObject {
     private func contentCardHeight(sessionCap: Int) -> CGFloat {
         snapshots.map { snapshot in
             NotchLayout.cardHeight(windowCount: snapshot.windows.count,
-                groupCount: Set(snapshot.windows.compactMap(\.group)).count,
+                groupCount: snapshot.windowGroupCount,
+                actionGroupCount: Set(snapshot.windows.compactMap(\.sourceProviderID)).count,
                 sessionCount: snapshot.localModel == nil ? sessionCap + 1 : 0,
                 sessionCap: sessionCap,
                 statusMessage: snapshot.statusMessage,
@@ -486,7 +492,7 @@ final class NotchViewModel: ObservableObject {
                 burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
                 // The panel has to be tall enough for the line a click adds,
                 // or the answer to the click is the part that gets clipped.
-                checkMessage: checkMessages[snapshot.id])
+                checkMessage: checkMessages[snapshot.id] ?? snapshot.updateWarning)
         }.max() ?? 0
     }
 

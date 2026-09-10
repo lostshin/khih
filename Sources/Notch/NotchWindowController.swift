@@ -29,6 +29,7 @@ final class NotchWindowController {
     /// should show. Returns a string rather than an outcome so the notch stays
     /// clear of the engine's vocabulary.
     var onManualCheck: (([String]) async -> String?)?
+    var onStartGroup: ((String) async -> String?)?
     /// Refetch a single provider, asked for by clicking its ring.
     var onRefreshProvider: ((String) async -> Void)?
     /// Open the settings window, asked for by clicking the handle.
@@ -205,11 +206,15 @@ final class NotchWindowController {
         )
 
         if let panel {
-            panel.setFrame(frame, display: true)
+            // Usage changes can publish several snapshots during one turn.
+            // Avoid synchronously redrawing the entire panel at the same frame.
+            if panel.frame != frame { panel.setFrame(frame, display: true) }
         } else {
             let panel = NotchPanel(contentRect: frame)
             let hosting = NotchHostingView(rootView: NotchRootView(model: model))
             panel.contextMenuProvider = { [weak self] in self?.contextMenu() }
+            model.onCheckCell = { [weak self] in self?.checkCell($0) }
+            model.onStartGroup = { [weak self] in self?.startGroup($0) }
             panel.onClick = { [weak self] point in self?.handleClick(at: point) }
             panel.onDrag = { [weak self] dx, dy in self?.dragged(dx: dx, dy: dy) }
             panel.onDragEnd = { [weak self] in
@@ -353,6 +358,7 @@ final class NotchWindowController {
         let cardHeight = NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
             groupCount: snapshot.windowGroupCount,
+            actionGroupCount: Set(snapshot.windows.compactMap(\.sourceProviderID)).count,
             sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot)?.sessions.count ?? 0) : 0,
             sessionCap: model.sessionCap,
             statusMessage: snapshot.statusMessage,
@@ -362,7 +368,7 @@ final class NotchWindowController {
             showsLocalPerformance: snapshot.showsLocalPerformance,
             compactRowCount: snapshot.compactRowCount,
                 burnReadingCount: snapshot.windows.filter { $0.burnReading != nil }.count,
-            checkMessage: model.checkMessages[snapshot.id]
+            checkMessage: model.checkMessages[snapshot.id] ?? snapshot.updateWarning
         )
         // Across the stack the region is the card, its tail, and the gap the
         // pointer has to cross. Along it, the card's own extent.
@@ -582,26 +588,41 @@ final class NotchWindowController {
         if notchRect.contains(local),
            let index = cellIndex(along: placement.along(of: local)),
            model.snapshots.indices.contains(index) {
-            if let onRefreshProvider {
-                let snapshot = model.snapshots[index]
-                Task { await model.refresh(snapshot, using: onRefreshProvider) }
-            }
+            checkCell(model.snapshots[index])
             return
         }
-        // The open card, if the click landed on it. A check spends real quota
-        // when the account is at a weekly reset, so it is deliberately not on
-        // the ring — that is a refetch — and starting a five-hour window is not
-        // here at all, only behind the right-click submenu.
         if let index = model.hoveredIndex, let card = tooltipRect(index: index),
            card.contains(local), model.snapshots.indices.contains(index) {
             let snapshot = model.snapshots[index]
-            let targets = Self.manualCheckTargets(for: snapshot, among: manualCheckIDs)
-            if !targets.isEmpty, let onManualCheck {
-                runManualCheck(targets, on: snapshot.id, using: onManualCheck)
+            if snapshot.id == "codex:accounts" {
+                if let id = Self.groupTarget(at: local, snapshot: snapshot, frames: model.groupFrames) {
+                    startGroup(id)
+                }
                 return
             }
+            checkCell(snapshot)
+            return
         }
         togglePinned()
+    }
+
+    static func groupTarget(at point: CGPoint, snapshot: ProviderSnapshot, frames: [String: CGRect]) -> String? {
+        TooltipWindowGroup.groups(snapshot.windows).compactMap(\.sourceProviderID)
+            .first { frames[$0]?.contains(point) == true }
+    }
+
+    private func checkCell(_ snapshot: ProviderSnapshot) {
+        let targets = Self.manualCheckTargets(for: snapshot, among: manualCheckIDs)
+        if !targets.isEmpty, let onManualCheck {
+            runManualCheck(targets, on: snapshot.id, using: onManualCheck)
+        } else if let onRefreshProvider {
+            Task { await model.refresh(snapshot, using: onRefreshProvider) }
+        }
+    }
+
+    private func startGroup(_ id: String) {
+        guard manualCheckIDs.contains(id), let onStartGroup else { return }
+        runManualCheck([id], on: id) { ids in await onStartGroup(ids[0]) }
     }
 
     /// Which accounts a card stands for. The merged Codex cell stands for
@@ -616,11 +637,15 @@ final class NotchWindowController {
         // One at a time: the engine serialises anyway, and a second click while
         // the first is still going would answer twice on one card.
         guard manualCheckTask == nil else { return }
+        model.checkingCells.insert(cellID)
         model.showCheckMessage(L10n.t("Checking…"), for: cellID, clearAfter: nil)
         manualCheckTask = Task { [weak self] in
+            async let feedback: Void = Task.sleep(nanoseconds: 380_000_000)
             let message = await check(targets)
+            _ = try? await feedback
             guard let self else { return }
             self.manualCheckTask = nil
+            self.model.checkingCells.remove(cellID)
             self.model.showCheckMessage(message ?? L10n.t("Checked."), for: cellID)
         }
     }

@@ -29,9 +29,6 @@ actor ClaudeOAuthProvider: UsageProvider {
 
     private let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     private let session: URLSession
-    /// Held between refreshes so the keychain is read once per token, not once
-    /// per minute — a keychain read can put a prompt in front of the user.
-    private var credentials: ClaudeCredentials?
     /// When the token runs out, as of the last keychain read — expired or not.
     ///
     /// Read-only bookkeeping for `ClaudeTokenRefresher`, which has to know how
@@ -89,7 +86,7 @@ actor ClaudeOAuthProvider: UsageProvider {
         self.profile = profile
         self.id = profile.id
         self.displayName = profile.displayName
-        let keychain = ClaudeKeychain(profile: profile)
+        let keychain = ClaudeKeychain.shared(profile: profile)
         self.keychain = keychain
         self.loadCredentials = loadCredentials ?? { try keychain.load() }
         self.session = session
@@ -134,10 +131,8 @@ actor ClaudeOAuthProvider: UsageProvider {
             // second timer here could only ever be wrong — and was: it stamped
             // itself on every failed tick, so its own window never expired and
             // the keychain was never read again.
-            credentials = nil
             throw UsageProviderError.needsAuth
         } catch UsageProviderError.credentialExpired {
-            credentials = nil
             throw UsageProviderError.credentialExpired
         } catch let error as UsageProviderError {
             if case .rateLimited(let retryAfter) = error {
@@ -220,7 +215,6 @@ actor ClaudeOAuthProvider: UsageProvider {
             keychain.forgetCached()
             // The cached token went stale mid-flight; re-read once in case
             // Claude Code has refreshed it since.
-            credentials = nil
             if retryingOnUnauthorized {
                 return try await fetch(retryingOnUnauthorized: false)
             }
@@ -251,9 +245,6 @@ actor ClaudeOAuthProvider: UsageProvider {
     }
 
     private func currentToken() throws -> String {
-        if let credentials, !credentials.isExpired {
-            return credentials.accessToken
-        }
         // No local back-off lock here — `CredentialCache`, behind `keychain`,
         // already does this correctly: it waits on the item's modification
         // date rather than on a clock, so a token Claude Code has just
@@ -270,7 +261,6 @@ actor ClaudeOAuthProvider: UsageProvider {
         // is next used, and the honest thing is to keep showing the last reading
         // with its age rather than demand a sign-in that is not needed.
         guard !fresh.isExpired else { throw UsageProviderError.credentialExpired }
-        credentials = fresh
         return fresh.accessToken
     }
 
@@ -310,6 +300,8 @@ actor ClaudeOAuthProvider: UsageProvider {
         .guidance(L10n.t("Run `\(profile.signInCommand)` once — it signs in and is what these readings come from. Use /login there to change account."))
     }
 
+    nonisolated func authorizeCredential() throws { try keychain.authorize() }
+
     nonisolated func forgetCachedCredential() { keychain.forgetCached() }
 
     /// Read the keychain again, ignoring anything held, and report the expiry.
@@ -319,7 +311,6 @@ actor ClaudeOAuthProvider: UsageProvider {
     /// that the keychain — and its prompt — is touched as rarely as possible.
     func reloadTokenExpiry() -> Date? {
         keychain.forgetCached()
-        credentials = nil
         guard let fresh = try? loadCredentials() else { return nil }
         tokenExpiry = fresh.expiresAt
         return fresh.expiresAt
@@ -346,17 +337,11 @@ actor ClaudeOAuthProvider: UsageProvider {
             )
         }
 
-        // Through the injected source, not `keychain` directly. In production
-        // the source *is* `keychain.load()` — the default set in `init` — so
-        // nothing about how this reads, caches or prompts changes. What it buys
-        // is that a test can build a real provider without the call reaching
-        // the login keychain: it used to, and a test host rebuilt with a fresh
-        // ad-hoc signature would sit behind an authorization prompt nobody was
-        // there to answer, hanging the whole suite on `providerSummaries`.
-        guard let credentials = try? loadCredentials() else { return nil }
+        // Settings reads only metadata already held in memory.
+        let credentials = keychain.held
         return ProviderAccount(
             label: profile.signedInAddress(),
-            plan: credentials.subscriptionType,
+            plan: credentials?.subscriptionType,
             source: profile.sourceName,
             manageURL: manageURL
         )
