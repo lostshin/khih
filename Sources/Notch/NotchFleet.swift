@@ -42,6 +42,8 @@ final class NotchFleet {
     /// already has its own `assignedScreen`, which wins over this in
     /// `NotchWindowController.currentScreen()`.
     private var displayPreference: DisplayPreference = .followActiveWindow
+    private var detailsOnClick = true
+    private var detailsShowRemaining = false
     private var resetTimeFormat: ResetTimeFormat = .automatic
     private var accentColor: AccentColorChoice = .system
     /// The ⌥-drag nudge along the current edge. One value for the whole
@@ -153,6 +155,19 @@ final class NotchFleet {
         self.displayPreference = displayPreference
         guard hasShown else { return }
         reconcile(screens: NSScreen.screens)
+    }
+
+    func apply(detailsOnClick: Bool) {
+        self.detailsOnClick = detailsOnClick
+        for controller in controllers.values {
+            controller.model.detailsOnClick = detailsOnClick
+            controller.model.hoveredIndex = nil
+        }
+    }
+
+    func apply(detailsShowRemaining: Bool) {
+        self.detailsShowRemaining = detailsShowRemaining
+        for controller in controllers.values { controller.model.detailsShowRemaining = detailsShowRemaining }
     }
 
     func apply(resetTimeFormat: ResetTimeFormat) {
@@ -327,6 +342,8 @@ final class NotchFleet {
         // Set before `show()`, so a display plugged in later builds its panel
         // at the current size rather than at medium and resizing a beat later.
         controller.model.sizeScale = scale
+        controller.model.detailsOnClick = detailsOnClick
+        controller.model.detailsShowRemaining = detailsShowRemaining
         controller.model.resetTimeFormat = resetTimeFormat
         controller.model.accentColor = accentColor
         controller.onRefresh = onRefresh

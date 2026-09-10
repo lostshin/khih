@@ -85,7 +85,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(preferences.appPresence.activationPolicy)
+        NSApp.setActivationPolicy(.accessory)
     }
 
     /// Sit the traffic lights in the middle of the panel's header band.
@@ -159,7 +159,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let window = NSWindow(
+        let window = SettingsPanel(
             contentRect: NSRect(x: 0, y: 0,
                                 width: SettingsView.width, height: SettingsView.height),
             // `fullSizeContentView` runs the sidebar flush up under the traffic
@@ -167,7 +167,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             // tall blank band once before, but that band was
             // `NavigationSplitView`'s own toolbar — the sidebar is a plain
             // `HStack` now, so there is no toolbar left to reserve for.
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -203,4 +203,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         layoutTrafficLights(in: window)
         surface(window)
     }
+}
+
+/// Minimizing settings hides them instead of leaving a thumbnail in the Dock.
+final class SettingsPanel: NSWindow {
+    override func miniaturize(_ sender: Any?) { performClose(sender) }
 }

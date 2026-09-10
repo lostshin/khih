@@ -263,6 +263,7 @@ private struct StatusRing: View {
 /// One metered window: label and reset copy on a line, a track bar, then the
 /// percentage burned.
 private struct LimitWindowRow: View {
+    @Environment(\.quotaDetailsShowRemaining) private var showRemaining
     let window: LimitWindow
     var inset: CGFloat = 0
     let fidelity: Fidelity
@@ -273,7 +274,7 @@ private struct LimitWindowRow: View {
     private var band: UsageBand { UsageBand.band(for: window.usedFraction ?? 0) }
     private var trackWidth: CGFloat { NotchLayout.cardWidth - 2 * NotchLayout.cardPadding - inset }
     private var fillWidth: CGFloat {
-        let fraction = CGFloat(min(max(window.usedFraction ?? 0, 0), 1))
+        let fraction = CGFloat(QuotaDetailDisplay.fraction(window, remaining: showRemaining) ?? 0)
         return max(NotchLayout.barHeight, trackWidth * fraction)
     }
 
@@ -307,7 +308,7 @@ private struct LimitWindowRow: View {
                     .padding(.top, NotchLayout.labelToBar)
                 }
 
-                Text("\(window.usedFraction == nil ? "" : fidelity.qualifier)\(window.summary)")
+                Text("\(window.usedFraction == nil ? "" : fidelity.qualifier)\(QuotaDetailDisplay.summary(window, remaining: showRemaining))")
                     .font(Typography.cardBody)
                     .foregroundStyle(Palette.textPrimary)
                     .lineLimit(1)

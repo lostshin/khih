@@ -131,6 +131,13 @@ final class Preferences: ObservableObject {
 
     private static func offsetKey(for edge: NotchEdge) -> String { "notchOffset.\(edge.rawValue)" }
 
+    @Published var detailsOnClick: Bool {
+        didSet { defaults.set(detailsOnClick, forKey: Keys.detailsOnClick) }
+    }
+    @Published var detailsShowRemaining: Bool {
+        didSet { defaults.set(detailsShowRemaining, forKey: Keys.detailsShowRemaining) }
+    }
+
     @Published var resetTimeFormat: ResetTimeFormat {
         didSet { defaults.set(resetTimeFormat.rawValue, forKey: Keys.resetTimeFormat) }
     }
@@ -254,6 +261,8 @@ final class Preferences: ObservableObject {
         static let usesCustomSize = "usesCustomNotchScale"
         static let customSize = "customNotchScale"
         static let display = "notchDisplay"
+        static let detailsOnClick = "detailsOnClick"
+        static let detailsShowRemaining = "detailsShowRemaining"
         static let resetTimeFormat = "resetTimeFormat"
         static let scope = "notchScope"
         static let accentColor = "accentColor"
@@ -371,6 +380,8 @@ final class Preferences: ObservableObject {
         } ?? 1
         self.displayPreference = defaults.string(forKey: Keys.display)
             .map(DisplayPreference.display) ?? .followActiveWindow
+        self.detailsOnClick = defaults.object(forKey: Keys.detailsOnClick) as? Bool ?? true
+        self.detailsShowRemaining = defaults.bool(forKey: Keys.detailsShowRemaining)
         self.resetTimeFormat = defaults.string(forKey: Keys.resetTimeFormat)
             .flatMap(ResetTimeFormat.init(rawValue:)) ?? .automatic
         // `bool(forKey:)` is false for a key that was never written, which is

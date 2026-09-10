@@ -38,6 +38,15 @@ final class RingRefreshMotionTests: XCTestCase {
         _ = try capture(host, name: "unknown")
         reading.used = 1
         try await Task.sleep(nanoseconds: 100_000_000)
+        // The old finite animation stopped at 0.95s. A long backend request
+        // must still show movement well after that first gesture has settled.
+        try await Task.sleep(nanoseconds: 1_200_000_000)
+        let pendingA = try capture(host, name: "long-pending-a")
+        try await Task.sleep(nanoseconds: 250_000_000)
+        let pendingB = try capture(host, name: "long-pending-b")
+        let a = try XCTUnwrap(brightCentroid(pendingA))
+        let b = try XCTUnwrap(brightCentroid(pendingB))
+        XCTAssertGreaterThan(hypot(a.x - b.x, a.y - b.y), 3, "long requests must not freeze the waiting arc")
         reading.refreshing = false
         try await Task.sleep(nanoseconds: 1_200_000_000)
         let after = try capture(host, name: "settled")
@@ -54,6 +63,19 @@ final class RingRefreshMotionTests: XCTestCase {
             try data.write(to: URL(fileURLWithPath: directory).appendingPathComponent("ring-\(name).png"))
         }
         return bitmap
+    }
+
+    private func brightCentroid(_ image: NSBitmapImageRep) -> CGPoint? {
+        var xTotal = 0.0, yTotal = 0.0, count = 0.0
+        for y in 0..<image.pixelsHigh {
+            for x in 0..<image.pixelsWide {
+                if let color = image.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB),
+                   min(color.redComponent, color.greenComponent, color.blueComponent) > 0.8 {
+                    xTotal += Double(x); yTotal += Double(y); count += 1
+                }
+            }
+        }
+        return count > 0 ? CGPoint(x: xTotal / count, y: yTotal / count) : nil
     }
 
     private func brightPixels(_ image: NSBitmapImageRep) -> Int {

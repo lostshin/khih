@@ -459,10 +459,15 @@ final class NotchWindowController {
             Self.wantsPointingHand(isExpanded: model.isExpanded, cellIndex: target) || overHandle
         )
 
+        updateHoveredDetail(target)
+        updateInteractiveRects()
+    }
+
+    func updateHoveredDetail(_ target: Int?) {
         if let target {
             clearHoverWork?.cancel()
             clearHoverWork = nil
-            if model.hoveredIndex != target {
+            if !model.detailsOnClick, model.hoveredIndex != target {
                 withAnimation(.spring(response: 0.18, dampingFraction: 0.85)) {
                     model.hoveredIndex = target
                 }
@@ -478,8 +483,6 @@ final class NotchWindowController {
             clearHoverWork = work
             DispatchQueue.main.asyncAfter(deadline: .now() + hoverGrace, execute: work)
         }
-
-        updateInteractiveRects()
     }
 
     /// Opens on contact, folds shut after a pause — unless it has been pinned
@@ -612,6 +615,10 @@ final class NotchWindowController {
     }
 
     private func checkCell(_ snapshot: ProviderSnapshot) {
+        clearHoverWork?.cancel()
+        clearHoverWork = nil
+        model.hoveredIndex = model.snapshots.firstIndex { $0.id == snapshot.id }
+        updateInteractiveRects()
         let targets = Self.manualCheckTargets(for: snapshot, among: manualCheckIDs)
         if !targets.isEmpty, let onManualCheck {
             runManualCheck(targets, on: snapshot.id, using: onManualCheck)
