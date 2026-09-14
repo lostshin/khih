@@ -24,8 +24,28 @@ final class AntigravityCLITests: XCTestCase {
         XCTAssertEqual(snapshot.buckets[1].secondary?.countdownActive, false)
     }
 
+    /// The five-hour window is tier-dependent: this is the exact shape the
+    /// official CLI returned on 2026-09-14 for a plan without it. Absent must
+    /// read as absent — materialising 0% would invent a countdown with no source.
+    func testFreePlanReportsWeeklyOnly() throws {
+        let weeklyOnly = [
+            "Gemini Models\tWeekly Limit Remaining\t100%\t2026-09-21T13:50:40Z",
+            "Claude and GPT models\tWeekly Limit Remaining\t100%\t2026-09-21T13:50:40Z"
+        ]
+        let snapshot = try AntigravityUsage.snapshot(from: envelope(weeklyOnly), observedAt: 1_789_000_000)
+        XCTAssertEqual(snapshot.buckets.map(\.limitId), ["antigravity:gemini", "antigravity:claude_gpt"])
+        for bucket in snapshot.buckets {
+            XCTAssertNil(bucket.primary, "an absent five-hour window must not be materialised")
+            XCTAssertEqual(bucket.secondary?.usedPercent, 0)
+            XCTAssertEqual(bucket.secondary?.windowDurationMins, 10080)
+        }
+    }
+
     func testRefusesMissingDuplicateInvalidAndFailedResponses() throws {
-        var variants = [Array(rows.dropLast()), rows + [rows[0]], Array(rows.prefix(2))]
+        // Dropping a weekly row still rejects; dropping a five-hour one no
+        // longer does — see `testFreePlanReportsWeeklyOnly`.
+        let withoutAWeekly = rows.enumerated().filter { $0.offset != 2 }.map(\.element)
+        var variants = [withoutAWeekly, rows + [rows[0]], Array(rows.prefix(2))]
         for invalid in ["101%", "-1%", "nan%", "inf%", "93"] {
             variants.append(rows.map { $0.replacingOccurrences(of: "93%", with: invalid) })
         }

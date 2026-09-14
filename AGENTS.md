@@ -129,8 +129,9 @@ Upstream 合併接點：`App/AppDelegate.swift`、`Settings/SettingsView.swift`�
 
 ## 5. Antigravity、子程序與排程
 
-- 額度唯一來源：官方 `agy -p /usage --output-format json` 成功 envelope 的 TSV。
-  只接受 Gemini 與 Claude／GPT 兩組、各 5h／weekly；缺列、重複、非法百分比／時間整次拒絕。
+- 額度唯一來源：官方 `agy -p /usage --output-format json` 成功 envelope 的 TSV。只接受 Gemini 與
+  Claude／GPT 兩組；weekly 必要，缺 weekly／重複／非法百分比／時間整次拒絕。**5h 視方案而定**，缺時
+  primary 留空不得補 0%、路徑不得移除（2026-09-14 實測無訂閱時只有 weekly，續訂後會回來）。
 - CLI 依環境變數 `CODEX_QUOTA_KEEPER_ANTIGRAVITY_BIN`、`~/.local/bin/agy`、PATH 延後解析。
   登入由官方 CLI 管理，不恢復 token／OMP SQLite／bridge 讀取路徑。
 - **`-p`／stdin 非終端機不保證不會登入開網頁**。Antigravity read／poke 必須經 `BackgroundCLI`：
@@ -245,6 +246,5 @@ HEAD 重跑**：`make build-ci`、簽章、Universal 紀錄與現存產物（09/
 - 新版 Dock／hover 開關、多螢幕、VoiceOver、高對比、Reduce Motion／Transparency、idle CPU 實機驗收。
 - 睡眠喚醒、真實取消／timeout 仍依使用者先前決定擱置；真實 poke 未送出過，另需明確同意。
 - **Rust 不可宣告可退役**，外層安全規則尚未搬入。
-- 已決定另案（實機驗收完成後再做）：`QuotaBackend` 加 `cooldownDeadline` 以消掉 `QuotaEngine` 三處
-  `== .claude`；outcome 帶回 persisted snapshot 取代手抄 allowlist；process group 推廣到其餘四個
-  手刻 `Process()` 的 provider（`CodexAppServer` 長駐除外）。
+- 已決定另案（實機驗收後再做）：`QuotaBackend` 加 `cooldownDeadline` 消掉三處 `== .claude`；outcome
+  帶回 persisted snapshot 取代手抄 allowlist；process group 推廣到其餘四個手刻 `Process()` 的 provider。
