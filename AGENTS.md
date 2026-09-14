@@ -227,24 +227,24 @@ make build-ci  # 唯一能產出「可實際啟動」的 ad-hoc Release App
 
 ## 8. 進度與續作入口（2026-09-14）
 
-HEAD `ef888da`；git 由使用者處理。未提交內容含 2026-09-11 的 Antigravity／Claude 修正、本 session 的
-lock recovery、清理 save-first、process-group cancellation、stale reset 文案、engine snapshot 直送 UI、
-Codex quota／profile 平行；不得寫成已 commit。最新完整驗證：**1233 tests、1 skipped、0 failures**，
-`make build-ci`、簽章、Universal、diff check 通過。Edge 首輪 7 failures；乾淨 HEAD 同組與修改版完整重跑
-通過，未改斷言且根因未查明。產物：`build/ci/DerivedData/Build/Products/Release/Codenotch.app`。
+HEAD `2319fa2`：子程序隔離、鎖回收與 heartbeat、共用 `ClaudeCooldown`、engine snapshot 直送 UI、
+/simplify 清理皆已提交。最新完整驗證：**1244 tests、1 skipped、0 failures**。**release 封裝尚未對本
+HEAD 重跑**：`make build-ci`、簽章、Universal 紀錄與現存產物（09/14 12:52）都屬 `ef888da`，實機執行的
+就是這份舊程式碼，新行為驗收前必須重建。Edge 首輪 7 failures，重跑通過但根因未查明。
 
 | 已實作／驗證 | 證據與界線 |
 |---|---|
-| 引擎移植、單 ring、目前帳號、分組、即時新增 | fake backend／parser／controller／匿名卡片渲染；不等於真實 poke |
-| ring／群組 5h／sheet／動畫／外觀 | 互動、帳號、選項、motion tests；實機手感未正式驗收 |
+| 引擎移植、單 ring／分組、5h／sheet、動畫外觀 | fake backend／parser／controller／匿名渲染、互動與 motion tests；不等於真實 poke，實機手感未驗 |
 | Antigravity／Claude auth | 瀏覽器阻擋、URL 不外露、拒絕／過期／401；真實登入未驗 |
-| lock／清理／process group | 競爭 stale lock、save failure、parent＋child timeout 回歸測試通過 |
-| 額度更新加速 | fake engine/provider 驗只讀一次、三家 ID／headline；約 2 秒尚未真實計時 |
+| lock／清理／process group、額度更新加速 | 競爭 stale lock、save failure、parent＋child timeout、只讀一次；約 2 秒未真實計時 |
 | EdgeArrival／EdgeCrossfade | 仍間歇失敗；最新完整測試通過，不宣稱已查明環境根因 |
 
 續作先核對**實際執行版本、授權、keeper／預約／cached 狀態**，再處理：
 - 官方 agy 登入後是否能在限制下正常讀取（可能需要被限制的 app helper）；不得直接拆掉防護求通過。
 - Claude 鑰匙圈明確授權／官方登入更新後，真實讀值是否恢復；程式錯誤修正不等於憑證有效。
 - 新版 Dock／hover 開關、多螢幕、VoiceOver、高對比、Reduce Motion／Transparency、idle CPU 實機驗收。
-- 睡眠喚醒、真實取消／timeout 仍依使用者先前決定擱置；真實 poke 未由本 session 送出，另需明確同意。
+- 睡眠喚醒、真實取消／timeout 仍依使用者先前決定擱置；真實 poke 未送出過，另需明確同意。
 - **Rust 不可宣告可退役**，外層安全規則尚未搬入。
+- 已決定另案（實機驗收完成後再做）：`QuotaBackend` 加 `cooldownDeadline` 以消掉 `QuotaEngine` 三處
+  `== .claude`；outcome 帶回 persisted snapshot 取代手抄 allowlist；process group 推廣到其餘四個
+  手刻 `Process()` 的 provider（`CodexAppServer` 長駐除外）。
