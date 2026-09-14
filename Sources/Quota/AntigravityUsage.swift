@@ -46,11 +46,15 @@ enum AntigravityUsage {
                                        observedAt: observedAt,
                                        countdownActive: remaining < 100 && reset > observedAt)
         }
+        // The five-hour window is tier-dependent: a paid plan reports one per
+        // group, a free plan reports only the weekly limit. Absent is therefore
+        // a real answer, not a malformed one, and materialising 0% for it would
+        // invent a countdown that has no source. The weekly limit is the one
+        // every plan reports, so its absence still rejects the whole read.
         let buckets = try groups.map { group -> RateLimitBucket in
-            guard let five = windows["\(group.key):300"],
-                  let weekly = windows["\(group.key):10080"] else { throw Failure.invalidUsage }
+            guard let weekly = windows["\(group.key):10080"] else { throw Failure.invalidUsage }
             return RateLimitBucket(limitId: "antigravity:\(group.key)", limitName: group.label,
-                                   primary: five, secondary: weekly)
+                                   primary: windows["\(group.key):300"], secondary: weekly)
         }
         return RateLimitsSnapshot(observedAt: observedAt, buckets: buckets)
     }
