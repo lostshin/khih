@@ -228,23 +228,23 @@ make build-ci  # 唯一能產出「可實際啟動」的 ad-hoc Release App
 
 ## 8. 進度與續作入口（2026-09-14）
 
-HEAD `2319fa2`：子程序隔離、鎖回收與 heartbeat、共用 `ClaudeCooldown`、engine snapshot 直送 UI、
-/simplify 清理皆已提交。最新完整驗證：**1244 tests、1 skipped、0 failures**。**release 封裝尚未對本
-HEAD 重跑**：`make build-ci`、簽章、Universal 紀錄與現存產物（09/14 12:52）都屬 `ef888da`，實機執行的
-就是這份舊程式碼，新行為驗收前必須重建。Edge 首輪 7 failures，重跑通過但根因未查明。
+進度以 `git log` 為準，本節不釘 hash。已提交：子程序隔離、鎖回收與 heartbeat、共用 `ClaudeCooldown`、
+engine snapshot 直送 UI、/simplify 清理、Antigravity 5h 依方案選配。最新驗證：**1245 tests、1 skipped、
+0 failures**，`make build-ci`／簽章／Universal 通過，產物已啟動並實機確認 Antigravity 恢復讀取。
+
+**守護目前關閉**：`quotaKeeperEnabled` = 0（持久化，使用者決定）。重開前必須取得明確同意；手動 5h／
+立即檢查與既存預約仍是主動路徑，唯讀驗收時不要按。
 
 | 已實作／驗證 | 證據與界線 |
 |---|---|
-| 引擎移植、單 ring／分組、5h／sheet、動畫外觀 | fake backend／parser／controller／匿名渲染、互動與 motion tests；不等於真實 poke，實機手感未驗 |
-| Antigravity／Claude auth | 瀏覽器阻擋、URL 不外露、拒絕／過期／401；真實登入未驗 |
-| lock／清理／process group、額度更新加速 | 競爭 stale lock、save failure、parent＋child timeout、只讀一次；約 2 秒未真實計時 |
+| 引擎移植、ring／分組、5h、動畫、lock／清理／process group | fake backend／parser／controller、互動 motion、競爭 lock、save failure、parent＋child timeout 測試；不等於真實 poke |
+| Antigravity 讀取 | 實機確認免費方案（僅每週）可解析、5h 缺席不物化、headline 退回每週 |
+| Claude auth | 拒絕／過期／401 已分流；實機仍見 Keychain `OSStatus -25293`，靠 CLI fallback 供值 |
 | EdgeArrival／EdgeCrossfade | 仍間歇失敗；最新完整測試通過，不宣稱已查明環境根因 |
 
 續作先核對**實際執行版本、授權、keeper／預約／cached 狀態**，再處理：
-- 官方 agy 登入後是否能在限制下正常讀取（可能需要被限制的 app helper）；不得直接拆掉防護求通過。
+- **開啟守護＝第一次真實 Antigravity poke**：兩組週視窗 0%、倒數未啟動、reset 隨觀測後移，需明確同意。
 - Claude 鑰匙圈明確授權／官方登入更新後，真實讀值是否恢復；程式錯誤修正不等於憑證有效。
 - 新版 Dock／hover 開關、多螢幕、VoiceOver、高對比、Reduce Motion／Transparency、idle CPU 實機驗收。
-- 睡眠喚醒、真實取消／timeout 仍依使用者先前決定擱置；真實 poke 未送出過，另需明確同意。
-- **Rust 不可宣告可退役**，外層安全規則尚未搬入。
-- 已決定另案（實機驗收後再做）：`QuotaBackend` 加 `cooldownDeadline` 消掉三處 `== .claude`；outcome
-  帶回 persisted snapshot 取代手抄 allowlist；process group 推廣到其餘四個手刻 `Process()` 的 provider。
+- 睡眠喚醒、真實取消／timeout 依先前決定擱置。**Rust 不可宣告可退役**，外層規則尚未搬入。
+- 已決定另案（實機驗收後再做）：`QuotaBackend` 加 `cooldownDeadline`；outcome 帶回 persisted snapshot 取代手抄 allowlist；process group 推廣到其餘四個手刻 `Process()`。
