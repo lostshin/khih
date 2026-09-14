@@ -97,7 +97,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // switched-off ones once the binding below delivered.
             Log.usage.info("claude profiles: \(self.claudeProfiles.map(\.displayPath).joined(separator: ", "), privacy: .public)")
             Log.usage.info("codex profiles: \(self.codexProfiles.map(\.displayPath).joined(separator: ", "), privacy: .public)")
-            let claudeProviders = claudeProfiles.map { ClaudeOAuthProvider(profile: $0) }
+            let quotaStorage = QuotaStorage.systemDefault()
+            let claudeCooldown = ClaudeCooldown(archive: UsageArchive(), persistedUntil: {
+                quotaStorage.loadAccounts().accounts.filter { $0.provider == .claude }
+                    .compactMap { quotaStorage.loadState(for: $0).checkCooldownUntil }.max()
+            })
+            let claudeProviders = claudeProfiles.map {
+                ClaudeOAuthProvider(profile: $0, cooldown: $0.id == "claude" ? claudeCooldown : nil)
+            }
             self.claudeProviders = claudeProviders
             let store = UsageStore(
                 providers: claudeProviders
@@ -165,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // The quota engine's own accounts, and the one control that spends
             // quota rather than reading it. Absent when there is no `codex`
             // binary to run, in which case the rows simply show no button.
-            let quota = QuotaController()
+            let quota = QuotaController(storage: quotaStorage, claudeCooldown: claudeCooldown)
             // Read through the closure rather than captured: the user can turn
             // the keeper on or off while the app is running, and the next tick
             // has to see that.
@@ -176,6 +183,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 !(preferences?.disconnectedProviders.contains(id) ?? true)
             }
             quota.onBurnReadings = { [weak store] in store?.setBurnReadings($0) }
+            quota.onQuotaSnapshot = { [weak store] id, snapshot in
+                store?.publishQuotaSnapshot(providerID: id, quota: snapshot)
+            }
             Task { await quota.publishBurnReadings() }
             self.quota = quota
             quota.onAccountsChanged = { [weak self] in self?.discoverCodexAccounts() }
@@ -396,7 +406,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard !quota.isBusy else { return FiveHourReport.text(for: .skippedBusy) }
                 await quota.startFiveHour(id)
                 guard let result = quota.result(for: id) else { return nil }
-                await self.store?.refresh(providerID: id)?.value
                 return FiveHourReport.text(for: result)
             }
             fleet.onManualCheck = { [weak self] ids in await self?.checkFromNotch(ids) }
@@ -557,12 +566,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor private func updateFiveHourItems() {
         guard let quota else { return }
         let managed = quota.enabledAccounts.filter { quota.canStartFiveHour($0.providerID) }
-        notchFleet?.fiveHourItems = managed.map { account in
+        var items: [(title: String, action: () -> Void)] = []
+        if !managed.isEmpty {
+            items.append((title: L10n.t("All enabled accounts"), action: { [weak quota] in
+                Task { await quota?.startFiveHourAll() }
+            }))
+        }
+        items += managed.map { account in
             (title: account.label, action: { [weak quota] in
                 guard let quota else { return }
                 Task { await quota.startFiveHour(account.providerID) }
             })
         }
+        notchFleet?.fiveHourItems = items
         // The same accounts: a card is clickable exactly when there is an
         // engine behind it to answer.
         notchFleet?.manualCheckIDs = Set(quota.enabledAccounts.map(\.providerID))
@@ -584,7 +600,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         defer { store?.endManualFeedback(providerIDs) }
         async let feedback: Void = Task.sleep(nanoseconds: 380_000_000)
         let outcomes = await quota.checkBatch(providerIDs)
-        for id in providerIDs { await store?.refresh(providerID: id)?.value }
         _ = try? await feedback
         return CheckSummaryCopy.line(for: outcomes)
     }

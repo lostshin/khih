@@ -43,9 +43,13 @@ final class AntigravityClient: @unchecked Sendable {
         }
         defer { lock.unlock() }
         guard let binary = binary.get() else { throw AntigravityUsage.Failure.binaryNotFound }
-        return try QuotaProcess.run(binary: binary, arguments: arguments, environment: environment,
-                                    timeout: timeout, currentDirectory: FileManager.default.temporaryDirectory,
-                                    cancelled: { cancelled() || shutdown.isCancelled })
+        do {
+            return try BackgroundCLI.run(binary: binary, arguments: arguments, environment: environment,
+                timeout: timeout, cancelled: { cancelled() || shutdown.isCancelled })
+        } catch is QuotaProcess.Failure {
+            // CLI stderr can contain a complete OAuth URL. Never put it in logs.
+            throw AntigravityUsage.Failure.backgroundReadFailed
+        }
     }
 
     func read(observedAt: Int64? = nil, cancelled: () -> Bool = { false }) throws -> RateLimitsSnapshot {

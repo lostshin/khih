@@ -120,6 +120,7 @@ final class QuotaController: ObservableObject {
 
     var onAccountsChanged: (() -> Void)?
     var onBurnReadings: (([String: [QuotaBurnReading]]) -> Void)?
+    var onQuotaSnapshot: (String, RateLimitsSnapshot) -> Void = { _, _ in }
     var onScheduledResult: (String, String, FiveHourResult) -> Void = { QuotaAlerts.scheduledFinished(providerID: $0, name: $1, result: $2) }
     let schedule: QuotaSchedule
     private var scheduleTimer: Timer?
@@ -127,6 +128,8 @@ final class QuotaController: ObservableObject {
     var isEnabledInUI: (String) -> Bool = { _ in true }
     private let cancellation: QuotaCancellation
     private let storage: QuotaStorage
+    private let readState: (QuotaAccountConfig) -> AccountState
+    private var burnReadings: [String: [QuotaBurnReading]] = [:]
     private var accounts: [QuotaAccountConfig]
     private let engine: QuotaEngine?
     /// Updated from the session monitors; read by the engine off the main
@@ -143,7 +146,9 @@ final class QuotaController: ObservableObject {
     /// Takes the engine as given, `nil` included — that is what "there is no
     /// way to make the request" looks like, and a test needs to be able to say
     /// it without depending on what is installed on the machine.
-    init(storage: QuotaStorage, engine: QuotaEngine?, cancellation: QuotaCancellation = QuotaCancellation()) {
+    init(storage: QuotaStorage, engine: QuotaEngine?, cancellation: QuotaCancellation = QuotaCancellation(),
+         readState: ((QuotaAccountConfig) -> AccountState)? = nil) {
+        self.readState = readState ?? storage.loadState
         self.storage = storage
         self.cancellation = cancellation
         self.schedule = QuotaSchedule(settings: storage.loadSettings(), save: storage.saveSettings)
@@ -160,7 +165,8 @@ final class QuotaController: ObservableObject {
     /// Each provider is read and poked through its own vendor command, so a
     /// missing one takes only that provider out — a Mac with Codex but no
     /// Claude Code still guards its Codex accounts.
-    convenience init(storage: QuotaStorage = QuotaStorage.systemDefault()) {
+    convenience init(storage: QuotaStorage = QuotaStorage.systemDefault(),
+                     claudeCooldown: ClaudeCooldown) {
         let cancellation = QuotaCancellation()
         let codex = Lazily { (try? CodexBinary.resolve()).map { CodexBackend(binary: $0, cancelled: { cancellation.isCancelled }) } }
         // Resolved once. Both halves spawn a subprocess, and the answers only
@@ -172,7 +178,7 @@ final class QuotaController: ObservableObject {
             case .claude:      return claude.get()
             case .antigravity: return AntigravityBackend(cancelled: { cancellation.isCancelled })
             }
-        })
+        }, claudeCooldown: claudeCooldown)
         self.init(storage: storage, engine: engine, cancellation: cancellation)
     }
 
@@ -211,6 +217,23 @@ final class QuotaController: ObservableObject {
     /// press is a press the user has forgotten about by the time it lands.
     func startFiveHour(_ providerID: String, trigger: FiveHourTrigger = .manual) async {
         guard !isBusy || (trigger == .scheduled && scheduledBatchRunning && running.isEmpty && checking.isEmpty) else { results[providerID] = .skippedBusy; return }
+        await performFiveHour(providerID, trigger: trigger)
+    }
+
+    /// Starts the currently enabled accounts as one non-overlapping operation.
+    func startFiveHourAll() async {
+        guard !isBusy else { return }
+        manualBatchRunning = true
+        defer { manualBatchRunning = false }
+        reloadAccounts()
+        let targets = enabledAccounts.filter { isEnabledInUI($0.providerID) }
+        for account in targets {
+            if cancellation.isCancelled { break }
+            await performFiveHour(account.providerID, trigger: .manual)
+        }
+    }
+
+    private func performFiveHour(_ providerID: String, trigger: FiveHourTrigger) async {
         guard let engine,
               let account = account(forProviderID: providerID) else { return }
 
@@ -226,7 +249,13 @@ final class QuotaController: ObservableObject {
             }
         }
         results[providerID] = result
-        await publishBurnReadings()
+        let state = await publishAccountReadings(account)
+        switch result {
+        case .started, .groups, .refused(.alreadyRunning), .refused(.noUniqueWindow), .refused(.unknownUsage):
+            if let snapshot = state.snapshot { onQuotaSnapshot(providerID, snapshot) }
+        case .skippedBusy, .failed, .refused:
+            break
+        }
     }
 
     // MARK: - Adding an account
@@ -287,7 +316,7 @@ final class QuotaController: ObservableObject {
                 do {
                     return .success((account, try CodexDeviceLogin(binary: binary, codexHome: account.codexHomeURL)))
                 } catch {
-                    storage.discardUnfinishedAccount(account)
+                    try storage.discardUnfinishedAccount(account)
                     throw error
                 }
             } catch {
@@ -300,9 +329,11 @@ final class QuotaController: ObservableObject {
             if addAccountState == .starting { addAccountState = .failed(error.localizedDescription) }
         case .success(let (account, session)):
             guard addAccountState == .starting else {
-                await Self.offMainActor {
+                if let error = await Self.discarding({
                     session.cancel()
-                    storage.discardUnfinishedAccount(account)
+                    try storage.discardUnfinishedAccount(account)
+                }) {
+                    addAccountState = .failed(error.localizedDescription)
                 }
                 return
             }
@@ -321,7 +352,8 @@ final class QuotaController: ObservableObject {
         login = nil
         addAccountState = .idle
         if let session { await Self.offMainActor { session.cancel() } }
-        await discardPendingAccount()
+        let cleanupError = await discardPendingAccount()
+        if let cleanupError { addAccountState = .failed(cleanupError.localizedDescription) }
         if addingAccount {
             await withCheckedContinuation { loginFinished.append($0) }
         }
@@ -330,11 +362,11 @@ final class QuotaController: ObservableObject {
     /// Takes back the directory `createAccount` made for a sign-in that did
     /// not complete. Does nothing once one has, because the credential is
     /// there by then and the storage layer refuses.
-    private func discardPendingAccount() async {
-        guard let pendingAccount else { return }
+    private func discardPendingAccount() async -> Error? {
+        guard let pendingAccount else { return nil }
         self.pendingAccount = nil
         let storage = self.storage
-        await Self.offMainActor { storage.discardUnfinishedAccount(pendingAccount) }
+        return await Self.discarding { try storage.discardUnfinishedAccount(pendingAccount) }
     }
 
     private func isFinished(_ state: AddAccountState) -> Bool {
@@ -368,10 +400,14 @@ final class QuotaController: ObservableObject {
                     // Awaited, not fired off: the failure message says the
                     // account was not added, and `reloadAccounts` elsewhere
                     // would pick it straight back up if it were still there.
-                    await Self.offMainActor {
-                        storage.discardDuplicateAccount(account, matching: duplicate)
+                    let cleanup = await Self.discarding {
+                        try storage.discardDuplicateAccount(account, matching: duplicate)
                     }
                     pendingAccount = nil
+                    if let error = cleanup {
+                        addAccountState = .failed(error.localizedDescription)
+                        return
+                    }
                     reloadAccounts()
                     addAccountState = .failed(
                         L10n.t("This is the same ChatGPT account as \(duplicate.label). It was not added a second time."))
@@ -384,16 +420,17 @@ final class QuotaController: ObservableObject {
                 return
             case .failed(let message):
                 login = nil
-                await discardPendingAccount()
-                addAccountState = .failed(message)
+                let cleanupError = await discardPendingAccount()
+                addAccountState = .failed(cleanupError?.localizedDescription ?? message)
                 return
             }
         }
         guard case .waiting = addAccountState, login === session else { return }
         session.cancel()
         login = nil
-        await discardPendingAccount()
-        addAccountState = .failed(L10n.t("The sign-in was not completed in time."))
+        let cleanupError = await discardPendingAccount()
+        addAccountState = .failed(cleanupError?.localizedDescription
+            ?? L10n.t("The sign-in was not completed in time."))
     }
 
     // MARK: - The periodic check
@@ -433,13 +470,25 @@ final class QuotaController: ObservableObject {
     }
 
     func publishBurnReadings() async {
-        let storage = self.storage, accounts = self.enabledAccounts
+        let readState = self.readState, accounts = self.enabledAccounts
         let readings = await Self.offMainActor {
             Dictionary(uniqueKeysWithValues: accounts.map {
-                ($0.providerID, QuotaBurnReading.readings(from: storage.loadState(for: $0), provider: $0.provider))
+                ($0.providerID, QuotaBurnReading.readings(from: readState($0), provider: $0.provider))
             })
         }
+        burnReadings = readings
         onBurnReadings?(readings)
+    }
+
+    /// Only the completed account changed. A batch reads N states, not N².
+    private func publishAccountReadings(_ account: QuotaAccountConfig) async -> AccountState {
+        let readState = self.readState
+        let state = await Self.offMainActor { readState(account) }
+        burnReadings[account.providerID] = QuotaBurnReading.readings(from: state, provider: account.provider)
+        let enabled = Set(enabledAccounts.map(\.providerID))
+        burnReadings = burnReadings.filter { enabled.contains($0.key) }
+        onBurnReadings?(burnReadings)
+        return state
     }
 
     func runScheduleTick(now: Int64 = Int64(Date().timeIntervalSince1970)) async {
@@ -508,7 +557,16 @@ final class QuotaController: ObservableObject {
             catch { return CheckOutcome.failed(error.localizedDescription) }
         }
         if mode != .observe { checkResults[providerID] = outcome }
-        await publishBurnReadings()
+        let state = await publishAccountReadings(account)
+        switch outcome {
+        case .baseline, .alreadyHandled, .countdownAlreadyActive, .resetPending,
+             .poked, .dryRunWouldPoke, .noReset, .groups:
+            if let snapshot = state.snapshot {
+                onQuotaSnapshot(providerID, snapshot)
+            }
+        case .skippedBusy, .skippedInUse, .rateLimited, .noBackend, .failed:
+            break
+        }
         // Only the unattended path announces itself; a check the user asked for
         // reports on screen instead.
         if mode == .live, case .poked(let status) = outcome {
@@ -532,12 +590,22 @@ final class QuotaController: ObservableObject {
 
     /// The tail of an account's activity log — the record of what the engine
     /// did and why, including the attempts it refused.
-    func recentActivity(_ providerID: String, limit: Int = 20) -> [String] {
+    func recentActivity(_ providerID: String, limit: Int = 20) async -> [String] {
         guard let account = account(forProviderID: providerID) else { return [] }
-        return storage.recentActivity(for: account, limit: limit)
+        let storage = self.storage
+        return await Self.offMainActor { storage.recentActivity(for: account, limit: limit) }
     }
 
     /// Runs blocking work off the main actor and comes back on it.
+    /// Runs a discard off the main actor and hands back only what every caller
+    /// acts on: the error, when it failed.
+    private static func discarding(_ work: @escaping () throws -> Void) async -> Error? {
+        if case .failure(let error) = await offMainActor({ Result(catching: work) }) {
+            return error
+        }
+        return nil
+    }
+
     private static func offMainActor<T>(_ work: @escaping () -> T) async -> T {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {

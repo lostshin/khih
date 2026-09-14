@@ -6,7 +6,16 @@ enum AntigravityUsage {
                          (key: "claude_gpt", label: "Claude and GPT models")]
     static let arguments = ["-p", "/usage", "--output-format", "json"]
 
-    enum Failure: Error { case invalidUsage, binaryNotFound }
+    enum Failure: LocalizedError {
+        case invalidUsage, binaryNotFound, backgroundReadFailed
+        var errorDescription: String? {
+            switch self {
+            case .invalidUsage: return L10n.t("Antigravity returned an unreadable usage response. The previous reading is kept.")
+            case .binaryNotFound: return L10n.t("The official agy command was not found on this Mac.")
+            case .backgroundReadFailed: return L10n.t("Antigravity could not read usage silently. Open the official agy CLI to finish signing in, then check again. Browser sign-in is blocked during background checks.")
+            }
+        }
+    }
 
     static func snapshot(from data: Data, observedAt: Int64) throws -> RateLimitsSnapshot {
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],

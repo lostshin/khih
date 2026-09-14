@@ -82,15 +82,24 @@ struct FiveHourReport: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .onChange(of: isShowingActivity) { _, expanded in
-                if expanded { activity = quota.recentActivity(providerID) }
-            }
-            // A press appends to the log, so what is on screen is stale the
-            // moment a result arrives.
-            .onChange(of: quota.result(for: providerID)) { _, _ in
-                if isShowingActivity { activity = quota.recentActivity(providerID) }
+            .task(id: ActivityRequest(expanded: isShowingActivity, providerID: providerID,
+                                      result: quota.result(for: providerID),
+                                      check: quota.checkResults[providerID],
+                                      running: quota.isRunning(providerID))) {
+                guard isShowingActivity, !quota.isRunning(providerID) else { return }
+                let lines = await quota.recentActivity(providerID)
+                guard !Task.isCancelled else { return }
+                activity = lines
             }
         }
+    }
+
+    private struct ActivityRequest: Equatable {
+        var expanded: Bool
+        var providerID: String
+        var result: FiveHourResult?
+        var check: CheckOutcome?
+        var running: Bool
     }
 
     nonisolated static func text(for result: FiveHourResult) -> String {

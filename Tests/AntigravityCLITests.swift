@@ -119,6 +119,30 @@ final class AntigravityCLITests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(started), 3)
     }
 
+    func testTimeoutTerminatesTheWholeProcessGroup() throws {
+        let pidFile = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        addTeardownBlock { try? FileManager.default.removeItem(at: pidFile) }
+        let binary = try executable("""
+        /bin/sh -c 'trap "" TERM; while :; do sleep 1; done' &
+        echo $! > "$1"
+        trap '' TERM
+        while :; do sleep 1; done
+        """)
+
+        XCTAssertThrowsError(try QuotaProcess.run(
+            binary: binary, arguments: [pidFile.path], environment: [:], timeout: 0.5))
+        let childPID = try XCTUnwrap(Int32(
+            String(contentsOf: pidFile, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines)))
+        let deadline = Date().addingTimeInterval(1)
+        while kill(childPID, 0) == 0, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        XCTAssertEqual(kill(childPID, 0), -1)
+        XCTAssertEqual(errno, ESRCH)
+    }
+
     func testBothPipesDrainBeyondCapacity() throws {
         let binary = try executable("/usr/bin/head -c 200000 /dev/zero >&2\n/usr/bin/head -c 200000 /dev/zero\n")
         XCTAssertEqual(try QuotaProcess.run(binary: binary, arguments: [], environment: [:], timeout: 3).count, 200000)

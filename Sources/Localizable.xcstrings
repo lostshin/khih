@@ -5262,6 +5262,105 @@
           }
         }
       }
+    },
+    "Antigravity returned an unreadable usage response. The previous reading is kept.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity 回傳的額度資料無法解析，已保留先前讀值。"
+          }
+        }
+      }
+    },
+    "The official agy command was not found on this Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這台 Mac 找不到官方 agy 指令。"
+          }
+        }
+      }
+    },
+    "Antigravity could not read usage silently. Open the official agy CLI to finish signing in, then check again. Browser sign-in is blocked during background checks.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity 無法在背景讀取額度。請在官方 agy CLI 完成登入後再檢查；背景檢查已禁止開啟瀏覽器登入頁。"
+          }
+        }
+      }
+    },
+    "Claude returned an unreadable usage response. The previous reading is kept.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude 回傳的額度資料無法解析，已保留先前讀值。"
+          }
+        }
+      }
+    },
+    "Claude sign-in is unavailable or was rejected. Sign in using the official Claude Code CLI, then check again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude 登入資料不可用或已遭拒絕。請在官方 Claude Code CLI 登入後再檢查。"
+          }
+        }
+      }
+    },
+    "Claude login access was denied. Choose Allow access to Claude sign-in in Settings, then check again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude 登入資料存取遭拒。請在設定按「允許存取 Claude 登入資料」，授權後再檢查。"
+          }
+        }
+      }
+    },
+    "Claude login has expired. Use the official Claude Code CLI to renew the login, then check again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude 登入資料已過期。請使用官方 Claude Code CLI 更新登入後再檢查。"
+          }
+        }
+      }
+    },
+    "Claude usage request failed (HTTP %lld). Please try again later.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude 額度請求失敗（HTTP %lld），請稍後再試。"
+          }
+        }
+      }
+    },
+    "All enabled accounts": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有已啟用帳號"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

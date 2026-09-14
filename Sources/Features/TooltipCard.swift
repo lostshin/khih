@@ -269,6 +269,8 @@ private struct LimitWindowRow: View {
     let fidelity: Fidelity
     let now: Date
     let resetTimeFormat: ResetTimeFormat
+    let status: ProviderStatus
+    let isRefreshing: Bool
     @Environment(\.codenotchAccentColor) private var accentColor
 
     private var band: UsageBand { UsageBand.band(for: window.usedFraction ?? 0) }
@@ -280,7 +282,10 @@ private struct LimitWindowRow: View {
 
     /// Blank rather than invented: some providers never say when the window rolls.
     private var resetText: String {
-        window.resetsAt.map { ResetCopy.text(for: $0, now: now, format: resetTimeFormat) } ?? ""
+        window.resetsAt.map {
+            ResetCopy.text(for: $0, now: now, format: resetTimeFormat,
+                           status: status, isRefreshing: isRefreshing)
+        } ?? ""
     }
 
     /// A count-only row (no fraction, no reset) — like Ollama's per-model request
@@ -337,6 +342,7 @@ private struct ProviderTooltip: View {
     let snapshot: ProviderSnapshot
     let now: Date
     let resetTimeFormat: ResetTimeFormat
+    let isRefreshing: Bool
 
     /// Only worth saying when the numbers are not current. A remembered reading
     /// has to be dated, or it quietly passes itself off as live.
@@ -389,7 +395,7 @@ private struct ProviderTooltip: View {
 
                                 VStack(alignment: .leading, spacing: NotchLayout.blockSpacing) {
                                     ForEach(Array(group.windows.enumerated()), id: \.element.id) { windowIndex, window in
-                                        LimitWindowRow(window: window, inset: 2 * Design.px(16), fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat)
+                                        LimitWindowRow(window: window, inset: 2 * Design.px(16), fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat, status: snapshot.status, isRefreshing: isRefreshing)
                                             .padding(.top, windowIndex == 0 ? 0 : NotchLayout.blockSpacing)
                                     }
                                 }
@@ -422,7 +428,7 @@ private struct ProviderTooltip: View {
                             .padding(.top, groupIndex == 0 ? NotchLayout.headerToBlock : Design.px(28))
                         } else {
                             ForEach(Array(group.windows.enumerated()), id: \.element.id) { windowIndex, window in
-                                LimitWindowRow(window: window, fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat)
+                                LimitWindowRow(window: window, fidelity: snapshot.fidelity, now: now, resetTimeFormat: resetTimeFormat, status: snapshot.status, isRefreshing: isRefreshing)
                                     .padding(.top, (groupIndex == 0 && windowIndex == 0) ? NotchLayout.headerToBlock : NotchLayout.blockSpacing)
                             }
                         }
@@ -771,6 +777,7 @@ struct TooltipCard: View {
     /// rather than fixed, so a big screen hides nothing.
     var sessionCap: Int = NotchLayout.defaultSessionCap
     var resetTimeFormat: ResetTimeFormat = .automatic
+    var isRefreshing = false
     /// What the last click on this card did. A manual check deliberately posts
     /// no notification, so without a line here a click that was refused looks
     /// exactly like one that worked.
@@ -807,7 +814,7 @@ struct TooltipCard: View {
             // drifts while the card resizes around them.
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ProviderTooltip(isThinking: snapshot.localModel != nil && activity?.state == .working, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat, groupMessages: groupMessages, onStartGroup: onStartGroup)
+                    ProviderTooltip(isThinking: snapshot.localModel != nil && activity?.state == .working, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat, isRefreshing: isRefreshing, groupMessages: groupMessages, onStartGroup: onStartGroup)
                     if let tokenUsage = snapshot.tokenUsage {
                         CodexUsageSection(usage: tokenUsage, now: now)
                     }

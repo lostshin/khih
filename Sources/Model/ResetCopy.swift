@@ -27,8 +27,14 @@ enum ResetTimeFormat: String, CaseIterable, Identifiable {
 /// "Resets Sep 28" beyond it.
 enum ResetCopy {
     static func text(for resetsAt: Date, now: Date = Date(), calendar: Calendar = .current,
-                     format: ResetTimeFormat = .automatic, locale: Locale = L10n.locale) -> String {
+                     format: ResetTimeFormat = .automatic, status: ProviderStatus = .ok,
+                     isRefreshing: Bool = false, locale: Locale = L10n.locale) -> String {
         let seconds = resetsAt.timeIntervalSince(now)
+        if seconds <= 0, status.isStale {
+            return isRefreshing
+                ? L10n.t("Checking…", locale: locale)
+                : L10n.t("The reading is out of date.", locale: locale)
+        }
         guard seconds > 0 else { return L10n.t("Resetting…", locale: locale) }
 
         if format == .remaining {

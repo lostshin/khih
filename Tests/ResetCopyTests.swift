@@ -61,6 +61,20 @@ final class ResetCopyTests: XCTestCase {
         XCTAssertEqual(ResetCopy.text(for: now.addingTimeInterval(-5), now: now), "Resetting…")
     }
 
+    func testPastStaleResetExplainsRefreshInsteadOfClaimingItIsResetting() {
+        let stale = ProviderStatus.stale(since: now.addingTimeInterval(-600))
+        XCTAssertEqual(
+            ResetCopy.text(for: now.addingTimeInterval(-5), now: now,
+                           status: stale, isRefreshing: true),
+            "Checking…"
+        )
+        XCTAssertEqual(
+            ResetCopy.text(for: now.addingTimeInterval(-5), now: now,
+                           status: stale, isRefreshing: false),
+            "The reading is out of date."
+        )
+    }
+
     func testRemainingFormatAndRoundingBoundaries() {
         let cases: [(TimeInterval, String)] = [
             (-5, "Resetting…"), (0, "Resetting…"),

@@ -138,7 +138,9 @@ extension ClaudeBackend {
             throw QuotaBackendError.rateLimited(
                 retryAt: cooldown(from: httpResponse, now: observedAt))
         }
-        if status == 401 || status == 403 { throw ClaudeUsageError.needsAuth }
+        if status == 401 || status == 403 {
+            throw ClaudeUsageError.needsAuth
+        }
         guard (200..<300).contains(status) else {
             throw ClaudeUsageError.badResponse(status: status)
         }
@@ -201,11 +203,23 @@ enum ClaudeToken {
         return token
     }
 
-    static func load() -> String? {
-        if let credentials = try? ClaudeCredentials.load(), !credentials.accessToken.isEmpty {
-            return credentials.accessToken
+    static func load(readCredential: () throws -> ClaudeCredentials = ClaudeCredentials.load,
+                     readFile: () -> String? = { fromFile(at: fileURL()) }) throws -> String {
+        do {
+            let credential = try readCredential()
+            guard !credential.accessToken.isEmpty else { throw ClaudeUsageError.needsAuth }
+            guard !credential.isExpired else { throw ClaudeUsageError.credentialExpired }
+            return credential.accessToken
+        } catch UsageProviderError.accessDenied {
+            throw ClaudeUsageError.accessDenied
+        } catch UsageProviderError.credentialExpired {
+            throw ClaudeUsageError.credentialExpired
+        } catch UsageProviderError.needsAuth {
+            // The file belongs to CLI installations without a keychain item.
+            // A refused or expired keychain credential must not fall back to it.
+            guard let token = readFile(), !token.isEmpty else { throw ClaudeUsageError.needsAuth }
+            return token
         }
-        return fromFile(at: fileURL())
     }
 }
 
@@ -242,9 +256,14 @@ extension ClaudeBackend {
         guard let binary = ClaudeCLI.standalone() else { return nil }
         return ClaudeBackend(
             readUsage: { observedAt in
-                guard let token = ClaudeToken.load() else { throw ClaudeUsageError.needsAuth }
-                return try fetch(token: token, userAgent: userAgent.get(),
-                                 session: session, observedAt: observedAt)
+                let token = try ClaudeToken.load()
+                do {
+                    return try fetch(token: token, userAgent: userAgent.get(),
+                                     session: session, observedAt: observedAt)
+                } catch ClaudeUsageError.needsAuth {
+                    ClaudeCredentials.forgetCached()
+                    throw ClaudeUsageError.needsAuth
+                }
             },
             readFingerprint: { fingerprint(binary: binary, cancelled: cancelled) },
             sendPoke: { expected in try send(binary: binary, expectedFingerprint: expected, cancelled: cancelled) })

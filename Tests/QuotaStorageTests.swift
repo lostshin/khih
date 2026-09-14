@@ -144,6 +144,18 @@ final class QuotaStorageTests: XCTestCase {
         XCTAssertEqual(storage.recentActivity(for: account, limit: 10), [])
     }
 
+    func testActivityTailHandlesChunkBoundariesBlankLinesAndNoFinalNewline() throws {
+        let longLine = String(repeating: "測試🙂", count: 1600)
+        let lines = [String(repeating: "old\n", count: 10000), longLine, "", "最後一行"]
+        for ending in ["", "\n"] {
+            try Data((lines.joined(separator: "\n") + ending).utf8)
+                .write(to: QuotaStorage.activityPath(for: account))
+            XCTAssertEqual(storage.recentActivity(for: account, limit: 3), [longLine, "", "最後一行"])
+            XCTAssertEqual(storage.recentActivity(for: account, limit: 0), [])
+            XCTAssertEqual(storage.recentActivity(for: account, limit: -1), [])
+        }
+    }
+
     func testActivityTimestampIsTaipeiTime() {
         let stamp = QuotaStorage.activityTimestamp(Date(timeIntervalSince1970: 1_786_070_000))
         XCTAssertTrue(stamp.hasSuffix("+08:00"), stamp)
@@ -180,16 +192,56 @@ final class QuotaStorageTests: XCTestCase {
         held = nil
     }
 
+    func testConcurrentStaleLockRecoveryHasOneWinner() throws {
+        let path = QuotaStorage.checkLockPath(for: account)
+        XCTAssertTrue(FileManager.default.createFile(atPath: path.path, contents: Data(),
+                                                      attributes: [.posixPermissions: 0o600]))
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-700)], ofItemAtPath: path.path)
+
+        let start = DispatchSemaphore(value: 0)
+        let finished = DispatchGroup()
+        let resultsLock = NSLock()
+        var winners: [CheckLock] = []
+        for _ in 0..<16 {
+            finished.enter()
+            DispatchQueue.global().async {
+                start.wait()
+                if let lock = try? self.storage.acquireCheckLock(for: self.account) {
+                    resultsLock.lock()
+                    winners.append(lock)
+                    resultsLock.unlock()
+                }
+                finished.leave()
+            }
+        }
+        for _ in 0..<16 { start.signal() }
+        XCTAssertEqual(finished.wait(timeout: .now() + 3), .success)
+        XCTAssertEqual(winners.count, 1)
+        withExtendedLifetime(winners) {}
+    }
+
     // MARK: - Abandoning a sign-in
 
     func testAnUnfinishedSignInIsTakenBackWithItsDirectory() throws {
         let created = try storage.createAccount(label: "Second", provider: .codex)
         XCTAssertTrue(FileManager.default.fileExists(atPath: created.codexHome))
 
-        storage.discardUnfinishedAccount(created)
+        try storage.discardUnfinishedAccount(created)
 
         XCTAssertFalse(storage.loadAccounts().accounts.contains { $0.id == created.id })
         XCTAssertFalse(FileManager.default.fileExists(atPath: created.codexHome))
+    }
+
+    func testFailedAccountListSaveDoesNotDeleteTheAccountDirectory() throws {
+        let created = try storage.createAccount(label: "Second", provider: .codex)
+        let blockedTemporary = storage.accountsPath.appendingPathExtension("tmp")
+        try FileManager.default.createDirectory(at: blockedTemporary,
+                                                withIntermediateDirectories: false)
+
+        XCTAssertThrowsError(try storage.discardUnfinishedAccount(created))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: created.codexHome))
+        XCTAssertTrue(storage.loadAccounts().accounts.contains { $0.id == created.id })
     }
 
     func testAnAccountThatSignedInIsNeverTakenBack() throws {
@@ -199,7 +251,7 @@ final class QuotaStorageTests: XCTestCase {
         try Data("{}".utf8).write(
             to: created.codexHomeURL.appendingPathComponent("auth.json"))
 
-        storage.discardUnfinishedAccount(created)
+        try storage.discardUnfinishedAccount(created)
 
         XCTAssertTrue(storage.loadAccounts().accounts.contains { $0.id == created.id })
         XCTAssertTrue(FileManager.default.fileExists(atPath: created.codexHome))
@@ -217,7 +269,7 @@ final class QuotaStorageTests: XCTestCase {
         file.accounts.append(planted)
         try storage.saveAccounts(file)
 
-        storage.discardUnfinishedAccount(planted)
+        try storage.discardUnfinishedAccount(planted)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: elsewhere.path))
         XCTAssertTrue(storage.loadAccounts().accounts.contains { $0.id == planted.id })
@@ -254,7 +306,7 @@ final class QuotaStorageTests: XCTestCase {
         try signIn(first, accountID: "acct-1")
         try signIn(second, accountID: "acct-1")
 
-        storage.discardDuplicateAccount(second, matching: first)
+        try storage.discardDuplicateAccount(second, matching: first)
 
         XCTAssertFalse(storage.loadAccounts().accounts.contains { $0.id == second.id })
         XCTAssertFalse(FileManager.default.fileExists(atPath: second.codexHome))
@@ -270,7 +322,7 @@ final class QuotaStorageTests: XCTestCase {
         try signIn(first, accountID: "acct-1")
         try signIn(second, accountID: "acct-2")
 
-        storage.discardDuplicateAccount(second, matching: first)
+        try storage.discardDuplicateAccount(second, matching: first)
 
         XCTAssertTrue(storage.loadAccounts().accounts.contains { $0.id == second.id })
         XCTAssertTrue(FileManager.default.fileExists(atPath: second.codexHome))

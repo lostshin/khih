@@ -36,15 +36,8 @@ actor ClaudeOAuthProvider: UsageProvider {
     /// already the one place that reads the item, so exposing it costs no extra
     /// keychain traffic and no extra prompt.
     private(set) var tokenExpiry: Date?
-    /// Set when the endpoint returns 429. Until it passes, refreshes are
-    /// skipped without touching the network — a poll that keeps firing into a
-    /// rate limit is how you stay rate limited.
-    private var retryNoEarlierThan: Date?
-    /// How many 429s in a row. The endpoint answers `Retry-After: 0`, which is
-    /// no guidance at all, so the wait doubles each time instead.
-    private var consecutiveRateLimits = 0
-
-    private let archive: UsageArchive
+    private let cooldown: ClaudeCooldown
+    private let now: @Sendable () -> Int64
     /// How this profile's token is obtained. Injected for the same reason
     /// `session` is: the token path had no tests, which is how a back-off that
     /// never expired shipped. Production reads through this profile's own
@@ -77,6 +70,8 @@ actor ClaudeOAuthProvider: UsageProvider {
          session: URLSession = .shared,
          archive: UsageArchive = UsageArchive(),
          loadCredentials: (@Sendable () throws -> ClaudeCredentials)? = nil,
+         cooldown: ClaudeCooldown? = nil,
+         now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970) },
          cli: ClaudeUsageCLI? = ClaudeUsageCLI.locate(),
          cliRefreshInterval: TimeInterval = 5 * 60,
          readUserAgent: @escaping @Sendable () -> String? = { ClaudeVersion.installed() }) {
@@ -90,17 +85,20 @@ actor ClaudeOAuthProvider: UsageProvider {
         self.keychain = keychain
         self.loadCredentials = loadCredentials ?? { try keychain.load() }
         self.session = session
-        self.archive = archive
-        // Pick the back-off back up where the last run left it, so relaunching
-        // during a penalty does not spend an attempt extending it.
-        self.retryNoEarlierThan = archive.loadBackoffUntil(providerID: profile.id)
+        self.cooldown = cooldown ?? ClaudeCooldown(archive: archive, providerID: profile.id)
+        self.now = now
     }
 
     func fetchSnapshot() async throws -> ProviderSnapshot {
-        // Ahead of the back-off check on purpose. That deadline is the
-        // endpoint's, and the CLI does not share the endpoint's rate limit —
-        // there is no reason for a 429 on one to darken a ring the other can
-        // still fill.
+        // Ahead of the CLI on purpose, which is the reverse of what this used
+        // to do. Back then the app sent a Codenotch user agent and the CLI sent
+        // `claude-code/<version>`, so the two sat in different buckets and a
+        // 429 on one said nothing about the other. Both now present the same
+        // agent, so a back-off almost certainly covers the CLI as well:
+        // spawning it here could not fill the ring and could extend the very
+        // deadline it is trying to outrun. The last good reading is not lost —
+        // `UsageStore.degraded` re-shows it until `staleAfter`.
+        try checkCooldown()
         if let windows = await cliWindows() {
             return ProviderSnapshot(
                 id: id,
@@ -112,16 +110,9 @@ actor ClaudeOAuthProvider: UsageProvider {
                 headlineID: "session"
             )
         }
-        if let retryNoEarlierThan, retryNoEarlierThan > Date() {
-            let remaining = retryNoEarlierThan.timeIntervalSinceNow
-            Log.usage.debug("skipping fetch, backing off for \(remaining, format: .fixed(precision: 0))s")
-            throw UsageProviderError.rateLimited(retryAfter: remaining)
-        }
         do {
             let snapshot = try await fetch(retryingOnUnauthorized: true)
-            retryNoEarlierThan = nil
-            consecutiveRateLimits = 0
-            archive.saveBackoffUntil(nil, providerID: id)
+            cooldown.succeeded(now: now())
             return snapshot
         } catch UsageProviderError.needsAuth {
             // The held copy goes, so the next tick re-reads. Backing off is
@@ -136,10 +127,8 @@ actor ClaudeOAuthProvider: UsageProvider {
             throw UsageProviderError.credentialExpired
         } catch let error as UsageProviderError {
             if case .rateLimited(let retryAfter) = error {
-                consecutiveRateLimits += 1
-                retryNoEarlierThan = Date().addingTimeInterval(retryAfter)
-                archive.saveBackoffUntil(retryNoEarlierThan, providerID: id)
-                Log.usage.notice("rate limited (\(self.consecutiveRateLimits)x), next attempt in \(retryAfter, format: .fixed(precision: 0))s")
+                let moment = now()
+                cooldown.record(until: moment + Int64(retryAfter), now: moment)
             }
             throw error
         }
@@ -191,6 +180,7 @@ actor ClaudeOAuthProvider: UsageProvider {
     }
 
     private func fetch(retryingOnUnauthorized: Bool) async throws -> ProviderSnapshot {
+        try checkCooldown()
         let token = try currentToken()
 
         var request = URLRequest(url: endpoint)
@@ -204,6 +194,7 @@ actor ClaudeOAuthProvider: UsageProvider {
         }
         request.timeoutInterval = 15
 
+        try checkCooldown()
         Log.usage.debug("GET /api/oauth/usage")
         let (data, response) = try await session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -221,12 +212,9 @@ actor ClaudeOAuthProvider: UsageProvider {
             throw UsageProviderError.needsAuth
         }
         if status == 429 {
-            throw UsageProviderError.rateLimited(
-                retryAfter: Self.backoff(
-                    forAttempt: consecutiveRateLimits,
-                    retryAfter: Self.retryAfter(from: response)
-                )
-            )
+            let moment = now()
+            throw UsageProviderError.rateLimited(retryAfter: Double(
+                ClaudeBackend.cooldown(from: response as? HTTPURLResponse, now: moment) - moment))
         }
         guard (200..<300).contains(status) else {
             throw UsageProviderError.badResponse(status: status)
@@ -262,36 +250,6 @@ actor ClaudeOAuthProvider: UsageProvider {
         // with its age rather than demand a sign-in that is not needed.
         guard !fresh.isExpired else { throw UsageProviderError.credentialExpired }
         return fresh.accessToken
-    }
-
-    /// How long to wait after a 429.
-    ///
-    /// The server's own hint is honoured only as a *floor-raiser*: it answers
-    /// `Retry-After: 0`, and obeying that literally means retrying immediately,
-    /// which is what keeps you rate limited. So the wait starts at a minute and
-    /// doubles for each 429 in a row, capped so it always recovers on its own.
-    static func backoff(forAttempt attempt: Int, retryAfter: TimeInterval?) -> TimeInterval {
-        let floor: TimeInterval = 60
-        let ceiling: TimeInterval = 15 * 60
-        let doubled = floor * pow(2, Double(min(attempt, 4)))
-        return min(ceiling, max(doubled, retryAfter ?? 0))
-    }
-
-    /// `Retry-After` is either a number of seconds or an HTTP date.
-    static func retryAfter(from response: URLResponse?) -> TimeInterval? {
-        guard let header = (response as? HTTPURLResponse)?
-            .value(forHTTPHeaderField: "Retry-After")?
-            .trimmingCharacters(in: .whitespaces)
-        else { return nil }
-
-        if let seconds = TimeInterval(header) { return max(0, seconds) }
-
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(identifier: "GMT")
-        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
-        guard let date = formatter.date(from: header) else { return nil }
-        return max(0, date.timeIntervalSinceNow)
     }
 
     nonisolated var signInRoute: SignInRoute {
@@ -365,6 +323,14 @@ actor ClaudeOAuthProvider: UsageProvider {
         }
         return decoder
     }()
+
+    private func checkCooldown() throws {
+        let moment = now()
+        if let until = cooldown.deadline(now: moment) {
+            throw UsageProviderError.rateLimited(retryAfter: Double(until - moment))
+        }
+    }
+
 }
 
 /// The shape of `GET /api/oauth/usage`.

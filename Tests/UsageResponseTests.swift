@@ -145,7 +145,7 @@ final class RateLimitTests: XCTestCase {
     }
 
     func testReadsRetryAfterInSeconds() {
-        XCTAssertEqual(ClaudeOAuthProvider.retryAfter(from: response(retryAfter: "120")), 120)
+        XCTAssertEqual(ClaudeBackend.retryAt(from: response(retryAfter: "120"), now: 0), 120)
     }
 
     func testReadsRetryAfterAsAnHTTPDate() throws {
@@ -155,21 +155,19 @@ final class RateLimitTests: XCTestCase {
         formatter.timeZone = TimeZone(identifier: "GMT")
         formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
         let parsed = try XCTUnwrap(
-            ClaudeOAuthProvider.retryAfter(from: response(retryAfter: formatter.string(from: future)))
+            ClaudeBackend.retryAt(from: response(retryAfter: formatter.string(from: future)), now: Int64(Date().timeIntervalSince1970))
         )
-        XCTAssertEqual(parsed, 300, accuracy: 2)
+        XCTAssertEqual(Double(parsed - Int64(Date().timeIntervalSince1970)), 300, accuracy: 2)
     }
 
     func testMissingOrUnparseableHeaderFallsBackToTheDefault() {
-        XCTAssertNil(ClaudeOAuthProvider.retryAfter(from: response(retryAfter: nil)))
-        XCTAssertNil(ClaudeOAuthProvider.retryAfter(from: response(retryAfter: "soon")))
+        XCTAssertNil(ClaudeBackend.retryAt(from: response(retryAfter: nil), now: 0))
+        XCTAssertNil(ClaudeBackend.retryAt(from: response(retryAfter: "soon"), now: 0))
     }
 
-    func testAPastDateNeverYieldsANegativeDelay() throws {
-        let delay = try XCTUnwrap(
-            ClaudeOAuthProvider.retryAfter(from: response(retryAfter: "Mon, 01 Jan 2001 00:00:00 GMT"))
-        )
-        XCTAssertEqual(delay, 0)
+    func testAPastDateProvidesNoGuidance() {
+        XCTAssertNil(ClaudeBackend.retryAt(
+            from: response(retryAfter: "Mon, 01 Jan 2001 00:00:00 GMT"), now: 1_800_000_000))
     }
 
     /// Being told to slow down is not a broken provider: the last good reading
@@ -263,28 +261,17 @@ final class UsageArchiveTests: XCTestCase {
 /// `Retry-After: 0` is the endpoint's actual answer, and obeying it literally is
 /// what keeps you rate limited.
 final class BackoffTests: XCTestCase {
-    func testAZeroHintStillWaitsAMinute() {
-        XCTAssertEqual(ClaudeOAuthProvider.backoff(forAttempt: 0, retryAfter: 0), 60)
-    }
-
-    func testItDoublesWhileTheLimitPersists() {
-        XCTAssertEqual(ClaudeOAuthProvider.backoff(forAttempt: 0, retryAfter: nil), 60)
-        XCTAssertEqual(ClaudeOAuthProvider.backoff(forAttempt: 1, retryAfter: nil), 120)
-        XCTAssertEqual(ClaudeOAuthProvider.backoff(forAttempt: 2, retryAfter: nil), 240)
-    }
-
-    func testItIsCappedSoItAlwaysRecovers() {
-        XCTAssertEqual(ClaudeOAuthProvider.backoff(forAttempt: 99, retryAfter: nil), 15 * 60)
-    }
-
-    /// A server that asks for longer than our own schedule gets its way.
-    func testAGenerousHintWins() {
-        XCTAssertEqual(ClaudeOAuthProvider.backoff(forAttempt: 0, retryAfter: 600), 600)
+    func testNoGuidanceWaitsFifteenMinutesAndLongHintsAreNotCapped() {
+        let now: Int64 = 1_800_000_000
+        for (header, delay) in [(nil, 900), ("0", 900), ("-1", 900), ("600", 600), ("3600", 3600)] as [(String?, Int64)] {
+            let response = HTTPURLResponse(url: ClaudeBackend.endpoint, statusCode: 429,
+                                           httpVersion: nil,
+                                           headerFields: header.map { ["Retry-After": $0] })!
+            XCTAssertEqual(ClaudeBackend.cooldown(from: response, now: now), now + delay)
+        }
     }
 }
 
-/// The back-off has to outlive the process, or a development loop of `make run`
-/// walks into the rate limit on every launch and keeps it alive.
 final class BackoffPersistenceTests: XCTestCase {
     private func makeDefaults() -> UserDefaults {
         let name = "BackoffPersistenceTests.\(UUID().uuidString)"
@@ -505,6 +492,64 @@ final class SingleProviderRefreshTests: XCTestCase {
         let store = store([CountingProvider(id: "a")])
         store.refresh(providerID: "nope")
         XCTAssertTrue(store.refreshing.isEmpty)
+    }
+
+    func testEngineReadingReplacesAnExpiredArchivedCodexValueWithoutRefetching() {
+        let provider = CountingProvider(id: "codex")
+        let store = store([provider])
+        let observed: Int64 = 1_800_000_000
+        let quota = RateLimitsSnapshot(observedAt: observed, buckets: [
+            RateLimitBucket(limitId: "codex",
+                            primary: QuotaWindow(usedPercent: 23, windowDurationMins: 300,
+                                                 resetsAt: observed + 18_000, observedAt: observed),
+                            secondary: QuotaWindow(usedPercent: 41, windowDurationMins: 10_080,
+                                                   resetsAt: observed + 604_800, observedAt: observed))
+        ])
+
+        store.publishQuotaSnapshot(providerID: "codex", quota: quota)
+
+        XCTAssertEqual(store.snapshots.first?.status, .ok)
+        XCTAssertEqual(store.snapshots.first?.headlineText, "77%")
+        XCTAssertEqual(provider.calls, 0)
+    }
+
+    func testEngineClaudeReadingKeepsTheDisplayWindowIDs() {
+        let store = store([CountingProvider(id: "claude")])
+        let observed: Int64 = 1_800_000_000
+        let quota = RateLimitsSnapshot(observedAt: observed, buckets: [
+            RateLimitBucket(limitId: "claude:five_hour",
+                            primary: QuotaWindow(usedPercent: 12, windowDurationMins: 300,
+                                                 resetsAt: observed + 18_000, observedAt: observed)),
+            RateLimitBucket(limitId: "claude:seven_day",
+                            primary: QuotaWindow(usedPercent: 34, windowDurationMins: 10_080,
+                                                 resetsAt: observed + 604_800, observedAt: observed))
+        ])
+
+        store.publishQuotaSnapshot(providerID: "claude", quota: quota)
+
+        XCTAssertEqual(store.snapshots.first?.windows.map(\.id), ["session", "weekly_all"])
+        XCTAssertEqual(store.snapshots.first?.headlineID, "session")
+    }
+
+    func testEngineAntigravityReadingKeepsBothGroupsAndGeminiHeadline() {
+        let store = store([CountingProvider(id: "gemini")])
+        let observed: Int64 = 1_800_000_000
+        func bucket(_ group: AntigravityGroup, used: Double) -> RateLimitBucket {
+            RateLimitBucket(limitId: group.limitID,
+                            primary: QuotaWindow(usedPercent: used, windowDurationMins: 300,
+                                                 resetsAt: observed + 18_000, observedAt: observed),
+                            secondary: QuotaWindow(usedPercent: used + 10, windowDurationMins: 10_080,
+                                                   resetsAt: observed + 604_800, observedAt: observed))
+        }
+        let quota = RateLimitsSnapshot(observedAt: observed, buckets: [
+            bucket(.gemini, used: 11), bucket(.claudeGPT, used: 22)
+        ])
+
+        store.publishQuotaSnapshot(providerID: "gemini", quota: quota)
+
+        XCTAssertEqual(store.snapshots.first?.windows.count, 4)
+        XCTAssertEqual(store.snapshots.first?.headlineID, "antigravity:gemini:five-hour")
+        XCTAssertEqual(Set(store.snapshots.first?.windows.compactMap(\.group) ?? []).count, 2)
     }
 }
 

@@ -401,6 +401,7 @@ final class UsageStore: ObservableObject {
         // queue a second call behind the first — which is how one stuck
         // provider used to take all of them down.
         let stuck = fetchTasks.keys.sorted().filter { id in
+            guard fetchTasks[id]?.isCancelled != true else { return false }
             guard let provider = providers.first(where: { $0.id == id }),
                   let started = providerAttempts[id] else { return true }
             return pollingNow().timeIntervalSince(started) >= max(refreshDeadline, provider.fetchDeadline)
@@ -506,11 +507,101 @@ final class UsageStore: ObservableObject {
         if !manualRefreshing.contains(providerID) { refreshing.remove(providerID) }
     }
 
+    private var engineObservedAt: [String: Int64] = [:]
+
     private var burnReadings: [String: [QuotaBurnReading]] = [:]
 
     func setBurnReadings(_ readings: [String: [QuotaBurnReading]]) {
         burnReadings = readings
         snapshots = snapshots.map(withBurnReadings)
+    }
+
+    /// Publishes the reading the quota engine already obtained during a manual
+    /// check. Without this bridge the click waited for the engine, then issued
+    /// a second provider request before replacing an expired archived value.
+    func publishQuotaSnapshot(providerID: String, quota: RateLimitsSnapshot) {
+        guard !disconnected.contains(providerID),
+              quota.observedAt >= engineObservedAt[providerID, default: Int64.min],
+              let existing = snapshots.first(where: { $0.id == providerID }),
+              let converted = Self.displayWindows(providerID: providerID, quota: quota)
+        else { return }
+
+        // Invalidated through the same counter every other staleness check
+        // already reads. The task is cancelled but deliberately left in the
+        // table — see the note on stuck providers in the abandon path: one
+        // wedged in a synchronous call would otherwise be re-entered next pass.
+        generations[providerID, default: 0] += 1
+        fetchTasks[providerID]?.cancel()
+        if !manualRefreshing.contains(providerID) { refreshing.remove(providerID) }
+        engineObservedAt[providerID] = quota.observedAt
+        var fresh = existing
+        fresh.status = .ok
+        fresh.windows = converted.windows
+        fresh.headlineID = converted.headlineID
+        let fetchedAt = Date(timeIntervalSince1970: Double(quota.observedAt))
+        lastGood[providerID] = (fresh, fetchedAt)
+        providerAttempts[providerID] = pollingNow()
+        archive.save(lastGood)
+        publish(fresh)
+    }
+
+    private static func displayWindows(
+        providerID: String, quota: RateLimitsSnapshot
+    ) -> (windows: [LimitWindow], headlineID: String?)? {
+        func window(_ value: QuotaWindow, id: String, label: String,
+                    group: String? = nil) -> LimitWindow {
+            LimitWindow(id: id, group: group, label: label,
+                        usedFraction: value.usedPercent.map { $0 / 100 },
+                        resetsAt: value.resetsAt.map { Date(timeIntervalSince1970: Double($0)) },
+                        duration: value.windowDurationMins.map { Double($0 * 60) })
+        }
+
+        if CodexProfile.isCodex(providerID: providerID), let bucket = quota.codexBucket() {
+            let values = [("primary", bucket.primary), ("secondary", bucket.secondary)]
+                .compactMap { id, value -> LimitWindow? in
+                    guard let value else { return nil }
+                    let seconds = Double(value.windowDurationMins ?? 0) * 60
+                    return window(value, id: id,
+                                  label: CodexUsage.label(windowSeconds: seconds, fallback: id))
+                }
+            guard !values.isEmpty else { return nil }
+            let headline = values.first(where: { $0.duration == 5 * 3600 })?.id ?? values.first?.id
+            return (values, headline)
+        }
+
+        if ClaudeProfile.isClaude(providerID: providerID) {
+            let values = quota.buckets.compactMap { bucket -> LimitWindow? in
+                guard bucket.limitId.hasPrefix(Quota.claudeLimitPrefix),
+                      let value = bucket.primary else { return nil }
+                let key = String(bucket.limitId.dropFirst(Quota.claudeLimitPrefix.count))
+                let id: String
+                switch key {
+                case Quota.claudeFiveHourKey: id = "session"
+                case Quota.claudeWeeklyKey: id = "weekly_all"
+                default: id = key.replacingOccurrences(of: "seven_day_", with: "weekly_")
+                }
+                return window(value, id: id, label: UsageResponse.label(forKind: id))
+            }.sorted(by: UsageResponse.displayOrder)
+            guard !values.isEmpty else { return nil }
+            return (values, values.contains(where: { $0.id == "session" }) ? "session" : values.first?.id)
+        }
+
+        if providerID == "gemini" {
+            let values = quota.buckets.flatMap { bucket in
+                [("five-hour", bucket.primary), ("weekly", bucket.secondary)]
+                    .compactMap { key, value -> LimitWindow? in
+                        guard let value else { return nil }
+                        let group = bucket.limitId == AntigravityGroup.gemini.limitID
+                            ? L10n.t("Gemini Models") : L10n.t("Claude and GPT models")
+                        return window(value, id: "\(bucket.limitId):\(key)",
+                                      label: key == "weekly" ? L10n.t("Weekly Limit") : L10n.t("5-hour Limit"),
+                                      group: group)
+                    }
+            }
+            guard !values.isEmpty else { return nil }
+            return (values, AntigravityCLIProvider.headlineID(in: values))
+        }
+        return nil
     }
 
     private func withBurnReadings(_ snapshot: ProviderSnapshot) -> ProviderSnapshot {

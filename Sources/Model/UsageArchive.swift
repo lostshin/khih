@@ -42,9 +42,9 @@ struct UsageArchive {
     /// told to slow down says nothing about the personal one. The default
     /// profile keeps the key it always had, so a penalty in progress survives
     /// the update.
-    func loadBackoffUntil(providerID: String = ClaudeProfile.defaultID) -> Date? {
+    func loadBackoffUntil(providerID: String = ClaudeProfile.defaultID, now: Date = Date()) -> Date? {
         guard let date = defaults.object(forKey: backoffKey(for: providerID)) as? Date,
-              date > Date() else {
+              date > now else {
             return nil
         }
         return date
