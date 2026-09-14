@@ -172,6 +172,7 @@ final class QuotaEngine {
     /// Two seconds between verification reads, as the Rust engine used: long
     /// enough for the backend to catch up, short enough that the user is still
     /// watching.
+    private let claudeCooldown: ClaudeCooldown?
     var verificationDelay: TimeInterval
     var now: () -> Int64
     /// Whether the user is running an agent on this account right now.
@@ -187,11 +188,13 @@ final class QuotaEngine {
     /// the app had while Codex was the only provider.
     convenience init(storage: QuotaStorage,
                      backend: QuotaBackend,
+                     claudeCooldown: ClaudeCooldown? = nil,
                      verificationDelay: TimeInterval = 2,
                      now: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970) },
                      isAccountInUse: @escaping (QuotaAccountConfig) -> Bool = { _ in false }) {
         self.init(storage: storage,
                   backends: { _ in backend },
+                  claudeCooldown: claudeCooldown,
                   verificationDelay: verificationDelay,
                   now: now,
                   isAccountInUse: isAccountInUse)
@@ -202,9 +205,11 @@ final class QuotaEngine {
     /// leave the account alone, not a failure to report every five minutes.
     init(storage: QuotaStorage,
          backends: @escaping (QuotaAccountConfig) -> QuotaBackend?,
+         claudeCooldown: ClaudeCooldown? = nil,
          verificationDelay: TimeInterval = 2,
          now: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970) },
          isAccountInUse: @escaping (QuotaAccountConfig) -> Bool = { _ in false }) {
+        self.claudeCooldown = claudeCooldown
         self.storage = storage
         self.backends = backends
         self.verificationDelay = verificationDelay
@@ -215,6 +220,35 @@ final class QuotaEngine {
     /// Whether this Mac has the command this account is read through. A button
     /// that can only refuse should not be offered.
     func canReach(_ account: QuotaAccountConfig) -> Bool { backends(account) != nil }
+
+    private func cooldownDeadline(account: QuotaAccountConfig, state: AccountState, now: Int64) -> Int64? {
+        let shared = account.provider == .claude ? claudeCooldown?.deadline(now: now) : nil
+        return [state.checkCooldownUntil, shared].compactMap { $0 }.filter { $0 > now }.max()
+    }
+
+    private func readRateLimits(account: QuotaAccountConfig, backend: QuotaBackend,
+                                observedAt: Int64) throws -> RateLimitsSnapshot {
+        let cooldown = account.provider == .claude ? claudeCooldown : nil
+        if let until = cooldown?.deadline(now: observedAt) {
+            throw QuotaBackendError.rateLimited(retryAt: until)
+        }
+        do {
+            let snapshot = try backend.readRateLimits(for: account, observedAt: observedAt)
+            cooldown?.succeeded(now: now())
+            return snapshot
+        } catch QuotaBackendError.rateLimited(let retryAt) {
+            cooldown?.record(until: retryAt, now: now())
+            throw QuotaBackendError.rateLimited(retryAt: retryAt)
+        }
+    }
+
+    private func poke(account: QuotaAccountConfig, backend: QuotaBackend, target: PokeTarget,
+                      expectedFingerprint: String?) throws -> QuotaPokeResult {
+        if account.provider == .claude, let until = claudeCooldown?.deadline(now: now()) {
+            throw QuotaBackendError.rateLimited(retryAt: until)
+        }
+        return try backend.poke(for: account, target: target, expectedFingerprint: expectedFingerprint)
+    }
 
     // MARK: - Weekly keeper
 
@@ -251,14 +285,14 @@ final class QuotaEngine {
         // A cooldown means "do not touch the backend", so it is answered before
         // anything is read — and it is reported as *not connected*, never as a
         // completed check.
-        if let cooldown = state.checkCooldownUntil, cooldown > moment {
+        if let cooldown = cooldownDeadline(account: account, state: state, now: moment) {
             return .rateLimited(retryAt: cooldown)
         }
 
         let fingerprint = backend.accountFingerprint(for: account)
         let incoming: RateLimitsSnapshot
         do {
-            incoming = try backend.readRateLimits(for: account, observedAt: moment)
+            incoming = try readRateLimits(account: account, backend: backend, observedAt: moment)
         } catch QuotaBackendError.rateLimited(let retryAt) {
             if mode != .dryRun {
                 state.checkCooldownUntil = retryAt
@@ -405,7 +439,7 @@ final class QuotaEngine {
                     // A failure here propagates before the reset key is
                     // written, so a reset nothing anchored is retried rather
                     // than recorded as handled.
-                    let poke = try backend.poke(for: account, target: .weekly, expectedFingerprint: fingerprint)
+                    let poke = try poke(account: account, backend: backend, target: .weekly, expectedFingerprint: fingerprint)
                     let pokeAt = now()
 
                     state.weeklyKeeper.lastHandledResetKey = resetKey
@@ -426,9 +460,11 @@ final class QuotaEngine {
                                                   previousSnapshot: current,
                                                   previousWindow: currentWeekly,
                                                   pokeAt: pokeAt, cancelled: cancelled)
+                    state.checkCooldownUntil = verification.retryAt
                     current = verification.latest
                     if let latest = current.weeklyWindow(for: provider) { currentWeekly = latest }
                     finalStatus = verification.status
+                    if verification.retryAt != nil { break }
 
                     if finalStatus != .unverified {
                         state.weeklyKeeper.countdownActive = true
@@ -525,10 +561,18 @@ final class QuotaEngine {
         }
         let provider = account.provider
         var state = storage.loadState(for: account)
-        if let cooldown = state.checkCooldownUntil, cooldown > now() {
+        if cooldownDeadline(account: account, state: state, now: now()) != nil {
             return .failed(L10n.t("Not connected — waiting for the rate-limit cooldown."))
         }
-        let incoming = try backend.readRateLimits(for: account, observedAt: now())
+        let incoming: RateLimitsSnapshot
+        do {
+            incoming = try readRateLimits(account: account, backend: backend, observedAt: now())
+        } catch QuotaBackendError.rateLimited(let retryAt) {
+            state.checkCooldownUntil = retryAt
+            try storage.saveState(state, for: account)
+            return .failed(L10n.t("Not connected — waiting for the rate-limit cooldown."))
+        }
+        state.checkCooldownUntil = nil
 
         // Gate 1: an account that has never observed itself has nothing to
         // compare against, and every other gate reads from that comparison.
@@ -578,7 +622,7 @@ final class QuotaEngine {
             try? activity("每週倒數尚未錨定；這次最小請求會同時啟動每週倒數。", for: account)
         }
 
-        let poke = try backend.poke(for: account, target: .fiveHour, expectedFingerprint: fingerprint)
+        let poke = try poke(account: account, backend: backend, target: .fiveHour, expectedFingerprint: fingerprint)
         let pokeAt = now()
 
         // Persist before verifying. A crash between the request and the
@@ -597,6 +641,7 @@ final class QuotaEngine {
         let verification = verifyPoke(account: account, backend: backend, target: .fiveHour,
                                       previousSnapshot: current, previousWindow: fiveHour,
                                       pokeAt: pokeAt, cancelled: cancelled)
+        state.checkCooldownUntil = verification.retryAt
         current = verification.latest
         if verification.status != .unverified {
             state.fiveHourStarter.lastPoke?.status = verification.status
@@ -646,6 +691,7 @@ final class QuotaEngine {
     struct Verification {
         var status: PokeStatus
         var latest: RateLimitsSnapshot
+        var retryAt: Int64? = nil
     }
 
     /// Reads the target window back until it confirms an anchored countdown.
@@ -673,7 +719,12 @@ final class QuotaEngine {
             Thread.sleep(forTimeInterval: verificationDelay)
             if cancelled() { break }
 
-            guard let read = try? backend.readRateLimits(for: account, observedAt: now()) else {
+            let read: RateLimitsSnapshot
+            do {
+                read = try readRateLimits(account: account, backend: backend, observedAt: now())
+            } catch QuotaBackendError.rateLimited(let retryAt) {
+                return Verification(status: .unverified, latest: latest, retryAt: retryAt)
+            } catch {
                 continue
             }
             latest = QuotaDomain.reconcileSnapshot(previous: latest, incoming: read).snapshot

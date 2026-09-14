@@ -98,12 +98,24 @@ enum ClaudeUsage {
     }
 }
 
-enum ClaudeUsageError: Error, Equatable {
+enum ClaudeUsageError: LocalizedError, Equatable {
     /// The body was not the JSON object this parser expects.
     case unreadable
     /// The credential could not be read, or the endpoint rejected it.
     case needsAuth
     case badResponse(status: Int)
+    case accessDenied
+    case credentialExpired
+
+    var errorDescription: String? {
+        switch self {
+        case .unreadable: return L10n.t("Claude returned an unreadable usage response. The previous reading is kept.")
+        case .needsAuth: return L10n.t("Claude sign-in is unavailable or was rejected. Sign in using the official Claude Code CLI, then check again.")
+        case .accessDenied: return L10n.t("Claude login access was denied. Choose Allow access to Claude sign-in in Settings, then check again.")
+        case .credentialExpired: return L10n.t("Claude login has expired. Use the official Claude Code CLI to renew the login, then check again.")
+        case .badResponse(let status): return L10n.t("Claude usage request failed (HTTP \(status)). Please try again later.")
+        }
+    }
 }
 
 /// The account the CLI is signed in as, as its own fingerprint.

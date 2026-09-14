@@ -213,6 +213,56 @@ final class QuotaControllerTests: XCTestCase {
         XCTAssertFalse(controller.isBusy)
     }
 
+    func testFiveHourAllFiltersDisabledAccountsAndContinuesAfterRefusal() async throws {
+        let first = try addAccount(id: "account-a")
+        let second = try addAccount(id: "account-b")
+        _ = try addAccount(id: "account-off", enabled: false)
+        let hidden = try addAccount(id: "account-hidden")
+        backend.reads = [idleFiveHour()]
+        let controller = makeController()
+        controller.isEnabledInUI = { $0 != hidden.providerID }
+
+        await controller.startFiveHourAll()
+
+        XCTAssertNotNil(controller.result(for: first.providerID))
+        XCTAssertNotNil(controller.result(for: second.providerID))
+        XCTAssertNil(controller.result(for: "codex-account-off"))
+        XCTAssertNil(controller.result(for: hidden.providerID))
+        XCTAssertEqual(backend.poked, 0, "Missing baselines must still refuse pokes")
+        XCTAssertFalse(controller.isBusy)
+    }
+
+    func testFiveHourAllHoldsBusyAcrossAccountsAndRejectsOverlappingActions() async throws {
+        let first = try addAccount(id: "account-a")
+        let second = try addAccount(id: "account-b")
+        try seedBaseline(first)
+        try seedBaseline(second)
+        var active = idleFiveHour()
+        active.buckets[0].primary?.usedPercent = 10
+        backend.reads = [active]
+        let controller = makeController()
+        let entered = expectation(description: "batch entered backend")
+        let release = DispatchSemaphore(value: 0)
+        backend.onRead = {
+            self.backend.onRead = nil
+            entered.fulfill()
+            release.wait()
+        }
+        let batch = Task { await controller.startFiveHourAll() }
+        await fulfillment(of: [entered], timeout: 3)
+        XCTAssertTrue(controller.isBusy)
+        await controller.startFiveHourAll()
+        await controller.startFiveHour(second.providerID)
+        XCTAssertEqual(controller.result(for: second.providerID), .skippedBusy)
+        let check = await controller.checkBatch([first.providerID])
+        XCTAssertEqual(check, [.skippedBusy])
+        release.signal()
+        await batch.value
+        XCTAssertEqual(backend.visited, [first.providerID, second.providerID])
+        XCTAssertEqual(backend.poked, 0, "Active countdowns must not be restarted")
+        XCTAssertFalse(controller.isBusy)
+    }
+
     func testCheckAllVisitsEveryEnabledCodexAccount() async throws {
         let first = try addAccount(id: "account-a")
         let second = try addAccount(id: "account-b")
@@ -301,6 +351,68 @@ final class QuotaControllerTests: XCTestCase {
         guard case .poked = outcome else { return XCTFail("\(String(describing: outcome))") }
     }
 
+    func testManualCheckPublishesTheSnapshotItAlreadyRead() async throws {
+        let account = try addAccount(id: "account-a")
+        try seedBaseline(account)
+        backend.reads = [idleFiveHour()]
+        let controller = makeController()
+        var published: (String, RateLimitsSnapshot)?
+        controller.onQuotaSnapshot = { published = ($0, $1) }
+
+        _ = await controller.check(account.providerID, mode: .manual)
+
+        XCTAssertEqual(published?.0, account.providerID)
+        XCTAssertEqual(published?.1.fiveHourWindow()?.usedPercent, 0)
+        XCTAssertEqual(backend.visited, [account.providerID])
+    }
+
+    func testFiveHourPublishesSavedVerificationWithoutAnotherBackendRead() async throws {
+        let account = try addAccount(id: "account-a")
+        try seedBaseline(account)
+        backend.reads = [idleFiveHour()]
+        let controller = makeController()
+        var published: RateLimitsSnapshot?
+        controller.onQuotaSnapshot = { _, snapshot in published = snapshot }
+        await controller.startFiveHour(account.providerID)
+        XCTAssertEqual(published, storage.loadState(for: account).snapshot)
+        XCTAssertNotNil(published)
+        XCTAssertEqual(backend.visited.count, 1 + Quota.pokeVerificationAttempts)
+    }
+
+    func testFiveHourAlreadyRunningPublishesItsFreshReading() async throws {
+        let account = try addAccount(id: "account-a")
+        try seedBaseline(account)
+        var incoming = idleFiveHour()
+        incoming.buckets[0].primary?.usedPercent = 25
+        backend.reads = [incoming]
+        let controller = makeController()
+        var published: RateLimitsSnapshot?
+        controller.onQuotaSnapshot = { _, snapshot in published = snapshot }
+        await controller.startFiveHour(account.providerID)
+        XCTAssertEqual(controller.result(for: account.providerID), .refused(.alreadyRunning))
+        XCTAssertEqual(published?.fiveHourWindow()?.usedPercent, 25)
+        XCTAssertEqual(backend.visited.count, 1)
+    }
+
+    func testBatchLoadsOnlyTheCompletedAccountForDisplay() async throws {
+        let targets = try (1...3).map { try addAccount(id: "account-\($0)") }
+        for target in targets { try seedBaseline(target) }
+        backend.reads = [idleFiveHour()]
+        let engine = QuotaEngine(storage: storage, backend: backend,
+                                 verificationDelay: 0, now: { [clock] in clock })
+        var loaded: [String] = []
+        let storage = self.storage!
+        let controller = QuotaController(storage: storage, engine: engine, readState: {
+            loaded.append($0.providerID)
+            return storage.loadState(for: $0)
+        })
+        var published: [String: [QuotaBurnReading]] = [:]
+        controller.onBurnReadings = { published = $0 }
+        _ = await controller.checkBatch(targets.map(\.providerID))
+        XCTAssertEqual(loaded, targets.map(\.providerID))
+        XCTAssertEqual(Set(published.keys), Set(targets.map(\.providerID)))
+    }
+
     private func weeklySnapshot(used: Double?, resetsAt: Int64?,
                                 observedAt: Int64? = nil) -> RateLimitsSnapshot {
         let observed = observedAt ?? clock
@@ -326,10 +438,10 @@ final class QuotaControllerTests: XCTestCase {
 
         await controller.startFiveHour("codex-account-a")
 
-        XCTAssertFalse(controller.recentActivity("codex-account-a").isEmpty)
-        // The press touched one account; the other's log stays empty.
-        XCTAssertTrue(controller.recentActivity("codex-account-b").isEmpty)
-        XCTAssertTrue(controller.recentActivity("codex-account-a")
-            .contains { $0.contains("手動觸發") })
+        let firstActivity = await controller.recentActivity("codex-account-a")
+        let secondActivity = await controller.recentActivity("codex-account-b")
+        XCTAssertFalse(firstActivity.isEmpty)
+        XCTAssertTrue(secondActivity.isEmpty)
+        XCTAssertTrue(firstActivity.contains { $0.contains("手動觸發") })
     }
 }

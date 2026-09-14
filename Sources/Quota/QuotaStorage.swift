@@ -136,8 +136,38 @@ final class CheckLock {
     deinit {
         heartbeat.cancel()
         heartbeatQueue.sync {}
+        let recovery = CheckLockRecoveryGuard(path: path.appendingPathExtension("recovery"))
+        var held = stat()
+        var current = stat()
+        if recovery != nil, fstat(descriptor, &held) == 0, lstat(path.path, &current) == 0,
+           held.st_dev == current.st_dev, held.st_ino == current.st_ino {
+            _ = unlink(path.path)
+        }
+        withExtendedLifetime(recovery) {}
         close(descriptor)
-        try? FileManager.default.removeItem(at: path)
+    }
+}
+
+/// Serializes the short stale-lock inspection and replacement transaction.
+///
+/// `check.lock` itself stays compatible with the Rust engine's O_EXCL lock.
+/// This guard closes the Swift-side stat/unlink race where one contender could
+/// otherwise delete the fresh lock another contender had just installed.
+private final class CheckLockRecoveryGuard {
+    private let descriptor: Int32
+
+    init?(path: URL) {
+        descriptor = open(path.path, O_RDWR | O_CREAT, 0o600)
+        guard descriptor >= 0 else { return nil }
+        guard flock(descriptor, LOCK_EX) == 0 else {
+            close(descriptor)
+            return nil
+        }
+    }
+
+    deinit {
+        _ = flock(descriptor, LOCK_UN)
+        close(descriptor)
     }
 }
 
@@ -258,7 +288,7 @@ struct QuotaStorage {
     /// Both conditions are re-checked here rather than trusted from the
     /// caller: this deletes a directory, and the cost of getting it wrong is
     /// somebody's signed-in account.
-    func discardUnfinishedAccount(_ account: QuotaAccountConfig) {
+    func discardUnfinishedAccount(_ account: QuotaAccountConfig) throws {
         let root = baseDir.appendingPathComponent("accounts")
             .appendingPathComponent(account.id).standardizedFileURL
         // Only a directory this method's own convention produced, holding no
@@ -272,8 +302,8 @@ struct QuotaStorage {
         var file = loadAccounts()
         guard file.accounts.contains(where: { $0.id == account.id }) else { return }
         file.accounts.removeAll { $0.id == account.id }
-        try? saveAccounts(file)
-        try? FileManager.default.removeItem(at: root)
+        try saveAccounts(file)
+        try FileManager.default.removeItem(at: root)
     }
 
     /// Removes an account that turned out to be one already signed in.
@@ -287,7 +317,7 @@ struct QuotaStorage {
     /// does not take the caller's word for the match: both fingerprints are
     /// recomputed here from the two directories.
     func discardDuplicateAccount(_ account: QuotaAccountConfig,
-                                 matching existing: QuotaAccountConfig) {
+                                 matching existing: QuotaAccountConfig) throws {
         let root = baseDir.appendingPathComponent("accounts")
             .appendingPathComponent(account.id).standardizedFileURL
         guard account.id != existing.id,
@@ -300,8 +330,8 @@ struct QuotaStorage {
         var file = loadAccounts()
         guard file.accounts.contains(where: { $0.id == account.id }) else { return }
         file.accounts.removeAll { $0.id == account.id }
-        try? saveAccounts(file)
-        try? FileManager.default.removeItem(at: root)
+        try saveAccounts(file)
+        try FileManager.default.removeItem(at: root)
     }
 
     /// The Codex account already signed in as the same person, if there is one.
@@ -365,12 +395,32 @@ struct QuotaStorage {
     /// The tail of the log — the whole file is never needed, and an account
     /// that has run for months has a long one.
     func recentActivity(for account: QuotaAccountConfig, limit: Int) -> [String] {
-        guard let text = try? String(contentsOf: Self.activityPath(for: account), encoding: .utf8) else {
+        guard limit > 0,
+              let handle = try? FileHandle(forReadingFrom: Self.activityPath(for: account)) else { return [] }
+        defer { try? handle.close() }
+        do {
+            var offset = try handle.seekToEnd()
+            var chunks: [Data] = []
+            var newlines = 0
+            // One extra delimiter accounts for a final newline and the partial
+            // first line in the earliest chunk. Decode only after joining bytes,
+            // since a UTF-8 character may straddle a chunk boundary.
+            while offset > 0 && newlines <= limit {
+                let count = Int(min(offset, 4096))
+                offset -= UInt64(count)
+                try handle.seek(toOffset: offset)
+                let chunk = try handle.read(upToCount: count) ?? Data()
+                chunks.append(chunk)
+                newlines += chunk.reduce(0) { $0 + ($1 == 10 ? 1 : 0) }
+            }
+            var bytes = Data()
+            for chunk in chunks.reversed() { bytes.append(chunk) }
+            let lines = bytes.split(separator: 10, omittingEmptySubsequences: false)
+            let trimmed = lines.last?.isEmpty == true ? lines.dropLast() : lines[...]
+            return trimmed.suffix(limit).map { String(decoding: $0, as: UTF8.self) }
+        } catch {
             return []
         }
-        let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        let trimmed = lines.last?.isEmpty == true ? lines.dropLast() : ArraySlice(lines)
-        return Array(trimmed.suffix(limit))
     }
 
     /// Taipei time, matching what the Rust engine wrote — the log is read by a
@@ -393,6 +443,12 @@ struct QuotaStorage {
                           now: Date = Date()) throws -> CheckLock? {
         try Self.privateDirectory(account.stateDirURL)
         let path = Self.checkLockPath(for: account)
+
+        let recoveryPath = path.appendingPathExtension("recovery")
+        guard let recovery = CheckLockRecoveryGuard(path: recoveryPath) else {
+            throw CocoaError(.fileLocking)
+        }
+        defer { withExtendedLifetime(recovery) {} }
 
         if let lock = Self.exclusiveCreate(at: path) { return lock }
 

@@ -62,7 +62,11 @@ final class NotchFleet {
     /// Accounts whose five-hour countdown the user can start from here. Empty
     /// when there is no quota engine or no managed account, in which case the
     /// menu shows nothing about it.
-    var fiveHourItems: [(title: String, action: () -> Void)] = []
+    var fiveHourItems: [(title: String, action: () -> Void)] = [] {
+        didSet {
+            for controller in controllers.values { controller.fiveHourItems = fiveHourItems }
+        }
+    }
     /// Accounts a click on their card may check. Pushed to panels already on
     /// screen, not only to ones built afterwards: an account added while the
     /// notch is open must become clickable without a relaunch.

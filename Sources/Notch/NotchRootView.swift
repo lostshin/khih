@@ -66,6 +66,7 @@ struct NotchRootView: View {
                         direction: model.edge.tooltipDirection,
                         sessionCap: model.sessionCap,
                         resetTimeFormat: model.resetTimeFormat,
+                        isRefreshing: model.isRefreshing(snapshot),
                         checkMessage: model.checkMessages[snapshot.id] ?? snapshot.updateWarning,
                         tailOffset: tooltipTailOffset(index: index, snapshot: snapshot),
                         groupMessages: model.checkMessages,

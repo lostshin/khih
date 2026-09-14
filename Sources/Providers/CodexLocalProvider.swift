@@ -55,6 +55,12 @@ actor CodexLocalProvider: UsageProvider {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("no-cache, no-store", forHTTPHeaderField: "Cache-Control")
 
+        // Token statistics enrich the card but do not decide quota. Start that
+        // independent request beside the limit request so the common success
+        // path costs one network round trip rather than two in series.
+        async let profileUsage = try? Self.fetchProfileUsage(
+            session: session, credential: credential
+        )
         let (data, response) = try await session.data(for: request)
         let http = response as? HTTPURLResponse
         let status = http?.statusCode ?? 0
@@ -74,16 +80,13 @@ actor CodexLocalProvider: UsageProvider {
 
         // The profile page's token statistics are the source for the chart and
         // totals.
-        let profileUsage = try? await Self.fetchProfileUsage(
-            session: session, credential: credential
-        )
         retryNoEarlierThan = nil
         archive.saveBackoffUntil(nil, providerID: id)
         return ProviderSnapshot(
             id: id, displayName: displayName, glyph: glyph,
             fidelity: .official, status: .ok, windows: windows,
             headlineID: windows.first?.id,
-            tokenUsage: profileUsage
+            tokenUsage: await profileUsage
         )
     }
 

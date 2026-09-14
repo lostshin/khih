@@ -81,6 +81,46 @@ final class ClaudeOAuthProviderTests: XCTestCase {
                        "the provider stopped asking after the first failure")
     }
 
+    func testProvider429PublishesSharedCooldownAndSurvivesProviderRecreation() async throws {
+        let clock: Int64 = 1_800_000_000
+        let name = "SharedClaudeCooldown.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let archive = UsageArchive(defaults: defaults)
+        let cooldown = ClaudeCooldown(archive: archive)
+        StubEndpoint.reset([.init(status: 429, headers: ["Retry-After": "3600"])])
+        let source = CredentialSource(readable: true)
+        let provider = makeProvider(source: source, cooldown: cooldown, now: { clock })
+        do { _ = try await provider.fetchSnapshot(); XCTFail("Expected 429") }
+        catch UsageProviderError.rateLimited(let delay) { XCTAssertEqual(delay, 3600) }
+        XCTAssertEqual(cooldown.deadline(now: clock), clock + 3600)
+        let recreated = makeProvider(source: source, cooldown: ClaudeCooldown(archive: archive), now: { clock })
+        do { _ = try await recreated.fetchSnapshot(); XCTFail("Expected cooldown") }
+        catch UsageProviderError.rateLimited(let delay) { XCTAssertEqual(delay, 3600) }
+        XCTAssertEqual(source.reads, 1)
+        XCTAssertEqual(StubEndpoint.requestCount, 1)
+        XCTAssertEqual(StubEndpoint.userAgents, ["claude-code/1.2.3"])
+    }
+
+    func testSharedCooldownBlocksCredentialsAndUserAgentBeforeFetching() async throws {
+        let clock: Int64 = 1_800_000_000
+        let name = "SharedClaudeCooldown.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let cooldown = ClaudeCooldown(archive: UsageArchive(defaults: defaults), persistedUntil: { clock + 900 })
+        let source = CredentialSource(readable: true)
+        StubEndpoint.reset([])
+        let cliCalls = Counter()
+        let provider = makeProvider(source: source, cooldown: cooldown, now: { clock },
+                                    cli: Self.cli { cliCalls.increment(); return Self.cliUsage },
+                                    readUserAgent: { XCTFail("Must not resolve CLI version"); return nil })
+        do { _ = try await provider.fetchSnapshot(); XCTFail("Expected cooldown") }
+        catch UsageProviderError.rateLimited(let delay) { XCTAssertEqual(delay, 900) }
+        XCTAssertEqual(source.reads, 0)
+        XCTAssertEqual(cliCalls.value, 0)
+        XCTAssertEqual(StubEndpoint.requestCount, 0)
+    }
+
     // MARK: - Helpers
 
     private static let usagePayload = Data("""
@@ -88,6 +128,8 @@ final class ClaudeOAuthProviderTests: XCTestCase {
     """.utf8)
 
     private func makeProvider(source: CredentialSource,
+                              cooldown: ClaudeCooldown? = nil,
+                              now: @escaping @Sendable () -> Int64 = { Int64(Date().timeIntervalSince1970) },
                               cli: ClaudeUsageCLI? = nil,
                               cliRefreshInterval: TimeInterval = 5 * 60,
                               readUserAgent: @escaping @Sendable () -> String? = { "claude-code/1.2.3" },
@@ -106,6 +148,7 @@ final class ClaudeOAuthProviderTests: XCTestCase {
         return ClaudeOAuthProvider(session: StubEndpoint.session(),
                                    archive: UsageArchive(defaults: defaults),
                                    loadCredentials: { try source.read() },
+                                   cooldown: cooldown, now: now,
                                    cli: cli,
                                    cliRefreshInterval: cliRefreshInterval,
                                    readUserAgent: { onReadUserAgent?(); return readUserAgent() })
@@ -322,6 +365,7 @@ private final class StubEndpoint: URLProtocol {
     struct Answer {
         let status: Int
         var body: Data = Data()
+        var headers: [String: String] = [:]
     }
 
     private static let lock = NSLock()
@@ -374,7 +418,7 @@ private final class StubEndpoint: URLProtocol {
         let response = HTTPURLResponse(url: request.url!,
                                        statusCode: answer.status,
                                        httpVersion: "HTTP/1.1",
-                                       headerFields: ["Content-Type": "application/json"])!
+                                       headerFields: answer.headers.merging(["Content-Type": "application/json"]) { _, value in value })!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: answer.body)
         client?.urlProtocolDidFinishLoading(self)
