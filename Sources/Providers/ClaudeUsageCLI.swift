@@ -155,6 +155,42 @@ struct ClaudeUsageCLI: Sendable {
         options: [.anchorsMatchLines]
     )
 
+    /// One parsed line, before anyone decides what to build from it.
+    ///
+    /// The quota engine reads the same output when the keychain shuts it out,
+    /// and it may not touch `LimitWindow`: that type carries `Date` and a
+    /// fraction, and the engine works in `Int64` and whole percent. So the
+    /// regex is read once into this, and the two sides build their own.
+    struct Row: Equatable {
+        /// `session`, `weekly_all`, `weekly_opus`, …
+        let kind: String
+        let percent: Double
+        let resetsAt: Date?
+    }
+
+    /// Named rather than spelled out at each use: `ClaudeUsage` maps these onto
+    /// the engine's own keys and two spellings would be two windows.
+    static let sessionKind = "session"
+    static let weeklyPrefix = "weekly_"
+    static let weeklyAllKind = "weekly_all"
+
+    static func rows(_ text: String, now: Date = Date()) -> [Row] {
+        let range = NSRange(text.startIndex..., in: text)
+        var rows: [Row] = []
+        for match in line.matches(in: text, range: range) {
+            func group(_ index: Int) -> String? {
+                guard let r = Range(match.range(at: index), in: text) else { return nil }
+                return String(text[r])
+            }
+            guard let percent = group(3).flatMap(Double.init) else { continue }
+            let kind = group(1) != nil ? Self.sessionKind : Self.kind(forWeek: group(2) ?? "")
+            guard !rows.contains(where: { $0.kind == kind }) else { continue }
+            rows.append(Row(kind: kind, percent: percent,
+                            resetsAt: group(4).flatMap { Self.resetDate(from: $0, now: now) }))
+        }
+        return rows
+    }
+
     static func parse(_ text: String, now: Date = Date()) throws -> [LimitWindow] {
         let range = NSRange(text.startIndex..., in: text)
         var windows: [LimitWindow] = []
@@ -166,7 +202,7 @@ struct ClaudeUsageCLI: Sendable {
             }
             guard let percent = group(3).flatMap(Double.init) else { continue }
 
-            let kind = group(1) != nil ? "session" : Self.kind(forWeek: group(2) ?? "")
+            let kind = group(1) != nil ? Self.sessionKind : Self.kind(forWeek: group(2) ?? "")
             guard !windows.contains(where: { $0.id == kind }) else { continue }
 
             windows.append(LimitWindow(
@@ -189,7 +225,7 @@ struct ClaudeUsageCLI: Sendable {
         // Without the session window there is no headline, and the caller asks
         // for one by id. Better to fall back to the token path than to draw a
         // ring with a hole in it.
-        guard windows.contains(where: { $0.id == "session" }) else {
+        guard windows.contains(where: { $0.id == Self.sessionKind }) else {
             throw UsageProviderError.badResponse(status: 0)
         }
         return windows.sorted(by: UsageResponse.displayOrder)
@@ -201,7 +237,7 @@ struct ClaudeUsageCLI: Sendable {
         let name = text.lowercased() == "all models"
             ? "all"
             : text.lowercased().replacingOccurrences(of: " ", with: "_")
-        return "weekly_\(name)"
+        return weeklyPrefix + name
     }
 
     /// `Sep 7 at 2:59pm (Asia/Jakarta)` → a `Date`.

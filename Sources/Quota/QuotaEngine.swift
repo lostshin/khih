@@ -129,6 +129,17 @@ protocol QuotaBackend {
     func accountFingerprint(for account: QuotaAccountConfig) -> String?
     func readRateLimits(for account: QuotaAccountConfig, observedAt: Int64) throws -> RateLimitsSnapshot
     func poke(for account: QuotaAccountConfig, target: PokeTarget, expectedFingerprint: String?) throws -> QuotaPokeResult
+
+    /// The same figures without the credential — Claude Code's own `/usage`,
+    /// for when the keychain has shut the token path out.
+    ///
+    /// Good enough for the weekly guard and no further: see `readUsage`. Nil
+    /// where a provider has no such source, which is every provider but Claude.
+    func readObservation(for account: QuotaAccountConfig, observedAt: Int64) throws -> RateLimitsSnapshot?
+}
+
+extension QuotaBackend {
+    func readObservation(for account: QuotaAccountConfig, observedAt: Int64) throws -> RateLimitsSnapshot? { nil }
 }
 
 struct CodexBackend: QuotaBackend {
@@ -221,14 +232,58 @@ final class QuotaEngine {
     /// that can only refuse should not be offered.
     func canReach(_ account: QuotaAccountConfig) -> Bool { backends(account) != nil }
 
+    /// Only Claude has one: its read-only provider and this engine spend the
+    /// same rate-limit bucket, so a 429 either of them meets binds both.
+    private func cooldown(for account: QuotaAccountConfig) -> ClaudeCooldown? {
+        account.provider == .claude ? claudeCooldown : nil
+    }
+
+    /// The endpoint where the credential allows it, Claude Code's own `/usage`
+    /// where it does not.
+    ///
+    /// The fallback is not a second-class reading of the same window: the
+    /// account is still confirmed the same way (`claude auth status` needs no
+    /// keychain) and the figures are the same ones. What it loses is precision
+    /// — reset times printed to the minute, not the second — which is why
+    /// `startFiveHour` does not call this. A 59-second ambiguity is nothing
+    /// against a seven-day window and everything against the 60-second
+    /// tolerance a five-hour attribution is judged by.
+    ///
+    /// `usedFallback` is for the log, so that a reading taken this way is
+    /// recognisable afterwards rather than looking like any other.
+    private func readUsage(account: QuotaAccountConfig, backend: QuotaBackend,
+                           observedAt: Int64) throws -> (snapshot: RateLimitsSnapshot, usedFallback: Bool) {
+        do {
+            return (try readRateLimits(account: account, backend: backend, observedAt: observedAt), false)
+        } catch QuotaBackendError.rateLimited(let retryAt) {
+            // A back-off means "do not touch this provider", and the command
+            // spends the same bucket the endpoint does.
+            throw QuotaBackendError.rateLimited(retryAt: retryAt)
+        } catch {
+            guard let fallback = try? backend.readObservation(for: account, observedAt: observedAt)
+            else { throw error }
+            return (fallback, true)
+        }
+    }
+
+    /// Short enough for one activity line, and never the token or the account.
+    static func reason(_ error: Error) -> String {
+        switch error {
+        case ClaudeUsageError.accessDenied:       return "鑰匙圈拒絕存取"
+        case ClaudeUsageError.credentialExpired:  return "登入已過期"
+        case ClaudeUsageError.needsAuth:          return "找不到可用登入"
+        default:                                  return "\(type(of: error))"
+        }
+    }
+
     private func cooldownDeadline(account: QuotaAccountConfig, state: AccountState, now: Int64) -> Int64? {
-        let shared = account.provider == .claude ? claudeCooldown?.deadline(now: now) : nil
+        let shared = cooldown(for: account)?.deadline(now: now)
         return [state.checkCooldownUntil, shared].compactMap { $0 }.filter { $0 > now }.max()
     }
 
     private func readRateLimits(account: QuotaAccountConfig, backend: QuotaBackend,
                                 observedAt: Int64) throws -> RateLimitsSnapshot {
-        let cooldown = account.provider == .claude ? claudeCooldown : nil
+        let cooldown = cooldown(for: account)
         if let until = cooldown?.deadline(now: observedAt) {
             throw QuotaBackendError.rateLimited(retryAt: until)
         }
@@ -244,7 +299,7 @@ final class QuotaEngine {
 
     private func poke(account: QuotaAccountConfig, backend: QuotaBackend, target: PokeTarget,
                       expectedFingerprint: String?) throws -> QuotaPokeResult {
-        if account.provider == .claude, let until = claudeCooldown?.deadline(now: now()) {
+        if let until = cooldown(for: account)?.deadline(now: now()) {
             throw QuotaBackendError.rateLimited(retryAt: until)
         }
         return try backend.poke(for: account, target: target, expectedFingerprint: expectedFingerprint)
@@ -292,7 +347,14 @@ final class QuotaEngine {
         let fingerprint = backend.accountFingerprint(for: account)
         let incoming: RateLimitsSnapshot
         do {
-            incoming = try readRateLimits(account: account, backend: backend, observedAt: moment)
+            let read = try readUsage(account: account, backend: backend, observedAt: moment)
+            incoming = read.snapshot
+            // Recognisable afterwards: a weekly transaction judged from the
+            // command rather than the endpoint should not read as an ordinary
+            // one when someone comes back to ask what happened.
+            if read.usedFallback {
+                try? activity("憑證無法使用；改由 CLI 讀取額度（5 小時啟動仍只接受 endpoint）。", for: account)
+            }
         } catch QuotaBackendError.rateLimited(let retryAt) {
             if mode != .dryRun {
                 state.checkCooldownUntil = retryAt
@@ -301,6 +363,9 @@ final class QuotaEngine {
                               for: account)
             }
             return .rateLimited(retryAt: retryAt)
+        } catch {
+            try? activity("讀取額度失敗：\(Self.reason(error))。未更新 baseline。", for: account)
+            throw error
         }
         state.checkCooldownUntil = nil
 
@@ -721,7 +786,7 @@ final class QuotaEngine {
 
             let read: RateLimitsSnapshot
             do {
-                read = try readRateLimits(account: account, backend: backend, observedAt: now())
+                read = try readUsage(account: account, backend: backend, observedAt: now()).snapshot
             } catch QuotaBackendError.rateLimited(let retryAt) {
                 return Verification(status: .unverified, latest: latest, retryAt: retryAt)
             } catch {
@@ -758,14 +823,20 @@ final class QuotaEngine {
     /// One line per window, so a later reader can reconstruct what the backend
     /// said at the moment of a decision.
     static func formatSnapshot(_ snapshot: RateLimitsSnapshot, provider: QuotaProvider) -> String {
+        formatWindows(fiveHour: snapshot.fiveHourWindow(for: provider),
+                      weekly: snapshot.weeklyWindow(for: provider))
+    }
+
+    /// Shared with the Antigravity path, which reads per group rather than per
+    /// provider: a log covering both should describe a window the same way.
+    static func formatWindows(fiveHour: QuotaWindow?, weekly: QuotaWindow?) -> String {
         func describe(_ label: String, _ window: QuotaWindow?) -> String? {
             guard let window else { return nil }
             let used = window.usedPercent.map { String(format: "%.1f%%", $0) } ?? "unknown"
             let reset = window.resetsAt.map(String.init) ?? "—"
             return "\(label) used=\(used) active=\(window.countdownActive) reset=\(reset)"
         }
-        let parts = [describe("5h", snapshot.fiveHourWindow(for: provider)),
-                     describe("weekly", snapshot.weeklyWindow(for: provider))].compactMap { $0 }
+        let parts = [describe("5h", fiveHour), describe("weekly", weekly)].compactMap { $0 }
         return parts.isEmpty ? "讀取到 rate limits，但沒有可辨識的 window。"
                              : "讀取 rate limits：" + parts.joined(separator: "；")
     }

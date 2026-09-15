@@ -102,13 +102,28 @@ final class GroupedProviderTests: XCTestCase {
         XCTAssertEqual(cell.headline?.id, "codex-b:primary")
     }
 
-    func testTheAccountInUseIsNamedInTheDetail() {
+    /// Marked by the outline the card draws, not by a word in the title: every
+    /// group already shows its account name, and the detail is mostly numbers.
+    func testTheAccountInUseIsFlaggedWithoutChangingItsTitle() {
         let accounts = [account("codex-a", used: 0.2, weekly: 0.2),
                         account("codex-b", used: 0.2, weekly: 0.2)]
         let cell = ProviderOrder.cells(from: accounts, keeping: [], activeCodexID: "codex-b")[0]
         let titles = Set(cell.windows.compactMap(\.group))
-        XCTAssertTrue(titles.contains("codex-b · " + L10n.t("In use")))
-        XCTAssertTrue(titles.contains("codex-a"), "the others keep their plain names")
+        XCTAssertEqual(titles, ["codex-a", "codex-b"], "the title carries no in-use wording")
+
+        let active = Set(cell.windows.filter(\.isActiveAccount).compactMap(\.group))
+        XCTAssertEqual(active, ["codex-b"], "only the signed-in account is flagged")
+
+        let groups = TooltipWindowGroup.groups(cell.windows)
+        XCTAssertEqual(Set(groups.filter(\.isActiveAccount).map(\.id)), ["codex-b"],
+                       "the flag survives into the group the card outlines")
+    }
+
+    func testNoAccountIsFlaggedWhenNoneIsSignedIn() {
+        let accounts = [account("codex-a", used: 0.2, weekly: 0.2),
+                        account("codex-b", used: 0.2, weekly: 0.2)]
+        let cell = ProviderOrder.cells(from: accounts, keeping: [], activeCodexID: nil)[0]
+        XCTAssertTrue(cell.windows.allSatisfy { !$0.isActiveAccount })
     }
 
     func testAnAccountWithNoSessionWindowFallsBackToOneThatHasOne() {

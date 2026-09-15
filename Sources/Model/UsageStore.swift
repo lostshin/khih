@@ -501,9 +501,13 @@ final class UsageStore: ObservableObject {
         return task
     }
 
-    private func cancelRefresh(providerID: String) {
+    /// `keepTask` leaves the cancelled task in the table: a provider wedged in
+    /// a synchronous call would otherwise be re-entered on the next pass — see
+    /// the note on stuck providers in the abandon path.
+    private func cancelRefresh(providerID: String, keepTask: Bool = false) {
         generations[providerID, default: 0] += 1
-        fetchTasks.removeValue(forKey: providerID)?.cancel()
+        if keepTask { fetchTasks[providerID]?.cancel() }
+        else { fetchTasks.removeValue(forKey: providerID)?.cancel() }
         if !manualRefreshing.contains(providerID) { refreshing.remove(providerID) }
     }
 
@@ -527,12 +531,8 @@ final class UsageStore: ObservableObject {
         else { return }
 
         // Invalidated through the same counter every other staleness check
-        // already reads. The task is cancelled but deliberately left in the
-        // table — see the note on stuck providers in the abandon path: one
-        // wedged in a synchronous call would otherwise be re-entered next pass.
-        generations[providerID, default: 0] += 1
-        fetchTasks[providerID]?.cancel()
-        if !manualRefreshing.contains(providerID) { refreshing.remove(providerID) }
+        // already reads.
+        cancelRefresh(providerID: providerID, keepTask: true)
         engineObservedAt[providerID] = quota.observedAt
         var fresh = existing
         fresh.status = .ok
@@ -565,8 +565,7 @@ final class UsageStore: ObservableObject {
                                   label: CodexUsage.label(windowSeconds: seconds, fallback: id))
                 }
             guard !values.isEmpty else { return nil }
-            let headline = values.first(where: { $0.duration == 5 * 3600 })?.id ?? values.first?.id
-            return (values, headline)
+            return (values, CodexUsage.headlineID(in: values))
         }
 
         if ClaudeProfile.isClaude(providerID: providerID) {
@@ -587,17 +586,7 @@ final class UsageStore: ObservableObject {
         }
 
         if providerID == "gemini" {
-            let values = quota.buckets.flatMap { bucket in
-                [("five-hour", bucket.primary), ("weekly", bucket.secondary)]
-                    .compactMap { key, value -> LimitWindow? in
-                        guard let value else { return nil }
-                        let group = bucket.limitId == AntigravityGroup.gemini.limitID
-                            ? L10n.t("Gemini Models") : L10n.t("Claude and GPT models")
-                        return window(value, id: "\(bucket.limitId):\(key)",
-                                      label: key == "weekly" ? L10n.t("Weekly Limit") : L10n.t("5-hour Limit"),
-                                      group: group)
-                    }
-            }
+            let values = AntigravityCLIProvider.windows(from: quota)
             guard !values.isEmpty else { return nil }
             return (values, AntigravityCLIProvider.headlineID(in: values))
         }

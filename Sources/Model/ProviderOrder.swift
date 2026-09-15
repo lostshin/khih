@@ -39,14 +39,14 @@ enum ProviderOrder {
         let windows = accounts.flatMap { account -> [LimitWindow] in
             // Says which group the ring is quoting. Without it the cell shows
             // one number over several accounts and no way to tell whose.
-            let name = account.id == activeID
-                ? account.displayName + " · " + L10n.t("In use") : account.displayName
-            let title = account.status == .ok ? name
-                : name + " · " + (account.statusMessage ?? L10n.t("No reading"))
+            let active = account.id == activeID
+            let title = account.status == .ok ? account.displayName
+                : account.displayName + " · " + (account.statusMessage ?? L10n.t("No reading"))
             guard !account.windows.isEmpty else {
                 var window = LimitWindow(id: "\(account.id):unavailable", group: title, label: L10n.t("No reading"))
                 window.groupID = account.id
                 window.sourceProviderID = account.providerID
+                window.isActiveAccount = active
                 return [window]
             }
             return account.windows.map { window in
@@ -55,6 +55,7 @@ enum ProviderOrder {
                             used: window.used, resetsAt: window.resetsAt, duration: window.duration)
                 copied.groupID = account.id
                 copied.sourceProviderID = account.providerID
+                copied.isActiveAccount = active
                 copied.burnReading = window.burnReading
                 return copied
             }

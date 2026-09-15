@@ -21,10 +21,23 @@ extension QuotaEngine {
         var results: [AntigravityCheckOutcome] = []
         for group in AntigravityGroup.allCases {
             if cancelled() { throw CodexError.cancelled }
+            // Written per group, and from the call site rather than inside the
+            // branches: a group that decides to do nothing is the answer the
+            // keeper gives almost every time, and without a line for it there is
+            // no way to tell afterwards that it looked at all. Putting it here
+            // also means a branch added later cannot forget to report itself.
+            let reading = QuotaEngine.formatWindows(fiveHour: group.window(in: current, weekly: false),
+                                                    weekly: group.window(in: current, weekly: true))
+            try? activity("\(group.name) \(reading)", for: account)
             do {
                 let outcome = try checkGroup(group, account: account, backend: backend, mode: mode,
                                              previous: previous, current: &current, state: &state,
                                              cancelled: cancelled)
+                // `.observe` judges nothing, so it says nothing — the same
+                // place the provider path stops in that mode.
+                if mode != .observe, let line = Self.activityLine(for: outcome) {
+                    try? activity("\(group.name)：\(line)", for: account)
+                }
                 results.append(.init(group: group, outcome: outcome))
             } catch {
                 try? activity("\(group.name)：\(error.localizedDescription)", for: account)
@@ -36,6 +49,25 @@ extension QuotaEngine {
             try storage.saveState(state, for: account)
         }
         return results
+    }
+
+    /// The sentences the provider path already writes, so a log covering every
+    /// provider reads as one story rather than two vocabularies.
+    ///
+    /// Nil where the branch has written something better of its own: a sent
+    /// request reports its verification status, and a thrown error is reported
+    /// by the caller that caught it.
+    static func activityLine(for outcome: CheckOutcome) -> String? {
+        switch outcome {
+        case .baseline:               return "已建立 baseline；第一次觀測不會消耗額度。"
+        case .alreadyHandled:         return "這次每週 reset 已處理，不重送自動請求。"
+        case .countdownAlreadyActive: return "每週新倒數已由其他使用行為啟動，不送出自動請求。"
+        case .resetPending:           return "每週預定 reset time 已過，但 backend 尚未回報 reset；繼續等待。"
+        case .skippedInUse:           return "這個帳號正在使用中；本次不送出自動請求，等下次檢查。"
+        case .dryRunWouldPoke:        return "Dry run：每週 reset 已確認，本可送出最小請求。"
+        case .noReset:                return "未偵測到每週 reset；未送出自動請求。"
+        case .poked, .failed, .skippedBusy, .rateLimited, .noBackend, .groups: return nil
+        }
     }
 
     private func observeGroup(_ group: AntigravityGroup, previous: RateLimitsSnapshot?,

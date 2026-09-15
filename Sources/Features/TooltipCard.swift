@@ -356,6 +356,7 @@ private struct ProviderTooltip: View {
     var groupMessages: [String: String] = [:]
     var onStartGroup: ((String) -> Void)?
     @State private var hoveredGroup: String?
+    @Environment(\.codenotchAccentColor) private var accentColor
 
     private var groupedWindows: [TooltipWindowGroup] { TooltipWindowGroup.groups(snapshot.windows) }
 
@@ -402,7 +403,8 @@ private struct ProviderTooltip: View {
                                 .padding(Design.px(16))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: Design.px(20))
-                                        .stroke(Color.white.opacity(0.25), lineWidth: Design.px(1.5))
+                                        .stroke(group.isActiveAccount ? accentColor : Color.white.opacity(0.25),
+                                                lineWidth: Design.px(group.isActiveAccount ? 2 : 1.5))
                                 )
                                 if let sourceID = group.sourceProviderID {
                                     Text(groupMessages[sourceID] ?? " ")
@@ -425,6 +427,12 @@ private struct ProviderTooltip: View {
                             .accessibilityAction {
                                 if let id = group.sourceProviderID { onStartGroup?(id) }
                             }
+                            // The outline is the only thing that says "this is
+                            // the account being spent", and a colour cannot be
+                            // the only thing that says it.
+                            .accessibilityElement(children: .contain)
+                            .accessibilityLabel(group.isActiveAccount
+                                                ? title + " · " + L10n.t("In use") : title)
                             .padding(.top, groupIndex == 0 ? NotchLayout.headerToBlock : Design.px(28))
                         } else {
                             ForEach(Array(group.windows.enumerated()), id: \.element.id) { windowIndex, window in
@@ -843,6 +851,8 @@ struct TooltipWindowGroup: Identifiable {
     let id: String
     let title: String?
     let sourceProviderID: String?
+    /// Outlined in the accent colour instead of the usual faint white.
+    let isActiveAccount: Bool
     var windows: [LimitWindow]
 
     static func groups(_ windows: [LimitWindow]) -> [Self] {
@@ -853,7 +863,8 @@ struct TooltipWindowGroup: Identifiable {
                 result[result.count - 1].windows.append(window)
             } else {
                 result.append(Self(id: id, title: window.group,
-                    sourceProviderID: window.sourceProviderID, windows: [window]))
+                    sourceProviderID: window.sourceProviderID,
+                    isActiveAccount: window.isActiveAccount, windows: [window]))
             }
         }
         return result

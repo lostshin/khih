@@ -41,6 +41,18 @@ final class QuotaEngineTests: XCTestCase {
                                    response: pokeResponse,
                                    accountFingerprint: fingerprint)
         }
+
+        /// Nil unless a test opts in, matching every provider but Claude.
+        var observation: RateLimitsSnapshot?
+        var observationReads = 0
+
+        func readObservation(for account: QuotaAccountConfig,
+                             observedAt: Int64) throws -> RateLimitsSnapshot? {
+            observationReads += 1
+            guard var observation else { return nil }
+            observation.observedAt = observedAt
+            return observation
+        }
     }
 
     // MARK: Fixtures
@@ -319,5 +331,105 @@ final class QuotaEngineTests: XCTestCase {
         XCTAssertEqual(backend.poked, 0)
         XCTAssertEqual(storage.loadState(for: account).snapshot?.weeklyWindow()?.usedPercent, 88)
         XCTAssertTrue(activityText().contains("落後"), activityText())
+    }
+}
+
+// MARK: - Reading usage without a usable credential
+
+/// Claude Code re-files its keychain item when it rotates a token, and an
+/// ad-hoc rebuild changes the identity the keychain ACL recorded — either way
+/// the engine can lose the credential while `claude` itself keeps answering.
+/// The weekly guard is allowed to run on that; the five-hour starter is not.
+extension QuotaEngineTests {
+
+    private func lockedOut() {
+        backend.readError = ClaudeUsageError.accessDenied
+    }
+
+    func testTheWeeklyGuardRunsOnTheFallbackReading() throws {
+        try seedBaseline(snapshot(fiveHourUsed: 40, fiveHourResetsAt: clock + 9_000,
+                                  weeklyUsed: 30, weeklyResetsAt: clock - 60,
+                                  observedAt: clock - 600))
+        lockedOut()
+        // The weekly window has rolled over: 0% used, and the reset that was
+        // scheduled has passed.
+        backend.observation = snapshot(fiveHourUsed: 0, fiveHourResetsAt: clock + 18_000,
+                                       weeklyUsed: 0, weeklyResetsAt: nil)
+
+        let outcome = try makeEngine().checkAccount(account: account, mode: .live)
+
+        if case .poked = outcome {} else {
+            XCTFail("the guard must still act when only the command can answer, got \(outcome)")
+        }
+        // The fake keeps answering 0%, so the resend rule runs to its limit —
+        // the same limit the endpoint path obeys, not a looser one.
+        XCTAssertGreaterThanOrEqual(backend.poked, 1)
+        XCTAssertLessThanOrEqual(backend.poked, Quota.pokeAttemptLimit)
+        XCTAssertTrue(activityText().contains("改由 CLI 讀取額度"), "the source has to be recorded")
+    }
+
+    /// The narrowing. A reset printed to the minute is precise enough for a
+    /// seven-day window and not for the sixty-second tolerance a five-hour
+    /// attribution is judged by, so this path reads the endpoint or refuses.
+    func testTheFiveHourStarterNeverUsesTheFallback() throws {
+        try seedBaseline()
+        lockedOut()
+        backend.observation = snapshot(fiveHourUsed: 0, fiveHourResetsAt: clock + 18_000)
+
+        // It reports the credential failure rather than reaching for the
+        // command; the controller turns the throw into a visible failure.
+        XCTAssertThrowsError(try makeEngine().startFiveHour(account: account, trigger: .manual))
+        XCTAssertEqual(backend.poked, 0)
+        XCTAssertEqual(backend.observationReads, 0, "the starter must not even ask")
+    }
+
+    func testTheFallbackStillRequiresEveryWeeklyGate() throws {
+        // No baseline: the first reading may only establish one.
+        lockedOut()
+        backend.observation = snapshot(fiveHourUsed: 0, fiveHourResetsAt: clock + 18_000,
+                                       weeklyUsed: 0, weeklyResetsAt: nil)
+
+        let outcome = try makeEngine().checkAccount(account: account, mode: .live)
+
+        XCTAssertEqual(outcome, .baseline)
+        XCTAssertEqual(backend.poked, 0, "a first observation never pokes, whatever the source")
+    }
+
+    func testAnUnusableCredentialWithNoFallbackStillReportsTheFailure() throws {
+        try seedBaseline()
+        lockedOut()
+        backend.observation = nil
+
+        XCTAssertThrowsError(try makeEngine().checkAccount(account: account, mode: .live))
+        XCTAssertTrue(activityText().contains("讀取額度失敗"), "the failure has to leave a record")
+    }
+
+    func testARateLimitIsNeverAnsweredFromTheFallback() throws {
+        try seedBaseline()
+        backend.readError = QuotaBackendError.rateLimited(retryAt: clock + 900)
+        backend.observation = snapshot(fiveHourUsed: 0, fiveHourResetsAt: clock + 18_000)
+
+        let outcome = try makeEngine().checkAccount(account: account, mode: .live)
+
+        XCTAssertEqual(outcome, .rateLimited(retryAt: clock + 900))
+        XCTAssertEqual(backend.observationReads, 0,
+                       "a back-off means leave the provider alone; the command spends the same bucket")
+    }
+
+    func testTheBurnRateKeepsMeasuringThroughTheFallback() throws {
+        // The same five-hour window in both readings: a reset time that moved
+        // means a rollover, and a rollover is deliberately not a sample.
+        let windowEnds = clock + 17_700
+        try seedBaseline(snapshot(fiveHourUsed: 10, fiveHourResetsAt: windowEnds,
+                                  weeklyUsed: 30, observedAt: clock - 300))
+        lockedOut()
+        backend.observation = snapshot(fiveHourUsed: 34, fiveHourResetsAt: windowEnds,
+                                       weeklyUsed: 33)
+
+        _ = try makeEngine().checkAccount(account: account, mode: .live)
+
+        let rate = storage.loadState(for: account).burnRate
+        XCTAssertEqual(rate.fiveHourDeltaTotal, 24, accuracy: 0.001)
+        XCTAssertEqual(rate.weeklyDeltaTotal, 3, accuracy: 0.001)
     }
 }

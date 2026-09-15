@@ -225,11 +225,18 @@ final class QuotaController: ObservableObject {
         guard !isBusy else { return }
         manualBatchRunning = true
         defer { manualBatchRunning = false }
+        await forEachFiveHourTarget { await self.performFiveHour($0.providerID, trigger: .manual) }
+    }
+
+    /// Who a batch five-hour start applies to, shared by the button and the
+    /// schedule so the two cannot drift apart on which accounts they skip.
+    /// The batch flag itself stays with the caller: `isBusy` and
+    /// `startFiveHour`'s guard read the manual and scheduled ones apart.
+    private func forEachFiveHourTarget(_ body: (QuotaAccountConfig) async -> Void) async {
         reloadAccounts()
-        let targets = enabledAccounts.filter { isEnabledInUI($0.providerID) }
-        for account in targets {
+        for account in enabledAccounts.filter({ isEnabledInUI($0.providerID) }) {
             if cancellation.isCancelled { break }
-            await performFiveHour(account.providerID, trigger: .manual)
+            await body(account)
         }
     }
 
@@ -352,8 +359,7 @@ final class QuotaController: ObservableObject {
         login = nil
         addAccountState = .idle
         if let session { await Self.offMainActor { session.cancel() } }
-        let cleanupError = await discardPendingAccount()
-        if let cleanupError { addAccountState = .failed(cleanupError.localizedDescription) }
+        await discardPendingAccount(reporting: nil)
         if addingAccount {
             await withCheckedContinuation { loginFinished.append($0) }
         }
@@ -367,6 +373,17 @@ final class QuotaController: ObservableObject {
         self.pendingAccount = nil
         let storage = self.storage
         return await Self.discarding { try storage.discardUnfinishedAccount(pendingAccount) }
+    }
+
+    /// Discards, then shows why the sign-in ended. A directory left behind
+    /// outranks `reason`: the account is gone either way, but a stale
+    /// `codex-home` is the part the user can still act on. With neither, the
+    /// state the caller already set stands.
+    private func discardPendingAccount(reporting reason: String?) async {
+        let cleanupError = await discardPendingAccount()
+        if let message = cleanupError?.localizedDescription ?? reason {
+            addAccountState = .failed(message)
+        }
     }
 
     private func isFinished(_ state: AddAccountState) -> Bool {
@@ -420,17 +437,14 @@ final class QuotaController: ObservableObject {
                 return
             case .failed(let message):
                 login = nil
-                let cleanupError = await discardPendingAccount()
-                addAccountState = .failed(cleanupError?.localizedDescription ?? message)
+                await discardPendingAccount(reporting: message)
                 return
             }
         }
         guard case .waiting = addAccountState, login === session else { return }
         session.cancel()
         login = nil
-        let cleanupError = await discardPendingAccount()
-        addAccountState = .failed(cleanupError?.localizedDescription
-            ?? L10n.t("The sign-in was not completed in time."))
+        await discardPendingAccount(reporting: L10n.t("The sign-in was not completed in time."))
     }
 
     // MARK: - The periodic check
@@ -501,13 +515,10 @@ final class QuotaController: ObservableObject {
         case .fire:
             scheduledBatchRunning = true
             defer { scheduledBatchRunning = false }
-            reloadAccounts()
-            let targets = enabledAccounts.filter { isEnabledInUI($0.providerID) }
-            for account in targets {
-                if cancellation.isCancelled { break }
-                await startFiveHour(account.providerID, trigger: .scheduled)
-                if let result = results[account.providerID] {
-                    onScheduledResult(account.providerID, account.label, result)
+            await forEachFiveHourTarget { account in
+                await self.startFiveHour(account.providerID, trigger: .scheduled)
+                if let result = self.results[account.providerID] {
+                    self.onScheduledResult(account.providerID, account.label, result)
                 }
             }
         }

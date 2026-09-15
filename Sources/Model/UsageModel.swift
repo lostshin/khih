@@ -76,6 +76,11 @@ struct LimitWindow: Identifiable, Codable, Equatable {
     let group: String?
     var groupID: String? = nil
     var sourceProviderID: String? = nil
+    /// The account the provider's own command is signed in to, when several
+    /// share one ring. Drawn as a coloured outline rather than said in the
+    /// title: the group already carries the account name, and a repeated
+    /// "· In use" is another string to read on a card that is mostly numbers.
+    var isActiveAccount: Bool = false
     let label: String
     /// 0...1+, where 1 means the limit is spent. Nil when the provider reports
     /// what is left but never says what the limit was — Perplexity does exactly

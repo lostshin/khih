@@ -178,6 +178,19 @@ enum CodexUsage {
         }
     }
 
+    /// The five-hour window, which is the one being spent right now — the same
+    /// rule the Antigravity and Cursor cards follow, and the one the quota
+    /// engine's own path through `UsageStore.publishQuotaSnapshot` applies, so
+    /// a card does not change its headline depending on which of the two last
+    /// updated it.
+    ///
+    /// Falls back to the window Codex called primary rather than to nothing: on
+    /// a plan whose primary is a 30-day window there is no five-hour one to
+    /// show, and an empty ring answers less than the wrong window does.
+    static func headlineID(in windows: [LimitWindow]) -> String? {
+        windows.first(where: { $0.duration == 5 * 3600 })?.id ?? windows.first?.id
+    }
+
     /// The plan an account is on decides what its primary window actually is
     /// — a free plan has shown a 30-day window here, not the 5-hour one a paid
     /// plan reports — so the label is derived from the length Codex actually
