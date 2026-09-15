@@ -56,6 +56,9 @@ struct ClaudeBackend: QuotaBackend {
     var readUsage: (Int64) throws -> RateLimitsSnapshot
     var readFingerprint: () -> String?
     var sendPoke: (String?) throws -> QuotaPokeResult
+    /// Claude Code's own `/usage`. See `QuotaBackend.readObservation`: not the
+    /// time-series, and never allowed to decide anything.
+    var readUsageWithoutCredential: ((Int64) throws -> RateLimitsSnapshot)?
 
     func accountFingerprint(for account: QuotaAccountConfig) -> String? {
         readFingerprint()
@@ -64,6 +67,11 @@ struct ClaudeBackend: QuotaBackend {
     func readRateLimits(for account: QuotaAccountConfig,
                         observedAt: Int64) throws -> RateLimitsSnapshot {
         try readUsage(observedAt)
+    }
+
+    func readObservation(for account: QuotaAccountConfig,
+                         observedAt: Int64) throws -> RateLimitsSnapshot? {
+        try readUsageWithoutCredential?(observedAt)
     }
 
     func poke(for account: QuotaAccountConfig, target: PokeTarget,
@@ -251,7 +259,8 @@ extension ClaudeBackend {
     /// to — which is a gate, not an inconvenience.
     static func live(session: URLSession = .shared,
                      cancelled: @escaping () -> Bool = { false },
-                     userAgent: Lazily<String?> = Lazily({ ClaudeVersion.installed() }))
+                     userAgent: Lazily<String?> = Lazily({ ClaudeVersion.installed() }),
+                     usageCLI: Lazily<ClaudeUsageCLI?> = Lazily({ ClaudeUsageCLI.locate() }))
     -> ClaudeBackend? {
         guard let binary = ClaudeCLI.standalone() else { return nil }
         return ClaudeBackend(
@@ -266,6 +275,15 @@ extension ClaudeBackend {
                 }
             },
             readFingerprint: { fingerprint(binary: binary, cancelled: cancelled) },
-            sendPoke: { expected in try send(binary: binary, expectedFingerprint: expected, cancelled: cancelled) })
+            sendPoke: { expected in try send(binary: binary, expectedFingerprint: expected, cancelled: cancelled) },
+            // Resolved lazily for the same reason the user agent is: locating
+            // it touches the filesystem, and the common path never needs it.
+            readUsageWithoutCredential: { observedAt in
+                guard let cli = usageCLI.get() else { throw ClaudeUsageError.needsAuth }
+                let text = try cli.output(ClaudeProfile.default())
+                return try ClaudeUsage.observation(
+                    rows: ClaudeUsageCLI.rows(text, now: Date(timeIntervalSince1970: Double(observedAt))),
+                    observedAt: observedAt)
+            })
     }
 }

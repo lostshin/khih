@@ -141,3 +141,63 @@ enum ClaudeIdentity {
         return QuotaFingerprint.short(of: org + email)
     }
 }
+
+// MARK: - Reading the CLI instead of the endpoint
+
+extension ClaudeUsage {
+    /// The same figures off Claude Code's own `/usage`, for when the keychain
+    /// has shut the credential path out.
+    ///
+    /// Claude Code files a *new* keychain item on every token rotation and the
+    /// new item's access list does not carry this app, so a grant the user
+    /// gives lasts only until the next rotation. Without this the burn-rate
+    /// stops measuring for days at a time and the card can only say "not enough
+    /// usage", which is not what went wrong.
+    ///
+    /// How far it is trusted: the **weekly** guard may act on it, because the
+    /// account is still confirmed — the fingerprint comes from `claude auth
+    /// status`, which needs no keychain — and a reset time printed to the
+    /// minute is precise enough for a seven-day window. The five-hour starter
+    /// may **not**: there a 59-second ambiguity sits right on the 60-second
+    /// attribution tolerance, so `startFiveHour` reads the endpoint or refuses.
+    static func observation(rows: [ClaudeUsageCLI.Row], observedAt: Int64) throws -> RateLimitsSnapshot {
+        guard !rows.isEmpty else { throw ClaudeUsageError.unreadable }
+
+        let buckets = Quota.claudeWindows.compactMap { spec -> RateLimitBucket? in
+            let row = rows.first { engineKey(forCLIKind: $0.kind) == spec.key }
+            guard let row else {
+                // Materialised exactly as `snapshot(from:observedAt:)` does, and
+                // for the same reason: Claude drops a window from its output the
+                // moment its reset passes, so absence is what a rolled-over
+                // window looks like. `checkAccount` still needs two readings and
+                // a scheduled reset already past before it acts on one.
+                guard spec.alwaysPresent else { return nil }
+                return RateLimitBucket(
+                    limitId: Quota.claudeLimitPrefix + spec.key,
+                    limitName: spec.title,
+                    primary: QuotaWindow(usedPercent: 0,
+                                         windowDurationMins: spec.durationMins,
+                                         resetsAt: nil,
+                                         observedAt: observedAt))
+            }
+            return RateLimitBucket(
+                limitId: Quota.claudeLimitPrefix + spec.key,
+                limitName: spec.title,
+                primary: QuotaWindow(usedPercent: row.percent,
+                                     windowDurationMins: spec.durationMins,
+                                     resetsAt: row.resetsAt.map { Int64($0.timeIntervalSince1970) },
+                                     observedAt: observedAt))
+        }
+        return RateLimitsSnapshot(observedAt: observedAt, buckets: buckets)
+    }
+
+    /// `session` → `five_hour`, `weekly_all` → `seven_day`, `weekly_opus` →
+    /// `seven_day_opus`. The inverse of what `UsageStore.displayWindows` does
+    /// going the other way.
+    static func engineKey(forCLIKind kind: String) -> String? {
+        if kind == ClaudeUsageCLI.sessionKind { return Quota.claudeFiveHourKey }
+        if kind == ClaudeUsageCLI.weeklyAllKind { return Quota.claudeWeeklyKey }
+        guard kind.hasPrefix(ClaudeUsageCLI.weeklyPrefix) else { return nil }
+        return "seven_day_" + kind.dropFirst(ClaudeUsageCLI.weeklyPrefix.count)
+    }
+}

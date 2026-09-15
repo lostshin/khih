@@ -50,6 +50,12 @@ struct UsageArchive {
         return date
     }
 
+    /// Whether a deadline is stored at all, expired or not. `loadBackoffUntil`
+    /// cannot answer this: it reports an expired key and an absent one alike.
+    func hasBackoffUntil(providerID: String = ClaudeProfile.defaultID) -> Bool {
+        defaults.object(forKey: backoffKey(for: providerID)) != nil
+    }
+
     func saveBackoffUntil(_ date: Date?, providerID: String = ClaudeProfile.defaultID) {
         let key = backoffKey(for: providerID)
         if let date {

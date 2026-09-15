@@ -22,30 +22,34 @@ final class ClaudeCooldown: @unchecked Sendable {
         self.persistedUntil = persistedUntil
     }
 
+    /// The archived deadline, still in the future as of `now`, in the engine's
+    /// own units — the one place `Date` crosses back into `Int64`.
+    private func archived(now: Int64) -> Int64? {
+        archive.loadBackoffUntil(providerID: providerID,
+                                 now: Date(timeIntervalSince1970: Double(now)))
+            .map { Int64($0.timeIntervalSince1970) }
+    }
+
     func deadline(now: Int64) -> Int64? {
         lock.lock(); defer { lock.unlock() }
-        let archived = archive.loadBackoffUntil(providerID: providerID,
-                                               now: Date(timeIntervalSince1970: Double(now)))
-            .map { Int64($0.timeIntervalSince1970) }
         if persisted == nil { persisted = .some(persistedUntil()) }
-        return [archived, persisted ?? nil].compactMap { $0 }.filter { $0 > now }.max()
+        return [archived(now: now), persisted ?? nil].compactMap { $0 }.filter { $0 > now }.max()
     }
 
     func record(until: Int64, now: Int64) {
         lock.lock(); defer { lock.unlock() }
-        let previous = archive.loadBackoffUntil(providerID: providerID,
-                                               now: Date(timeIntervalSince1970: Double(now)))
-            .map { Int64($0.timeIntervalSince1970) } ?? 0
+        let previous = archived(now: now) ?? 0
         archive.saveBackoffUntil(Date(timeIntervalSince1970: Double(max(previous, until))),
                                  providerID: providerID)
     }
 
-    /// A response already in flight must not clear a newer 429's deadline.
+    /// Clears an expired deadline, and only an expired one: a response already
+    /// in flight must not clear a newer 429's. Reads before writing because
+    /// every successful read lands here and almost none of them have a key to
+    /// clear — 429 is the rare case.
     func succeeded(now: Int64) {
         lock.lock(); defer { lock.unlock() }
-        if archive.loadBackoffUntil(providerID: providerID,
-                                    now: Date(timeIntervalSince1970: Double(now))) == nil {
-            archive.saveBackoffUntil(nil, providerID: providerID)
-        }
+        guard archive.hasBackoffUntil(providerID: providerID), archived(now: now) == nil else { return }
+        archive.saveBackoffUntil(nil, providerID: providerID)
     }
 }

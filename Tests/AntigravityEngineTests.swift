@@ -140,3 +140,80 @@ final class AntigravityEngineTests: XCTestCase {
         }
     }
 }
+
+// MARK: - What the log says a check did
+
+/// The keeper runs unattended, so the activity log is the only account of what
+/// it looked at. Before this, a group that decided to do nothing — which is
+/// almost every check — left no line at all, and the only evidence a check had
+/// happened was `snapshot.observedAt` moving.
+extension AntigravityEngineTests {
+
+    private func activityText() -> String {
+        storage.recentActivity(for: account, limit: 200).joined(separator: "\n")
+    }
+
+    func testEveryGroupRecordsWhatItRead() throws {
+        try seed(snapshot(at: clock - 300, used: 40))
+        backend.snapshot = snapshot(at: clock, used: 40)
+
+        _ = try engine().checkAccount(account: account, mode: .live)
+
+        let text = activityText()
+        for group in AntigravityGroup.allCases {
+            XCTAssertTrue(text.contains("\(group.name) 讀取 rate limits："),
+                          "\(group.name) left no reading in the log")
+        }
+    }
+
+    func testAGroupThatSendsNothingStillSaysSo() throws {
+        try seed(snapshot(at: clock - 300, used: 40))
+        backend.snapshot = snapshot(at: clock, used: 40)
+
+        _ = try engine().checkAccount(account: account, mode: .live)
+
+        XCTAssertTrue(backend.targets.isEmpty, "nothing should have been sent")
+        for group in AntigravityGroup.allCases {
+            XCTAssertTrue(activityText().contains("\(group.name)：未偵測到每週 reset；未送出自動請求。"),
+                          "\(group.name) decided nothing and said nothing")
+        }
+    }
+
+    /// The same sentence the Codex and Claude path writes, so a log spanning
+    /// providers reads as one story.
+    func testTheWordingMatchesTheProviderPath() {
+        XCTAssertEqual(QuotaEngine.activityLine(for: .noReset),
+                       "未偵測到每週 reset；未送出自動請求。")
+        XCTAssertEqual(QuotaEngine.activityLine(for: .baseline),
+                       "已建立 baseline；第一次觀測不會消耗額度。")
+        XCTAssertNil(QuotaEngine.activityLine(for: .poked(.verified)),
+                     "a sent request reports its verification status instead")
+        XCTAssertNil(QuotaEngine.activityLine(for: .failed("x")),
+                     "the caller that caught it reports a failure")
+    }
+
+    /// `.observe` judges nothing, so it says nothing beyond the reading —
+    /// otherwise a keeper that is switched off writes two lines every five
+    /// minutes forever.
+    func testObserveRecordsTheReadingButNoVerdict() throws {
+        try seed(snapshot(at: clock - 300, used: 40))
+        backend.snapshot = snapshot(at: clock, used: 40)
+
+        _ = try engine().checkAccount(account: account, mode: .observe)
+
+        let text = activityText()
+        XCTAssertTrue(text.contains("\(AntigravityGroup.gemini.name) 讀取 rate limits："))
+        XCTAssertFalse(text.contains("未偵測到每週 reset"), "observe reaches no verdict to report")
+    }
+
+    func testASentRequestKeepsItsOwnWording() throws {
+        try seed(snapshot(at: clock - 30, used: 50, expired: true))
+        backend.snapshot = snapshot(at: clock)
+
+        _ = try engine().checkAccount(account: account, mode: .live)
+
+        let text = activityText()
+        XCTAssertTrue(text.contains("每週請求："), "the verification status is the interesting part")
+        XCTAssertFalse(text.contains("：未偵測到每週 reset"), "and it is not also reported as doing nothing")
+    }
+}

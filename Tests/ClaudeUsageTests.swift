@@ -279,3 +279,55 @@ final class LazilyTests: XCTestCase {
         XCTAssertEqual(made, 1)
     }
 }
+
+// MARK: - The CLI read the engine falls back to
+
+extension ClaudeUsageTests {
+
+    private static let cliOutput = """
+    Current session: 38% used · resets Sep 7 at 2:59pm (Asia/Taipei)
+    Current week (all models): 4% used · resets Sep 14 at 5:59am (Asia/Taipei)
+    Current week (Opus): 12% used · resets Sep 14 at 5:59am (Asia/Taipei)
+    """
+
+    func testCLIRowsBecomeTheEnginesOwnBuckets() throws {
+        let rows = ClaudeUsageCLI.rows(Self.cliOutput, now: Date(timeIntervalSince1970: 1_757_000_000))
+        let snapshot = try ClaudeUsage.observation(rows: rows, observedAt: 1_757_000_000)
+
+        let ids = Set(snapshot.buckets.map(\.limitId))
+        XCTAssertEqual(ids, ["claude:five_hour", "claude:seven_day", "claude:seven_day_opus"])
+
+        let fiveHour = try XCTUnwrap(snapshot.buckets.first { $0.limitId == "claude:five_hour" }?.primary)
+        XCTAssertEqual(fiveHour.usedPercent, 38)
+        XCTAssertEqual(fiveHour.windowDurationMins, Quota.fiveHourWindowMins)
+
+        let weekly = try XCTUnwrap(snapshot.buckets.first { $0.limitId == "claude:seven_day" }?.primary)
+        XCTAssertEqual(weekly.usedPercent, 4)
+        XCTAssertEqual(weekly.windowDurationMins, Quota.weeklyWindowMins)
+    }
+
+    /// Parity with the endpoint path, which materialises an absent
+    /// always-present window at zero: Claude drops a window the moment its
+    /// reset passes, so absence is what a rollover looks like. The two sources
+    /// have to describe one the same way or the guard behaves differently
+    /// depending on which answered.
+    func testAnAbsentAlwaysPresentWindowIsMaterialisedLikeTheEndpoint() throws {
+        let rows = ClaudeUsageCLI.rows("Current session: 5% used", now: Date())
+        let snapshot = try ClaudeUsage.observation(rows: rows, observedAt: 1_757_000_000)
+
+        let weekly = try XCTUnwrap(snapshot.buckets.first { $0.limitId == "claude:seven_day" }?.primary)
+        XCTAssertEqual(weekly.usedPercent, 0)
+        XCTAssertNil(weekly.resetsAt, "materialised, not invented with a reset time")
+    }
+
+    func testEmptyOutputIsRejectedWhole() {
+        XCTAssertThrowsError(try ClaudeUsage.observation(rows: [], observedAt: 1_757_000_000))
+    }
+
+    func testCLIKindsMapOntoTheEngineKeys() {
+        XCTAssertEqual(ClaudeUsage.engineKey(forCLIKind: "session"), Quota.claudeFiveHourKey)
+        XCTAssertEqual(ClaudeUsage.engineKey(forCLIKind: "weekly_all"), Quota.claudeWeeklyKey)
+        XCTAssertEqual(ClaudeUsage.engineKey(forCLIKind: "weekly_opus"), "seven_day_opus")
+        XCTAssertNil(ClaudeUsage.engineKey(forCLIKind: "something_else"))
+    }
+}
