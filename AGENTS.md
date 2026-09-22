@@ -243,7 +243,7 @@ make build-ci  # 唯一能產出「可實際啟動」的 ad-hoc Release App
 - **未 commit 工作區**：Khih 改名／簽章／Sparkle 與 `site/` 移除、每帳號預約、改名、重連、5h 自動守護與規則；範圍重查 `git status --short`。共用資料目錄仍是 `~/Library/Application Support/codex-quota-keeper/`，不可因舊名刪除。
 - **5h 自動守護完成**：獨立開關、deadline／喚醒、跨重啟 latch、weekly／manual／schedule 競爭、Claude endpoint 與 Antigravity 分組均有 fake 回歸；全套 **1297 tests／1 skipped／0 failures**。未做真實自動 poke、睡眠喚醒或到期接續驗收。
 - **已重裝單一 App**：`/Applications/Khih.app` 1.7.0／9 的 codesign、manifest、繁中與 SwiftNIO notice、單一 instance 通過，多餘 App 已移除。現以兩 keeper `NO` 啟動；持久化 weekly＝1、5h key 不存在（false）、無預約，下次一般啟動恢復 weekly。
-- **公開歷史待使用者改寫**：`main` 136 commits、fork 自有 12；Gitleaks 5 筆皆為公開金鑰／fixture 誤報，DMG 另掃 0。工作區已匿名化 `TASKS.md`、repo email 改 noreply，隔離 `filter-repo` 演練保留全部 commits 並清掉目標；正式 force-push 尚未執行，upstream DMG／appcast 仍只在 public tip。
-- **授權補件已修**：MIT／Vinz、Windows Im-Midi／LobeHub notices 保留；SwiftNIO 2.102.0 Apache `LICENSE.txt`／`NOTICE.txt` 已加入、Release bundle hash 相符。README 已加入 upstream UI／UX 致謝；正式改史前仍不可宣稱公開歷史完全乾淨。
+- **公開 `main` 已改寫**：`filter-repo` 保留全部 commit，fork 作者 email 改 noreply，`TASKS.md` 四處個資已從可達歷史移除；遠端重掃 5 筆均為公開金鑰／fixture 誤報。GitHub 仍能以舊 SHA 取回不可達物件，且 upstream 也含原始 commit；完整 purge 需 GitHub Support／upstream 配合，不能再靠 force-push 解決。
+- **授權補件已修**：MIT／Vinz、Windows Im-Midi／LobeHub notices 保留；SwiftNIO 2.102.0 Apache `LICENSE.txt`／`NOTICE.txt` 已加入、Release bundle hash 相符。README 已加入 upstream UI／UX 致謝；可達分支合規檢查通過，但不得把 GitHub cached object 說成已刪除。
 - **仍未驗收**：實際重連 2 秒、Dock／hover、多螢幕、高對比、Reduce Motion、idle CPU、睡眠喚醒、真實取消／timeout；fake 或啟動讀取不能代替實機證據，既有 poke 授權不擴張。
-- **另案**：`QuotaBackend.cooldownDeadline`、persisted snapshot outcome、其餘 `Process()` 的 process group；清 Git history 須另行規劃 force-push／fork cache／協作者重抓與回復。
+- **另案**：`QuotaBackend.cooldownDeadline`、persisted snapshot outcome、其餘 `Process()` 的 process group；如需清舊 SHA，向 GitHub Support 提交 cached view／object purge，upstream 個資另由 upstream owner 處理。
