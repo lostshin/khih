@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Starts one account's five-hour countdown.
 ///
-/// The only control in Codenotch that spends quota rather than reading it, so
+/// The only control in Khih that spends quota rather than reading it, so
 /// it has no keyboard shortcut: it should be pressed on purpose or not at all.
 ///
 /// A glyph rather than a labelled button, matching the mute bell beside it. A
@@ -107,9 +107,14 @@ struct FiveHourReport: View {
         case .started(.verified):
             return L10n.t("Started — the backend confirmed this request opened the window.")
         case .started(.unverified):
-            return L10n.t("Sent, but the backend has not confirmed a countdown yet.")
+            return L10n.t("Sent, but the backend has not confirmed a countdown yet.") + " "
+                + L10n.t("Waiting for confirmation — automatic resending is paused.")
         case .started(.notAttributed):
             return L10n.t("A countdown is running, but it was not started by this request.")
+        case .refused(.awaitingConfirmation):
+            return L10n.t("Waiting for confirmation — automatic resending is paused.")
+        case .refused(.inUse):
+            return L10n.t("Not sent — this account is in use.")
         case .refused(.noBaseline):
             return L10n.t("Not sent — there is no earlier reading to compare against yet.")
         case .refused(.accountUnconfirmed):

@@ -1,0 +1,9 @@
+[package]
+name = "khih-hook"
+version = "0.3.0"
+edition = "2021"
+description = "Khih hook launcher: report Claude Code hook events, auto-start main app"
+license = "MIT"
+repository = "https://github.com/Im-Midi/codenotch-windows"
+
+[dependencies]

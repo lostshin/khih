@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 @MainActor
 final class AccountDiscoveryTests: XCTestCase {

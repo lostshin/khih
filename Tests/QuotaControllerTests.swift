@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// The boundary between the engine and the interface: which rows get a button,
 /// what a press publishes, and what a second press does.
@@ -39,7 +39,7 @@ final class QuotaControllerTests: XCTestCase {
     private var root: URL!
     private var storage: QuotaStorage!
     private var backend: StubBackend!
-    private let clock: Int64 = 1_000_000
+    private var clock: Int64 = 1_000_000
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -74,7 +74,7 @@ final class QuotaControllerTests: XCTestCase {
     /// covers the off case.
     private func makeController() -> QuotaController {
         let engine = QuotaEngine(storage: storage, backend: backend,
-                                 verificationDelay: 0, now: { [clock] in clock })
+                                 verificationDelay: 0, now: { [unowned self] in self.clock })
         let controller = QuotaController(storage: storage, engine: engine)
         controller.isKeeperEnabled = { true }
         return controller
@@ -99,6 +99,135 @@ final class QuotaControllerTests: XCTestCase {
         snapshot.observedAt = clock - 600
         state.snapshot = snapshot
         try storage.saveState(state, for: account)
+    }
+
+    func testScheduleAndAutomaticKeeperDoNotSendTwoUnconfirmedRequests() async throws {
+        let account = try addAccount(id: "automatic")
+        try seedBaseline(account)
+        backend.reads = [idleFiveHour()]
+        let controller = makeController()
+        controller.isKeeperEnabled = { false }
+        controller.onScheduledResult = { _, _, _ in }
+        controller.setFiveHourKeeperEnabled(true)
+        XCTAssertNil(controller.schedule.set(clock, for: [account.id], now: clock - 1))
+        await controller.runScheduleTick(now: clock)
+        XCTAssertEqual(backend.poked, 1)
+        XCTAssertNil(controller.schedule.appointment(for: account.id))
+        XCTAssertEqual(controller.result(for: account.providerID), .refused(.awaitingConfirmation))
+    }
+
+    func testWeeklyKeeperRunsFirstAndFiveHourDoesNotRepeatItsRequest() async throws {
+        let account = try addAccount(id: "automatic")
+        var previous = idleFiveHour()
+        previous.buckets[0].secondary?.usedPercent = 30
+        previous.buckets[0].secondary?.resetsAt = clock - 1
+        try storage.saveState(AccountState(snapshot: previous, accountFingerprint: backend.fingerprint), for: account)
+        var idle = idleFiveHour()
+        idle.buckets[0].secondary?.usedPercent = 0
+        idle.buckets[0].secondary?.resetsAt = clock + 604800
+        var active = idle
+        active.buckets[0].primary?.usedPercent = 1
+        active.buckets[0].secondary?.usedPercent = 1
+        backend.reads = [idle, active]
+        let controller = makeController()
+        controller.setFiveHourKeeperEnabled(true)
+        await controller.runAutomaticTick(now: clock)
+        XCTAssertEqual(backend.poked, 1)
+        XCTAssertEqual(controller.result(for: account.providerID), .refused(.alreadyRunning))
+        XCTAssertNotNil(storage.loadState(for: account).weeklyKeeper.lastPoke)
+        XCTAssertNil(storage.loadState(for: account).fiveHourStarter.lastPoke)
+    }
+
+    func testAutomaticDeadlineRunsAtExpiryAndDoesNotPollEachSecond() async throws {
+        let account = try addAccount(id: "automatic")
+        try seedBaseline(account)
+        let reset = clock + 10
+        var active = idleFiveHour()
+        active.buckets[0].primary?.usedPercent = 2
+        active.buckets[0].primary?.resetsAt = reset
+        backend.reads = [active]
+        let controller = makeController()
+        controller.isKeeperEnabled = { false }
+        controller.setFiveHourKeeperEnabled(true)
+        await controller.runAutomaticTick(now: clock)
+        XCTAssertEqual(backend.poked, 0)
+        let readCount = backend.visited.count
+        clock = reset - 1
+        await controller.runAutomaticTick(now: clock)
+        XCTAssertEqual(backend.visited.count, readCount)
+        clock = reset
+        backend.reads = [idleFiveHour()]
+        await controller.runAutomaticTick(now: clock)
+        XCTAssertEqual(backend.poked, 1)
+    }
+
+    func testFiveHourKeeperSwitchCombinationsAndDisable() async throws {
+        let account = try addAccount(id: "automatic")
+        for weekly in [false, true] {
+            for five in [false, true] {
+                try seedBaseline(account)
+                backend = StubBackend()
+                backend.reads = [idleFiveHour()]
+                let controller = makeController()
+                controller.isKeeperEnabled = { weekly }
+                controller.setFiveHourKeeperEnabled(five)
+                await controller.runAutomaticTick(now: clock)
+                XCTAssertEqual(backend.poked, five ? 1 : 0)
+                controller.setFiveHourKeeperEnabled(false)
+                await controller.runAutomaticTick(now: clock + 300)
+                XCTAssertEqual(backend.poked, five ? 1 : 0)
+            }
+        }
+    }
+
+    func testAutomaticBusyDefersAndTurningOffCancelsPendingWork() async throws {
+        let account = try addAccount(id: "automatic")
+        try seedBaseline(account)
+        backend.reads = [idleFiveHour()]
+        let controller = makeController()
+        controller.isKeeperEnabled = { false }
+        controller.setFiveHourKeeperEnabled(true)
+        let entered = expectation(description: "observation started")
+        let release = DispatchSemaphore(value: 0)
+        backend.onRead = {
+            self.backend.onRead = nil
+            entered.fulfill()
+            release.wait()
+        }
+        let observation = Task { await controller.check(account.providerID, mode: .observe) }
+        await fulfillment(of: [entered], timeout: 3)
+        await controller.runAutomaticTick(now: clock)
+        XCTAssertEqual(backend.poked, 0)
+        controller.setFiveHourKeeperEnabled(false)
+        release.signal()
+        _ = await observation.value
+        await controller.runAutomaticTick(now: clock)
+        XCTAssertEqual(backend.poked, 0)
+        controller.setFiveHourKeeperEnabled(true)
+        await controller.runAutomaticTick(now: clock)
+        XCTAssertEqual(backend.poked, 1)
+    }
+
+    func testAutomaticWakeAndRestartObserveWithoutRepeatingUnverifiedRequest() async throws {
+        let account = try addAccount(id: "automatic")
+        try seedBaseline(account)
+        backend.reads = [idleFiveHour()]
+        let controller = makeController()
+        controller.isKeeperEnabled = { false }
+        controller.setFiveHourKeeperEnabled(true)
+        await controller.runAutomaticTick(now: clock)
+        let reads = backend.visited.count
+        await controller.runAutomaticTick(now: clock + 1)
+        XCTAssertEqual(backend.visited.count, reads, "One-second ticks must not poll the backend")
+        controller.didWake()
+        await controller.runAutomaticTick(now: clock + 2)
+        XCTAssertGreaterThan(backend.visited.count, reads)
+        let restarted = makeController()
+        restarted.isKeeperEnabled = { false }
+        restarted.setFiveHourKeeperEnabled(true)
+        await restarted.runAutomaticTick(now: clock + 3)
+        XCTAssertEqual(backend.poked, 1)
+        XCTAssertEqual(restarted.result(for: account.providerID), .refused(.awaitingConfirmation))
     }
 
     // MARK: - Which rows get a button
@@ -127,7 +256,7 @@ final class QuotaControllerTests: XCTestCase {
         _ = try addAccount(id: "account-claude", label: "Claude", provider: .claude)
         let onlyCodex = QuotaEngine(storage: storage,
                                     backends: { [backend] in $0.provider == .codex ? backend : nil },
-                                    verificationDelay: 0, now: { [clock] in clock })
+                                    verificationDelay: 0, now: { [unowned self] in self.clock })
         let controller = QuotaController(storage: storage, engine: onlyCodex)
 
         XCTAssertTrue(controller.canStartFiveHour("codex-account-a"))
@@ -399,7 +528,7 @@ final class QuotaControllerTests: XCTestCase {
         for target in targets { try seedBaseline(target) }
         backend.reads = [idleFiveHour()]
         let engine = QuotaEngine(storage: storage, backend: backend,
-                                 verificationDelay: 0, now: { [clock] in clock })
+                                 verificationDelay: 0, now: { [unowned self] in self.clock })
         var loaded: [String] = []
         let storage = self.storage!
         let controller = QuotaController(storage: storage, engine: engine, readState: {

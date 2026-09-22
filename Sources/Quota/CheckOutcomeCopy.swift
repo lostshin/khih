@@ -4,6 +4,7 @@ extension CheckOutcome {
     var message: String {
         switch self {
         case .skippedBusy: return L10n.t("Not sent — another quota operation is running.")
+        case .awaitingFiveHourConfirmation: return L10n.t("Waiting for confirmation — automatic resending is paused.")
         case .skippedInUse: return L10n.t("Not sent — this account is in use.")
         case .rateLimited: return L10n.t("Not connected — waiting for the rate-limit cooldown.")
         case .baseline: return L10n.t("Baseline saved. No request was sent.")

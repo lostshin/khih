@@ -16,6 +16,7 @@ protocol UsageProvider {
     var displayName: String { get }
     var glyph: ProviderGlyph { get }
     func fetchSnapshot() async throws -> ProviderSnapshot
+    func fetchSnapshotAfterReconnect() async throws -> ProviderSnapshot
     /// Whose readings these are. Declared here rather than only in an extension:
     /// a method that exists solely in a protocol extension is dispatched
     /// *statically*, so calling it through `any UsageProvider` would always land
@@ -29,7 +30,7 @@ protocol UsageProvider {
     ///
     /// For a borrowed credential there is nothing here to discard — the session
     /// belongs to Claude Code or Cursor, and ending it is their business, not
-    /// ours. For a session Codenotch created itself (`WebSessionProvider`) this
+    /// ours. For a session Khih created itself (`WebSessionProvider`) this
     /// is a real logout. A requirement, not an extension member, for the reason
     /// spelled out above `account()`.
     func signOut() async
@@ -57,6 +58,9 @@ protocol UsageProvider {
 }
 
 extension UsageProvider {
+    func fetchSnapshotAfterReconnect() async throws -> ProviderSnapshot {
+        try await fetchSnapshot()
+    }
     var isVisibleWhenAbsent: Bool { true }
     var minimumRefreshInterval: TimeInterval { 0 }
     var fetchDeadline: TimeInterval { 0 }

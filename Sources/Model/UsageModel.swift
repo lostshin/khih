@@ -185,7 +185,10 @@ struct UsageBlock: Equatable {
 struct ProviderSnapshot: Identifiable, Equatable {
     var updateWarning: String? = nil
     let id: String
-    let displayName: String
+    /// The provider's own name, unless the user has renamed the account it
+    /// belongs to — `UsageStore` substitutes theirs as the reading is
+    /// published, which is the one point every display reads through.
+    var displayName: String
     let glyph: ProviderGlyph
     let fidelity: Fidelity
     var status: ProviderStatus
@@ -327,7 +330,7 @@ struct ProviderSnapshot: Identifiable, Equatable {
             // Says what happened and what fixes it. "Sign in to Claude Code"
             // would send someone who *is* signed in to fix the wrong thing.
             if providerID == "claude" { return L10n.t("Claude sign-in access is unavailable. Allow access in Settings to update usage.", locale: locale) }
-            return L10n.t("Codenotch was refused access to \(displayName)'s saved login. Click this ring to ask again, and choose Always Allow.", locale: locale)
+            return L10n.t("Khih was refused access to \(displayName)'s saved login. Click this ring to ask again, and choose Always Allow.", locale: locale)
         case .unsupported(let why): return why
         case .error(let why): return L10n.t("Couldn't read usage — \(why)", locale: locale)
         case .stale, .ok:     return L10n.t("Waiting for the first reading…", locale: locale)

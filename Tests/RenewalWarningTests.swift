@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// The warning that says a saved login has aged out.
 ///

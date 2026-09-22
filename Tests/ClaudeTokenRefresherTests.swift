@@ -1,10 +1,10 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Which of the several `claude` binaries on a Mac is the right one.
 final class ClaudeCLITests: XCTestCase {
     /// The copy inside the desktop app keeps its token in the app's own store
-    /// and never writes the login keychain — the item Codenotch reads. Renewing
+    /// and never writes the login keychain — the item Khih reads. Renewing
     /// with it would look like it worked and change nothing at all, which is a
     /// far worse failure than finding no command.
     func testTheDesktopAppsOwnCopyIsRefused() {

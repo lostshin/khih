@@ -1,6 +1,6 @@
 import Foundation
 
-/// Which language Codenotch's own copy uses.
+/// Which language Khih's own copy uses.
 ///
 /// Follow System is the default. An explicit language
 /// choice exists because the Mac's language is not always the one the
@@ -42,7 +42,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case .system:
             return L10n.t("Matches the Mac's preferred language.")
         case .english, .traditionalChineseTaiwan:
-            return L10n.t("Codenotch uses this language even if the Mac does not.")
+            return L10n.t("Khih uses this language even if the Mac does not.")
         }
     }
 }

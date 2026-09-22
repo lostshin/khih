@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 final class SessionCompletionTests: XCTestCase {
     private func session(

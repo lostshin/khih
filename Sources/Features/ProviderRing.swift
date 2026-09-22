@@ -23,8 +23,8 @@ struct ProviderRing: View {
     var localPerformance: LocalModelPerformance?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.codenotchReduceTransparency) private var reduceTransparency
-    @Environment(\.codenotchAccentColor) private var accentColor
+    @Environment(\.khihReduceTransparency) private var reduceTransparency
+    @Environment(\.khihAccentColor) private var accentColor
     @State private var spin: Double = 0
     @State private var isPressed = false
 
@@ -141,7 +141,7 @@ private struct ActivityArc: View {
     let summary: ActivitySummary
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.codenotchReduceTransparency) private var reduceTransparency
+    @Environment(\.khihReduceTransparency) private var reduceTransparency
     @State private var spinning = false
     @State private var pulsing = false
 

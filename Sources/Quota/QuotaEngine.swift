@@ -1,15 +1,16 @@
 import Foundation
 
-/// Where a five-hour start came from. Both are explicit user actions — no
-/// automatic path may reach the five-hour window.
+/// The authorization source for a five-hour start.
 enum FiveHourTrigger: Equatable {
     case manual
     case scheduled
+    case automatic
 
     var label: String {
         switch self {
         case .manual:    return "手動"
         case .scheduled: return "預約"
+        case .automatic: return "自動守護"
         }
     }
 }
@@ -31,11 +32,15 @@ enum FiveHourRefusal: Equatable, CaseIterable {
     case alreadyRunning
     /// The command this provider is read through is not installed.
     case noBackend
+    case awaitingConfirmation
+    case inUse
 
     /// Written to the account's activity log, in the same wording the Rust
     /// engine used so that a log spanning both reads as one story.
     var activityMessage: String {
         switch self {
+        case .awaitingConfirmation: return "等待確認，暫停自動重送。"
+        case .inUse: return "這個帳號正在使用中；本次不送出自動請求。"
         case .noBaseline:         return "尚未建立 baseline；第一次觀測不會啟動 5 小時倒數。"
         case .accountUnconfirmed: return "無法確認登入帳號或帳號已改變；未啟動 5 小時倒數。"
         case .noUniqueWindow:     return "找不到唯一的 5 小時 window；未啟動倒數。"
@@ -95,6 +100,7 @@ enum CheckOutcome: Equatable {
     /// The user is actively running an agent on this account, so their own use
     /// will anchor the window without us spending anything.
     case skippedInUse
+    case awaitingFiveHourConfirmation
     /// The provider asked us to back off. The cached snapshot stands; this is
     /// **not** a completed check.
     case rateLimited(retryAt: Int64)
@@ -346,9 +352,11 @@ final class QuotaEngine {
 
         let fingerprint = backend.accountFingerprint(for: account)
         let incoming: RateLimitsSnapshot
+        let usedFallback: Bool
         do {
             let read = try readUsage(account: account, backend: backend, observedAt: moment)
             incoming = read.snapshot
+            usedFallback = read.usedFallback
             // Recognisable afterwards: a weekly transaction judged from the
             // command rather than the endpoint should not read as an ordinary
             // one when someone comes back to ask what happened.
@@ -399,6 +407,9 @@ final class QuotaEngine {
             }
         } else {
             current = Self.primeSnapshot(incoming)
+        }
+        if !usedFallback {
+            state.fiveHourStarter.observe(current.fiveHourWindow(for: provider))
         }
         try? activity(Self.formatSnapshot(current, provider: provider), for: account)
 
@@ -489,7 +500,10 @@ final class QuotaEngine {
             }
             // Standing aside costs nothing: the user's own request will anchor
             // the window, and this check runs again in five minutes.
-            if mode == .live, isAccountInUse(account) {
+            if mode == .live, state.fiveHourStarter.automaticAttemptAt != nil {
+                try? activity(FiveHourRefusal.awaitingConfirmation.activityMessage, for: account)
+                outcome = .awaitingFiveHourConfirmation
+            } else if mode == .live, isAccountInUse(account) {
                 try? activity("這個帳號正在使用中；本次不送出自動請求，等下次檢查。", for: account)
                 outcome = .skippedInUse
             } else if mode == .dryRun {
@@ -622,7 +636,7 @@ final class QuotaEngine {
         }
 
         if account.provider == .antigravity {
-            return .groups(try startAntigravity(account: account, backend: backend, cancelled: cancelled))
+            return .groups(try startAntigravity(account: account, backend: backend, trigger: trigger, cancelled: cancelled))
         }
         let provider = account.provider
         var state = storage.loadState(for: account)
@@ -642,6 +656,11 @@ final class QuotaEngine {
         // Gate 1: an account that has never observed itself has nothing to
         // compare against, and every other gate reads from that comparison.
         guard let previousSnapshot = state.snapshot else {
+            if trigger == .automatic, let fingerprint = backend.accountFingerprint(for: account) {
+                state.accountFingerprint = fingerprint
+                state.snapshot = incoming
+                try storage.saveState(state, for: account)
+            }
             try? activity(FiveHourRefusal.noBaseline.activityMessage, for: account)
             return .refused(.noBaseline)
         }
@@ -674,11 +693,35 @@ final class QuotaEngine {
             return try refuse(.unknownUsage,
                               account: account, state: &state, current: current)
         }
+        state.fiveHourStarter.observe(fiveHour)
         // Gate 5: the window is already ticking; another request buys nothing.
         guard !fiveHour.countdownActive else {
             return try refuse(.alreadyRunning,
                               account: account, state: &state, current: current)
         }
+
+        if trigger == .automatic {
+            if let weeklyPoke = state.weeklyKeeper.lastPoke,
+               weeklyPoke.at >= now() - Quota.fiveHourWindowMins * 60,
+               weeklyPoke.at >= (state.fiveHourStarter.confirmedResetAt ?? 0) {
+                state.fiveHourStarter.automaticAttemptAt = state.fiveHourStarter.automaticAttemptAt ?? weeklyPoke.at
+            }
+            if state.fiveHourStarter.automaticAttemptAt != nil {
+                return try refuse(.awaitingConfirmation, account: account, state: &state, current: current)
+            }
+            if isAccountInUse(account) {
+                return try refuse(.inUse, account: account, state: &state, current: current)
+            }
+            if let reset = state.fiveHourStarter.confirmedResetAt, reset > now() {
+                return try refuse(.alreadyRunning, account: account, state: &state, current: current)
+            }
+        }
+        // Explicit starts also block a following automatic attempt until a
+        // countdown is observed. Manual handling itself remains available.
+        if cancelled() { throw CodexError.cancelled }
+        state.fiveHourStarter.automaticAttemptAt = now()
+        state.snapshot = current
+        try storage.saveState(state, for: account)
 
         // The same request necessarily spends weekly quota too, so it anchors
         // the weekly window as well when that one has not started. Said out
@@ -714,6 +757,12 @@ final class QuotaEngine {
                 current.fiveHourWindow(for: provider)?.observedAt
         }
 
+        if verification.status != .unverified {
+            state.fiveHourStarter.observe(current.fiveHourWindow(for: provider))
+        }
+        if trigger == .automatic, state.fiveHourStarter.automaticAttemptAt != nil {
+            try? activity(FiveHourRefusal.awaitingConfirmation.activityMessage, for: account)
+        }
         let name = provider.displayName
         let message: String
         switch verification.status {

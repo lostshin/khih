@@ -1,6 +1,6 @@
 import SwiftUI
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 @MainActor
 final class AccessibilityTransparencyTests: XCTestCase {
@@ -17,18 +17,18 @@ final class AccessibilityTransparencyTests: XCTestCase {
 
     func testEnvironmentValueCanBeOverridden() {
         var values = EnvironmentValues()
-        XCTAssertFalse(values.codenotchReduceTransparency)
-        values.codenotchReduceTransparency = true
-        XCTAssertTrue(values.codenotchReduceTransparency)
+        XCTAssertFalse(values.khihReduceTransparency)
+        values.khihReduceTransparency = true
+        XCTAssertTrue(values.khihReduceTransparency)
     }
 
     func testProviderRingRendersUnderStandardAndReducedTransparency() throws {
         let normalRing = ProviderRing(usedFraction: 0.5, glyph: .claude)
-            .environment(\.codenotchReduceTransparency, false)
+            .environment(\.khihReduceTransparency, false)
             .frame(width: NotchLayout.ringDiameter, height: NotchLayout.ringDiameter)
 
         let reducedRing = ProviderRing(usedFraction: 0.5, glyph: .claude)
-            .environment(\.codenotchReduceTransparency, true)
+            .environment(\.khihReduceTransparency, true)
             .frame(width: NotchLayout.ringDiameter, height: NotchLayout.ringDiameter)
 
         let normalRenderer = ImageRenderer(content: normalRing)
@@ -49,7 +49,7 @@ final class AccessibilityTransparencyTests: XCTestCase {
             isBlocked: true,
             activity: ActivitySummary(sessions: [session("s1", .waiting)])
         )
-        .environment(\.codenotchReduceTransparency, true)
+        .environment(\.khihReduceTransparency, true)
         .frame(width: NotchLayout.ringDiameter, height: NotchLayout.ringDiameter)
 
         let renderer = ImageRenderer(content: staleExhaustedRing)
@@ -74,11 +74,11 @@ final class AccessibilityTransparencyTests: XCTestCase {
         ])
 
         let standardCard = TooltipCard(snapshot: snapshot, activity: activity, now: Date())
-            .environment(\.codenotchReduceTransparency, false)
+            .environment(\.khihReduceTransparency, false)
             .padding(10)
 
         let reducedCard = TooltipCard(snapshot: snapshot, activity: activity, now: Date())
-            .environment(\.codenotchReduceTransparency, true)
+            .environment(\.khihReduceTransparency, true)
             .padding(10)
 
         let standardRenderer = ImageRenderer(content: standardCard)
@@ -94,7 +94,6 @@ final class AccessibilityTransparencyTests: XCTestCase {
     func testSettingsViewRendersUnderReducedTransparency() throws {
         let defaults = UserDefaults(suiteName: "AccessibilityTransparencyTests.\(UUID().uuidString)")!
         let preferences = Preferences(defaults: defaults)
-        let updater = Updater()
 
         let view = SettingsView(
             preferences: preferences,
@@ -104,9 +103,9 @@ final class AccessibilityTransparencyTests: XCTestCase {
             switchAccount: { _ in false },
             retry: { _ in },
             resetPosition: {},
-            updater: updater
+            version: "1.7.0"
         )
-        .environment(\.codenotchReduceTransparency, true)
+        .environment(\.khihReduceTransparency, true)
         .frame(width: SettingsView.width, height: SettingsView.height)
 
         let renderer = ImageRenderer(content: view)

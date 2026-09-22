@@ -1,7 +1,7 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
-/// The rename from UsageNotch to Codenotch moved every setting into a new,
+/// The rename from UsageNotch to Khih moved every setting into a new,
 /// empty defaults domain — the migration is the difference between a rename
 /// and what looks like a reset, so it is pinned here. (Round-trip and
 /// first-launch basics live with the other PreferencesTests.)
@@ -18,6 +18,19 @@ final class PreferencesMigrationTests: XCTestCase {
         let old = UserDefaults(suiteName: name)!
         for (key, value) in values { old.set(value, forKey: key) }
         old.synchronize()
+    }
+
+    func testFiveHourKeeperDefaultsOffAndPersistsIndependently() {
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = Preferences(defaults: defaults)
+        XCTAssertFalse(preferences.fiveHourKeeperEnabled)
+        preferences.fiveHourKeeperEnabled = true
+        XCTAssertFalse(preferences.quotaKeeperEnabled)
+        let reloaded = Preferences(defaults: defaults)
+        XCTAssertTrue(reloaded.fiveHourKeeperEnabled)
+        reloaded.fiveHourKeeperEnabled = false
+        XCTAssertFalse(Preferences(defaults: defaults).fiveHourKeeperEnabled)
     }
 
     // MARK: Migration

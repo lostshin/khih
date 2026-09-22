@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// A second Claude Code login kept under `~/.claude-<slug>` is its own account,
 /// with its own token, its own limits and its own sessions. Reading only

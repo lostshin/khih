@@ -31,7 +31,7 @@ actor GitHubCopilotProvider: UsageProvider {
         request.setValue("Bearer \(credentials.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-        request.setValue("Codenotch", forHTTPHeaderField: "User-Agent")
+        request.setValue("Khih", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 15
 
         let (data, response) = try await session.data(for: request)

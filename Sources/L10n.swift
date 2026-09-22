@@ -36,7 +36,7 @@ enum L10n {
         let isTest = NSClassFromString("XCTestCase") != nil
 
         // Under XCTest the host *is* the app, so the production store here is
-        // the preferences of the installed copy of Codenotch. Choosing Chinese
+        // the preferences of the installed copy of Khih. Choosing Chinese
         // in Settings would otherwise decide what a hundred copy assertions
         // compare against — which it did, twice, mid-session. A test that
         // means to exercise the override injects its own store and is

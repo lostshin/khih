@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 @MainActor
 final class StatusMenuTests: XCTestCase {
@@ -78,7 +78,7 @@ final class StatusMenuTests: XCTestCase {
         XCTAssertTrue(titles[1].contains("29% Used · 71% left"), titles[1])
         XCTAssertTrue(titles.contains("Refresh all"))
         XCTAssertTrue(titles.contains("Settings…"))
-        XCTAssertTrue(titles.contains("Quit Codenotch"))
+        XCTAssertTrue(titles.contains("Quit Khih"))
         // The header re-reads its own provider.
         XCTAssertEqual(menu.items[0].representedObject as? String, "codex")
     }

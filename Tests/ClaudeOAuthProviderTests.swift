@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// The token path of `ClaudeOAuthProvider`.
 ///
@@ -116,6 +116,8 @@ final class ClaudeOAuthProviderTests: XCTestCase {
                                     readUserAgent: { XCTFail("Must not resolve CLI version"); return nil })
         do { _ = try await provider.fetchSnapshot(); XCTFail("Expected cooldown") }
         catch UsageProviderError.rateLimited(let delay) { XCTAssertEqual(delay, 900) }
+        do { _ = try await provider.fetchSnapshotAfterReconnect(); XCTFail("Expected cooldown after reconnect") }
+        catch UsageProviderError.rateLimited(let delay) { XCTAssertEqual(delay, 900) }
         XCTAssertEqual(source.reads, 0)
         XCTAssertEqual(cliCalls.value, 0)
         XCTAssertEqual(StubEndpoint.requestCount, 0)
@@ -157,7 +159,7 @@ final class ClaudeOAuthProviderTests: XCTestCase {
     // MARK: - The user agent
 
     /// Not the first request — *every* request. The endpoint answers a
-    /// Codenotch-shaped user agent from a far stricter bucket, and one call in
+    /// Khih-shaped user agent from a far stricter bucket, and one call in
     /// ten missing the header is enough to sit in a 429 for hours.
     func testEveryRequestCarriesClaudeCodesUserAgent() async throws {
         StubEndpoint.reset([
@@ -264,6 +266,16 @@ final class ClaudeOAuthProviderTests: XCTestCase {
         _ = try await provider.fetchSnapshot()
 
         XCTAssertEqual(spawns.value, 1, "the CLI was spawned again inside its own interval")
+    }
+
+    func testReconnectDiscardsCLIReadingCache() async throws {
+        let spawns = Counter()
+        let provider = makeProvider(source: CredentialSource(readable: true),
+                                    cli: Self.cli { spawns.increment(); return Self.cliUsage })
+        _ = try await provider.fetchSnapshot()
+        _ = try await provider.fetchSnapshotAfterReconnect()
+        XCTAssertEqual(spawns.value, 2)
+        XCTAssertEqual(StubEndpoint.requestCount, 0)
     }
 
     /// And it is asked again once the interval has passed, or the ring would

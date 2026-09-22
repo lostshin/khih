@@ -967,7 +967,7 @@ final class NotchWindowController {
         keepOpen.state = model.staysOpen ? .on : .off
         keepOpen.isEnabled = !model.isAlwaysOn
         keepOpen.toolTip = model.isAlwaysOn
-            ? L10n.t("Codenotch is set to Always show. Change it in Settings.")
+            ? L10n.t("Khih is set to Always show. Change it in Settings.")
             : nil
         menu.addItem(keepOpen)
         menu.addItem(.separator())
@@ -1016,7 +1016,7 @@ final class NotchWindowController {
 
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: L10n.t("Quit Codenotch"),
+            withTitle: L10n.t("Quit Khih"),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         ).isEnabled = true

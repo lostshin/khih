@@ -89,7 +89,7 @@ private struct VisualEffect: NSViewRepresentable {
     }
 
     private func apply(to view: NSVisualEffectView, context: Context) {
-        if context.environment.codenotchReduceTransparency {
+        if context.environment.khihReduceTransparency {
             view.material = .windowBackground
             view.blendingMode = .withinWindow
         } else {
@@ -168,13 +168,14 @@ struct SettingsView: View {
     /// nothing would tell the notch to move, and the setting would only take
     /// effect the next time the edge changed.
     let resetPosition: () -> Void
-    @ObservedObject var updater: Updater
+    /// The running bundle's marketing version, shown beside the login row.
+    let version: String
     var ollamaRelay: OllamaActivityRelay? = nil
     var usageStore: UsageStore? = nil
     /// Absent when there is no quota engine — no `codex` binary, or no managed
     /// accounts. The rows show no five-hour button in that case.
     var quota: QuotaController? = nil
-    @Environment(\.codenotchReduceTransparency) private var reduceTransparency
+    @Environment(\.khihReduceTransparency) private var reduceTransparency
 
     var body: some View {
         // A plain HStack rather than `NavigationSplitView`: the sidebar here
@@ -209,7 +210,7 @@ struct SettingsView: View {
         // the bug and no way to notice.
         .id(preferences.language)
         .tint(preferences.accentColor.color)
-        .environment(\.codenotchAccentColor, preferences.accentColor.color)
+        .environment(\.khihAccentColor, preferences.accentColor.color)
         // Fills the window rather than claiming a fixed size. Under
         // `fullSizeContentView` the content view is the whole frame — title
         // bar included — so a view sized to `SettingsView.height` left the
@@ -509,7 +510,9 @@ struct SettingsView: View {
             // are read through a single system-wide login.
             if let quota {
                 AddCodexAccountSection(quota: quota, onAdded: refreshVisibleState)
-                FiveHourScheduleSection(quota: quota, schedule: quota.schedule)
+                FiveHourScheduleSection(quota: quota, schedule: quota.schedule,
+                                        names: Dictionary(accounts.map { ($0.id, $0.name) },
+                                                          uniquingKeysWith: { first, _ in first }))
             }
         }
         .formStyle(.grouped)
@@ -518,9 +521,9 @@ struct SettingsView: View {
         .animation(.snappy(duration: 0.25), value: preferences.disconnectedProviders)
     }
 
-    // One pane, because they are one question: what Codenotch looks like and
+    // One pane, because they are one question: what Khih looks like and
     // where it turns up. Split across several it read as unrelated settings,
-    // and "Where Codenotch appears" was a header long enough to look like a
+    // and "Where Khih appears" was a header long enough to look like a
     // warning.
     var appearancePane: some View {
         Form {
@@ -733,7 +736,7 @@ struct SettingsView: View {
                 SoundRow(label: L10n.t("Waiting on you"), name: $preferences.sessionBlockedSoundName,
                          pickerEnabled: preferences.sessionEndSound)
 
-                Text(L10n.t("Codenotch already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead."))
+                Text(L10n.t("Khih already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -758,7 +761,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
     }
 
-    // Startup and updates together: both are about what Codenotch does
+    // Startup and updates together: both are about what Khih does
     // without being asked, and one switch under its own header looked
     // like an oversight rather than a section.
     private var generalPane: some View {
@@ -766,7 +769,7 @@ struct SettingsView: View {
             // No title on the group: the pane's own header above already
             // says "General", and repeating it here would say it twice.
             Section {
-                Toggle(L10n.t("Open Codenotch at login"), isOn: $preferences.launchAtLogin)
+                Toggle(L10n.t("Open Khih at login"), isOn: $preferences.launchAtLogin)
                 if let problem = preferences.launchAtLoginProblem {
                     Text(problem)
                         .font(.caption)
@@ -774,45 +777,26 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Toggle(L10n.t("Install updates automatically"), isOn: Binding(
-                    get: { updater.automatic },
-                    set: { updater.automatic = $0 }
-                ))
+                // The version, and the fact that nothing will change it on
+                // its own. Upstream updates itself through Sparkle; this fork
+                // has neither their appcast nor their signing key, so saying
+                // so here is more use than a switch that could never work.
+                Text(L10n.t("Version \(version). This build does not update itself — rebuild from source."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    // Disclosed rather than merely silent. An app that updates
-                    // itself unprompted *and* reads other apps' credentials is
-                    // exactly the shape security tooling flags; saying so, with
-                    // a way to switch it off, is the difference between a
-                    // background updater and something that looks like it is
-                    // hiding.
-                    Text(L10n.t("Version \(updater.currentVersion). Updates install in the background and apply next time Codenotch starts."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                    Button(L10n.t("Check now")) { updater.checkNow() }
-                        .controlSize(.small)
-                }
+                // Unattended requests are independently opt-in and explain their cost.
+                Toggle(L10n.t("Keep five-hour windows alive"),
+                       isOn: $preferences.fiveHourKeeperEnabled)
+                Text(L10n.t("Automatically starts idle five-hour windows for enabled accounts and checks again when they expire. Each minimal request spends a little quota and may also start the weekly countdown. Unconfirmed requests pause automatic resending. Runs only while Khih is awake and open."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                // Says what happened, where the user is already looking.
-                // Sparkle's own answer to a failed check is a modal reading
-                // "an error occurred in retrieving update information", which
-                // names no cause and offers nothing to do about it.
-                if let message = updater.outcome.message {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(
-                            updater.outcome == .unreachable ? .orange : .secondary
-                        )
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                // The only unattended behaviour here that spends anything, so
-                // it is off until asked for and says what it costs.
                 Toggle(L10n.t("Keep weekly windows alive"),
                        isOn: $preferences.quotaKeeperEnabled)
-                Text(L10n.t("When a weekly limit resets, Codenotch sends one small request to start the new countdown, so an allowance is not left unclaimed while you are away. It spends a little of that allowance to do it, stands aside whenever you are already working on the account, and never touches an account it cannot confirm."))
+                Text(L10n.t("When a weekly limit resets, Khih sends one small request to start the new countdown, so an allowance is not left unclaimed while you are away. It spends a little of that allowance to do it, stands aside whenever you are already working on the account, and never touches an account it cannot confirm."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -824,7 +808,11 @@ struct SettingsView: View {
             // what an unrelated pane earns for it.
             Section {
                 HStack(spacing: 4) {
-                    Text(L10n.t("App designed and developed by"))
+                    // Upstream's credit, kept and made accurate. Left as
+                    // "designed and developed by" it would have claimed this
+                    // fork's changes for someone who did not make them, and
+                    // dropped it would have taken the credit for theirs.
+                    Text(L10n.t("Forked from Codenotch by"))
                     Link("@hivinz_", destination: SettingsView.authorURL)
                         .foregroundStyle(authorLinkHovered
                                          ? preferences.accentColor.color : .primary)
@@ -855,7 +843,7 @@ struct SettingsView: View {
             if let display = displays.first(where: { $0.id == id }) {
                 return L10n.t("Pinned to \(display.name).")
             }
-            return L10n.t("That display is disconnected. Codenotch follows the active window until it returns.")
+            return L10n.t("That display is disconnected. Khih follows the active window until it returns.")
         }
     }
 
@@ -930,7 +918,7 @@ struct SettingsView: View {
     /// this, sees four blank rings and concludes it is broken — and the
     /// distinction that catches them out is Claude *Code*, not the Claude app.
     static var setupCopy: String {
-        L10n.t("Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.")
+        L10n.t("Khih reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.")
     }
 
     /// Said before it happens rather than after. A system dialogue asking to
@@ -990,7 +978,7 @@ struct SettingsView: View {
 
     /// Beside the switches it explains, not stranded at the end of the page.
     private var connectedFooter: some View {
-        Text(L10n.t("Codenotch never signs in — each reading is borrowed from the tool that already holds the account. Signing out here stops the credential being read and forgets the numbers, but leaves you signed in to that tool. macOS asks once per tool the first time, and again whenever you sign in to a different account; Always Allow keeps it quiet."))
+        Text(L10n.t("Khih never signs in — each reading is borrowed from the tool that already holds the account. Signing out here stops the credential being read and forgets the numbers, but leaves you signed in to that tool. macOS asks once per tool the first time, and again whenever you sign in to a different account; Always Allow keeps it quiet."))
             .font(.caption)
             .foregroundStyle(.tertiary)
             .fixedSize(horizontal: false, vertical: true)
@@ -1080,7 +1068,7 @@ private struct AccentColorSwatch: View {
     let isSelected: Bool
     let select: () -> Void
 
-    @Environment(\.codenotchReduceTransparency) private var reduceTransparency
+    @Environment(\.khihReduceTransparency) private var reduceTransparency
 
     var body: some View {
         Button(action: select) {
@@ -1112,7 +1100,7 @@ private struct AccentColorSwatch: View {
     }
 }
 
-/// One provider: whether Codenotch reads it, whose account that is, and where
+/// One provider: whether Khih reads it, whose account that is, and where
 /// to go if there is nothing to read.
 /// One sound choice, with a preview button.
 private struct SoundRow: View {
@@ -1175,7 +1163,7 @@ private struct AccountRow: View {
     /// now belongs. The row itself cannot: it can see only itself.
     let didConnect: () -> Void
 
-    @Environment(\.codenotchReduceTransparency) private var reduceTransparency
+    @Environment(\.khihReduceTransparency) private var reduceTransparency
 
     /// The handle only appears under the pointer, so a row at rest stays as
     /// quiet as it was before there was anything to drag.
@@ -1306,6 +1294,11 @@ private struct AccountRow: View {
                 // before the switch so it reads as the row's heaviest action,
                 // and shown only for accounts the engine actually manages.
                 if isConnected, let quota, quota.canStartFiveHour(provider.id) {
+                    // Only accounts the engine owns can be renamed: everything
+                    // else is named by the tool it is read from, and there is
+                    // nowhere to keep a different answer.
+                    RenameAccountButton(quota: quota, providerID: provider.id,
+                                        current: provider.name)
                     ManualCheckButton(quota: quota, providerID: provider.id)
                     FiveHourButton(quota: quota, providerID: provider.id)
                 }
@@ -1467,6 +1460,9 @@ private struct AccountRow: View {
     private var accountDetail: some View {
         if isConnected, let quota, quota.canStartFiveHour(provider.id) {
             FiveHourReport(quota: quota, providerID: provider.id)
+            if let account = quota.account(forProviderID: provider.id) {
+                FiveHourScheduleRow(schedule: quota.schedule, accountID: account.id)
+            }
         }
         if let model = provider.localModel {
             Text(isConnected ? L10n.t("\(model.memoryText) \(model.memoryLabel) · via Ollama")
@@ -1497,7 +1493,7 @@ private struct AccountRow: View {
             // Not a sign-in problem, so do not send them off to sign in. The
             // credential is right there and macOS is the one saying no — the
             // remedy is the button on this same row.
-            Text(provider.id == "claude" ? L10n.t("Claude sign-in access is unavailable. Allow access in Settings to update usage.") : L10n.t("macOS is not letting Codenotch read \(provider.name)'s saved login. Choose Allow access… above, then Always Allow."))
+            Text(provider.id == "claude" ? L10n.t("Claude sign-in access is unavailable. Allow access in Settings to update usage.") : L10n.t("macOS is not letting Khih read \(provider.name)'s saved login. Choose Allow access… above, then Always Allow."))
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
         } else {

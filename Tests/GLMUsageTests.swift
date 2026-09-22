@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Guards the shape of `GET /api/monitor/usage/quota/limit`. It is not a
 /// published API, so these are the tests that will fail first if Z.ai changes

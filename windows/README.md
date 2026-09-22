@@ -1,6 +1,6 @@
-# Codenotch for Windows
+# Khih for Windows
 
-A Windows port of [Codenotch](https://github.com/vinzdg/codenotch) — the usage notch that
+A Windows port of [Khih](https://github.com/lostshin/khih) — the usage notch that
 sits on the edge of your screen and answers two questions at a glance:
 **how much of my AI allowance is left**, and **is Claude still working**.
 
@@ -27,39 +27,39 @@ Prerequisites: Rust (MSVC toolchain), WebView2 runtime (ships with Windows 11).
 ```powershell
 # from this directory (the repo root here; `windows/` inside the upstream repo)
 cargo build --release
-.\target\release\codenotch.exe          # pill appears on the right edge of the primary monitor
-.\target\release\codenotch.exe doctor   # self-diagnosis: credentials, data sources, icons, hooks
+.\target\release\khih.exe          # pill appears on the right edge of the primary monitor
+.\target\release\khih.exe doctor   # self-diagnosis: credentials, data sources, icons, hooks
 ```
 
-Tray menu: refresh now, reset position, open data folder (`%APPDATA%\codenotch` — logs,
+Tray menu: refresh now, reset position, open data folder (`%APPDATA%\khih` — logs,
 persisted readings, icon overrides), start with Windows, install/uninstall Claude Code hooks.
 
 ### Icons
 
 Provider marks are the SVGs from [`@lobehub/icons-static-svg`](https://github.com/lobehub/lobe-icons)
-(MIT), embedded unmodified — see `codenotch/glyphs/NOTICE.md`. Drop your own
-`claude|codex|cursor|gemini.svg` (or `.png`) into `%APPDATA%\codenotch\glyphs\` to override.
+(MIT), embedded unmodified — see `khih/glyphs/NOTICE.md`. Drop your own
+`claude|codex|cursor|gemini.svg` (or `.png`) into `%APPDATA%\khih\glyphs\` to override.
 The marks remain the trademarks of their owners.
 
 ## Layout
 
 ```
 .
-├── codenotch/          Tauri 2 app: window, tray, providers (usage.rs, codex.rs, cursor.rs, antigravity.rs),
+├── khih/          Tauri 2 app: window, tray, providers (usage.rs, codex.rs, cursor.rs, antigravity.rs),
 │   ├── src/            session engine (watcher.rs, state.rs, focus.rs), glyphs.rs, doctor.rs
 │   ├── ui/notch.html   the pill + hover card (single file, no framework)
 │   └── glyphs/         provider marks (+ NOTICE.md)
-└── codenotch-hook/     <5 ms hook messenger Claude Code calls; forwards events to the app
+└── khih-hook/     <5 ms hook messenger Claude Code calls; forwards events to the app
 ```
 
 ## Relationship to upstream
 
 This port follows the upstream design spec (`docs/specs/2026-08-28-usage-notch-design.md`)
 and provider semantics. It is developed at
-[Im-Midi/codenotch-windows](https://github.com/Im-Midi/codenotch-windows) and offered to the
+[Im-Midi/khih-windows](https://github.com/Im-Midi/khih-windows) and offered to the
 upstream project as its `windows/` tree; the two are kept in sync. The session-detection engine
 originated in [Im-Midi/Pac-Man](https://github.com/Im-Midi/Pac-Man) (MIT).
 
 ## License
 
-MIT — see `LICENSE`. The Codenotch design and name belong to the upstream author.
+MIT — see `LICENSE`. The Khih design and name belong to the upstream author.

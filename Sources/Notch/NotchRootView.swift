@@ -92,7 +92,7 @@ struct NotchRootView: View {
         }
         .animation(motion(NotchMotion.unfold), value: model.isExpanded)
         .tint(model.accentColor.color)
-        .environment(\.codenotchAccentColor, model.accentColor.color)
+        .environment(\.khihAccentColor, model.accentColor.color)
         .environment(\.quotaDetailsShowRemaining, model.detailsShowRemaining)
     }
 

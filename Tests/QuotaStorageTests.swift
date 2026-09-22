@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Storage is where the safety invariants meet the disk. Every test here runs
 /// against a temporary directory — none of them may touch the real
@@ -116,11 +116,42 @@ final class QuotaStorageTests: XCTestCase {
     // MARK: - Settings
 
     func testSettingsRoundTripAndClearTheSchedule() throws {
-        try storage.saveSettings(QuotaSettings(version: 1, fiveHourStartAt: 1_786_000_000))
-        XCTAssertEqual(storage.loadSettings().fiveHourStartAt, 1_786_000_000)
+        try storage.saveSettings(QuotaSettings(version: 1,
+                                               fiveHourStartAt: ["account-1": 1_786_000_000,
+                                                                 "account-2": 1_786_003_600]))
+        XCTAssertEqual(storage.loadSettings().fiveHourStartAt,
+                       ["account-1": 1_786_000_000, "account-2": 1_786_003_600])
 
-        try storage.saveSettings(QuotaSettings(version: 1, fiveHourStartAt: nil))
-        XCTAssertNil(storage.loadSettings().fiveHourStartAt)
+        try storage.saveSettings(QuotaSettings(version: 1, fiveHourStartAt: [:]))
+        XCTAssertEqual(storage.loadSettings().fiveHourStartAt, [:])
+    }
+
+    /// The name on screen is stored beside the account rather than replacing
+    /// its label, and clearing it puts the provider's own name back.
+    func testRenameStoresAndClearsTheDisplayNameWithoutTouchingTheLabel() throws {
+        let account = try storage.createAccount(label: "personal@example.com", provider: .claude)
+        XCTAssertNil(account.displayName)
+
+        let renamed = try storage.renameAccount(account.id, to: "  Work Claude  ")
+        XCTAssertEqual(renamed?.displayName, "Work Claude")
+        XCTAssertEqual(renamed?.label, "personal@example.com")
+        XCTAssertEqual(storage.loadAccounts().accounts.first?.displayName, "Work Claude")
+
+        // A name of nothing but spaces is not a name.
+        XCTAssertNil(try storage.renameAccount(account.id, to: "   ")?.displayName)
+        XCTAssertNil(try storage.renameAccount(account.id, to: nil)?.displayName)
+        XCTAssertEqual(storage.loadAccounts().accounts.first?.label, "personal@example.com")
+        XCTAssertNil(try storage.renameAccount("account-nobody", to: "x"))
+    }
+
+    /// Older files have no such field, and gain nothing when they are written
+    /// back: the ring keeps calling the account whatever it called it before.
+    func testAccountsFileWithoutADisplayNameDecodesAndReencodesWithoutOne() throws {
+        let json = #"{"version":1,"accounts":[{"id":"account-1","label":"A","provider":"codex","codexHome":"/x","stateDir":"/y","enabled":true}]}"#
+        let file = try JSONDecoder().decode(QuotaAccountsFile.self, from: Data(json.utf8))
+        XCTAssertNil(file.accounts[0].displayName)
+        let written = String(decoding: try JSONEncoder().encode(file), as: UTF8.self)
+        XCTAssertFalse(written.contains("displayName"))
     }
 
     // MARK: - Activity log

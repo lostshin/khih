@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Translated from the Rust engine's own suite (`src/domain.rs`, `mod tests`).
 ///

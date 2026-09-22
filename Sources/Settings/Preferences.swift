@@ -11,6 +11,7 @@ final class Preferences: ObservableObject {
     /// replacing — two keepers running against one account would pay for the
     /// same reset twice. Opting in is how that stays the user's decision.
     static let quotaKeeperEnabledKey = "quotaKeeperEnabled"
+    static let fiveHourKeeperEnabledKey = "fiveHourKeeperEnabled"
 
     /// Disabled model IDs hide cells without stopping their shared runtime.
     @Published var disconnectedProviders: Set<String> {
@@ -143,6 +144,11 @@ final class Preferences: ObservableObject {
     }
 
 
+
+    /// Whether the five-hour keeper may send its own requests.
+    @Published var fiveHourKeeperEnabled: Bool {
+        didSet { defaults.set(fiveHourKeeperEnabled, forKey: Self.fiveHourKeeperEnabledKey) }
+    }
 
     /// Whether the weekly keeper may send its own requests.
     @Published var quotaKeeperEnabled: Bool {
@@ -299,14 +305,14 @@ final class Preferences: ObservableObject {
     /// at all.
     let isFirstLaunch: Bool
 
-    /// The bundle identifier before the app was renamed to Codenotch.
+    /// The bundle identifier before the app was renamed to Khih.
     ///
     /// A bundle id is the name of the defaults domain, so renaming the app
     /// silently moved every setting to a new, empty one — connection choices,
     /// the notch's mode, the archived readings, all apparently lost. Copying
     /// the old domain across once is the difference between a rename and what
     /// looks like a reset.
-    private static let previousDomain = "com.vinz.usagenotch"
+    private static let previousDomain = "com.vinz.codenotch"
 
     static func migrateFromPreviousName(into defaults: UserDefaults = .standard,
                                         from domain: String = previousDomain) {
@@ -386,13 +392,14 @@ final class Preferences: ObservableObject {
             .flatMap(ResetTimeFormat.init(rawValue:)) ?? .automatic
         // `bool(forKey:)` is false for a key that was never written, which is
         // the default we want here.
+        self.fiveHourKeeperEnabled = defaults.bool(forKey: Self.fiveHourKeeperEnabledKey)
         self.quotaKeeperEnabled = defaults.bool(forKey: Self.quotaKeeperEnabledKey)
         // Absent means never chosen. Main display only, because that is what a
         // single-panel setup always did — all-displays on a fresh install
         // would put notches where none were expected.
         self.notchScope = defaults.string(forKey: Keys.scope)
             .flatMap(NotchScreenScope.init(rawValue:)) ?? .mainDisplay
-        // Follow the Mac unless the user explicitly chooses a Codenotch colour.
+        // Follow the Mac unless the user explicitly chooses a Khih colour.
         self.accentColor = defaults.string(forKey: Keys.accentColor)
             .flatMap(AccentColorChoice.init(rawValue:)) ?? .system
         // Absent means never chosen, which is follow-the-Mac.
@@ -467,7 +474,7 @@ final class Preferences: ObservableObject {
     /// update, and wiping data on every Sparkle update would be catastrophic.
     /// It has to be something the user asks for.
     static func eraseAllData() {
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.vinz.codenotch"
+        let bundleID = Bundle.main.bundleIdentifier ?? "tw.lokun.khih"
         UserDefaults.standard.removePersistentDomain(forName: bundleID)
         UserDefaults.standard.synchronize()
 
@@ -501,7 +508,7 @@ final class Preferences: ObservableObject {
             // Commonly refused for an app running from a build directory rather
             // than /Applications, which is worth saying plainly.
             Log.usage.error("launch at login failed: \(error.localizedDescription, privacy: .public)")
-            launchAtLoginProblem = L10n.t("macOS refused this — try moving Codenotch to /Applications.")
+            launchAtLoginProblem = L10n.t("macOS refused this — try moving Khih to /Applications.")
             launchAtLogin = Self.isRegisteredForLogin
         }
     }

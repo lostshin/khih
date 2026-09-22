@@ -8,8 +8,8 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-PROJECT := Codenotch.xcodeproj
-SCHEME  := Codenotch
+PROJECT := Khih.xcodeproj
+SCHEME  := Khih
 ARCH    ?= $(shell uname -m)
 DEST    ?= platform=macOS,arch=$(ARCH)
 
@@ -24,7 +24,7 @@ DEST    ?= platform=macOS,arch=$(ARCH)
 # `grep`, not `grep -c`: `-c` prints "0" rather than nothing when it matches
 # nothing, so `ifeq (,...)` was never true and a machine *without* the
 # certificate fell through to signing with an identity it does not have —
-# "Signing for Codenotch requires a development team", on every target.
+# "Signing for Khih requires a development team", on every target.
 HAS_DEVELOPER_ID := $(shell security find-identity -v -p codesigning 2>/dev/null | grep "Developer ID Application")
 
 # A personal "Apple Development" certificate, where there is one, is preferred
@@ -70,8 +70,8 @@ test-ci: gen
 run: build
 	@APP=$$(xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DEST)' \
 		-configuration Debug -showBuildSettings 2>/dev/null \
-		| awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $$2; exit}')/Codenotch.app; \
-	pkill -x Codenotch || true; \
+		| awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $$2; exit}')/Khih.app; \
+	pkill -x Khih || true; \
 	open "$$APP"
 
 # Build a Release .app, sign it with whatever identity is available (Developer
@@ -79,18 +79,18 @@ run: build
 # and copy it to /Applications. For a contributor who wants a permanent copy
 # without the notarized release path. Gatekeeper may ask for a one-time
 # right-click → Open on the first launch when the build is not Developer ID
-# signed. The app embeds Sparkle, and macOS rejects a bundle whose framework
-# and binary carry different Team IDs, so the whole bundle is signed with one
-# identity rather than left unsigned.
+# signed. The app embeds Swift runtime libraries, and macOS rejects a bundle
+# whose embedded code and binary carry different Team IDs, so the whole bundle
+# is signed with one identity rather than left unsigned.
 install: gen
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DEST)' \
 		-configuration Release $(DEV_SIGN) build
 	@APP=$$(xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DEST)' \
 		-configuration Release -showBuildSettings 2>/dev/null \
-		| awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $$2; exit}')/Codenotch.app; \
-	pkill -x Codenotch || true; \
+		| awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $$2; exit}')/Khih.app; \
+	pkill -x Khih || true; \
 	cp -R "$$APP" /Applications/; \
-	open /Applications/Codenotch.app
+	open /Applications/Khih.app
 
 clean:
 	rm -rf build DerivedData $(PROJECT)
@@ -101,19 +101,25 @@ clean:
 #
 # One-time setup, which you have to run yourself because it takes a password:
 #
-#   xcrun notarytool store-credentials UsageNotch \
-#       --apple-id <your-apple-id> --team-id 6WFPL8B9FB --password <app-specific-password>
+#   xcrun notarytool store-credentials $(NOTARY_PROFILE) \
+#       --apple-id <your-apple-id> --team-id $(TEAM_ID) --password <app-specific-password>
 #
 # The app-specific password comes from appleid.apple.com → Sign-In and Security
 # → App-Specific Passwords. Not your Apple ID password.
 
 RELEASE_DIR := build/release
-APP_NAME    := Codenotch
+APP_NAME    := Khih
+# Your own Apple Developer team, for Developer ID distribution. Empty by
+# default: the id that used to be hardcoded here is the upstream project's, and
+# this fork has neither their certificate nor any business signing as them.
+# Left empty, `-exportArchive` fails with a team-id error rather than quietly
+# producing something mis-signed. Everything below `archive` needs it;
+# `make build-ci` does not.
+TEAM_ID     ?=
 # The label of the stored notarytool credential in the login keychain, not
-# anything to do with the app's name — it was created before the rename and
-# renaming the variable is what broke `make release` after it. Recreating it
-# needs an app-specific password, so the label simply stays as it is.
-NOTARY_PROFILE := UsageNotch
+# anything to do with the app's name. Whatever you passed to
+# `notarytool store-credentials` above is what belongs here.
+NOTARY_PROFILE ?= Khih
 DMG := $(RELEASE_DIR)/$(APP_NAME).dmg
 
 .PHONY: archive dmg notarize release verify-release publish
@@ -125,7 +131,7 @@ archive: gen
 	rm -rf $(RELEASE_DIR)
 	mkdir -p $(RELEASE_DIR)
 	@# Spotlight indexes build output as installed applications, so every
-	@# release leaves extra "Codenotch" entries in app search next to the
+	@# release leaves extra "Khih" entries in app search next to the
 	@# real one in /Applications. This stops the whole tree being indexed.
 	@touch build/.metadata_never_index
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DEST)' \
@@ -135,7 +141,7 @@ archive: gen
 		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
 		'<plist version="1.0"><dict>' \
 		'<key>method</key><string>developer-id</string>' \
-		'<key>teamID</key><string>6WFPL8B9FB</string>' \
+		'<key>teamID</key><string>$(TEAM_ID)</string>' \
 		'<key>signingStyle</key><string>manual</string>' \
 		'<key>signingCertificate</key><string>Developer ID Application</string>' \
 		'</dict></plist>' > $(RELEASE_DIR)/ExportOptions.plist
@@ -156,8 +162,8 @@ dmg: archive
 		-ov -format UDZO $(DMG)
 	codesign --force --sign "Developer ID Application" --timestamp $(DMG)
 	@# The app is inside the dmg now. Leaving the loose copies around is how
-	@# three spare "Codenotch" entries end up in Spotlight; everything
-	@# downstream (notarize, verify, appcast) works from the dmg alone.
+	@# three spare "Khih" entries end up in Spotlight; everything
+	@# downstream (notarize, verify) works from the dmg alone.
 	rm -rf $(RELEASE_DIR)/stage $(RELEASE_DIR)/$(APP_NAME).app
 
 # Submits and waits. `--wait` blocks until Apple answers, which is usually a
@@ -166,45 +172,13 @@ notarize: dmg
 	xcrun notarytool submit $(DMG) --keychain-profile $(NOTARY_PROFILE) --wait
 	xcrun stapler staple $(DMG)
 
-# Sparkle ships its tools inside the resolved package artifacts.
-SPARKLE_BIN = $(shell dirname $$(find $$HOME/Library/Developer/Xcode/DerivedData/Codenotch-*/SourcePackages/artifacts/sparkle -name generate_appcast 2>/dev/null | head -1))
-
-# The feed customers' copies poll. Signs each update with the EdDSA private key
-# in the login keychain — Sparkle installs nothing that key did not sign, so a
-# compromised host cannot push code.
-#
-# Writes into docs/, which GitHub Pages serves. The dmg goes there too, so the
-# URL the appcast advertises is the one the file actually sits at — a mismatch
-# is the usual reason an update downloads and then fails to verify.
-# NOT docs/ — that holds the design frames and specs, and GitHub Pages serves
-# whatever it is pointed at. Publishing from there would put the whole design
-# history on the public web alongside the download.
-PAGES_DIR := site
-# Where the dmg actually sits. The enclosure URL the appcast advertises has to
-# match it exactly, or an update downloads and then fails to verify.
-DOWNLOAD_PREFIX := https://hivinz.com/
-
-appcast: $(DMG)
-	@test -n "$(SPARKLE_BIN)" || (echo "Sparkle tools not found — run make build first" && exit 1)
-	mkdir -p $(PAGES_DIR)
-	@# Rebuilt from what is actually in the folder, never merged into the old
-	@# one. The dmg keeps a constant name, so only one build can exist at a
-	@# time — but generate_appcast preserves entries it already knows, and left
-	@# the previous version advertised at a URL now serving a different file,
-	@# with a signature that could never verify.
-	rm -f $(PAGES_DIR)/appcast.xml
-	cp $(DMG) $(PAGES_DIR)/
-	$(SPARKLE_BIN)/generate_appcast $(PAGES_DIR) --download-url-prefix $(DOWNLOAD_PREFIX)
-	@echo "Publish by committing $(PAGES_DIR)/ and pushing."
-
-release: notarize verify-release appcast
+release: notarize verify-release
 	@echo "Notarized: $(DMG)"
 
 # The GitHub release page is where someone who has never installed the app
-# looks first; the appcast feed is only ever read by copies already running.
-# The same notarized dmg belongs in both, and until it was in both the release
-# pages carried no assets at all — leaving a full Xcode install as the only way
-# to try the app.
+# looks first, and since this fork has no update feed it is the only place a
+# built copy is ever offered — until the dmg was attached there, a full Xcode
+# install was the only way to try the app.
 #
 # Deliberately not part of `release`: every other target here is local, and
 # this one writes to the remote. Run it once `make release` has finished and
@@ -236,8 +210,8 @@ verify-release:
 #
 # Ad-hoc rather than unsigned: an arm64 binary carrying no signature at all will
 # not execute, and the bundle needs one coherent signature across the app and
-# the Sparkle framework inside it or Gatekeeper rejects the whole thing before
-# it ever offers an "Open Anyway".
+# the Swift runtime libraries inside it or Gatekeeper rejects the whole thing
+# before it ever offers an "Open Anyway".
 #
 # Why this is not how releases ship, and what someone running one gives up: the
 # ad-hoc identity is regenerated on every build, so the download is not
@@ -262,21 +236,21 @@ build-ci: gen
 	rm -rf $(CI_DIR)
 	mkdir -p $(CI_DIR)
 	@# Same reason as `archive`: without this, every build leaves spare
-	@# "Codenotch" entries in Spotlight next to the installed app.
+	@# "Khih" entries in Spotlight next to the installed app.
 	@touch build/.metadata_never_index
 	@# The one entitlement an ad-hoc build cannot do without. The hardened
 	@# runtime turns on library validation, which will only load a library
 	@# whose Team ID matches the process's — and an ad-hoc signature carries
-	@# no Team ID at all, so the app and the Sparkle framework beside it can
-	@# never be shown to match. The build looks fine and `codesign --verify
+	@# no Team ID at all, so the app and the Swift runtime libraries beside it
+	@# can never be shown to match. The build looks fine and `codesign --verify
 	@# --deep --strict` passes, because each signature *is* valid; it is dyld
 	@# that refuses, and only at launch:
 	@#
-	@#   Library not loaded: @rpath/Sparkle.framework/Versions/B/Sparkle
+	@#   Library not loaded: @rpath/libswiftCompatibilitySpan.dylib
 	@#   ... not valid for use in process: mapping process and mapped file
 	@#   (non-platform) have different Team IDs
 	@#
-	@# which macOS reports to the user as "Codenotch cannot be opened because
+	@# which macOS reports to the user as "Khih cannot be opened because
 	@# of a problem". A Developer ID build has no such trouble: one identity
 	@# signs the app and re-signs the framework, so the Team IDs do match, and
 	@# this is the single difference that has to be relaxed to make up for not

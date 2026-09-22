@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Drives the real session code against a fake `codex` executable.
 ///

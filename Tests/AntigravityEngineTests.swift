@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 final class AntigravityEngineTests: XCTestCase {
     private let clock: Int64 = 1_800_000_000
@@ -51,6 +51,30 @@ final class AntigravityEngineTests: XCTestCase {
     }
     private func seed(_ snapshot: RateLimitsSnapshot) throws {
         try storage.saveState(AccountState(snapshot: snapshot), for: account)
+    }
+
+    func testAutomaticPartialFailureLatchesEachGroupAcrossRestart() throws {
+        try seed(snapshot(at: clock - 30))
+        backend.snapshot = snapshot(at: clock)
+        backend.failGemini = true
+        _ = try engine().startFiveHour(account: account, trigger: .automatic)
+        XCTAssertEqual(backend.targets, [.antigravityGroup(.gemini, weekly: false), .antigravityGroup(.claudeGPT, weekly: false)])
+        let saved = storage.loadState(for: account)
+        for group in AntigravityGroup.allCases {
+            XCTAssertEqual(saved.antigravityGroups[group.rawValue]?.fiveHourStarter.automaticAttemptAt, clock)
+        }
+        backend.failGemini = false
+        _ = try engine().startFiveHour(account: account, trigger: .automatic)
+        XCTAssertEqual(backend.targets.count, 2)
+    }
+
+    func testAutomaticWithoutFiveHourNeverPokes() throws {
+        var reading = snapshot(at: clock)
+        for index in reading.buckets.indices { reading.buckets[index].primary = nil }
+        try seed(reading)
+        backend.snapshot = reading
+        _ = try engine().startFiveHour(account: account, trigger: .automatic)
+        XCTAssertTrue(backend.targets.isEmpty)
     }
 
     func testFirstObservationNeverPokesEitherGroup() throws {

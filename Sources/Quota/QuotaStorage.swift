@@ -8,6 +8,16 @@ import Foundation
 struct QuotaAccountConfig: Codable, Equatable, Identifiable {
     var id: String
     var label: String
+    /// The name on screen, once the user has replaced the one Khih worked out.
+    ///
+    /// Nil means "whatever the provider calls itself" — `Codex (label)`,
+    /// `Claude`, `Antigravity` — which is what every account started with.
+    /// Kept apart from `label` rather than replacing it: `label` is whatever
+    /// was typed when the account was added, and for Claude and Antigravity
+    /// that is an email address. Promoting it to the ring would publish an
+    /// address to the notch, the tooltip and the menu that nobody asked to
+    /// put there.
+    var displayName: String?
     var provider: QuotaProvider
     /// Only meaningful for Codex accounts; read-only providers keep the
     /// directory unused so that `accounts.json` retains one stable shape.
@@ -17,7 +27,7 @@ struct QuotaAccountConfig: Codable, Equatable, Identifiable {
 
     var codexHomeURL: URL { URL(fileURLWithPath: codexHome) }
 
-    /// The id Codenotch knows this account by.
+    /// The id Khih knows this account by.
     ///
     /// Codex is the only provider that takes more than one account, so it is
     /// the only one whose id carries the account: Claude and Antigravity are
@@ -36,14 +46,32 @@ struct QuotaAccountConfig: Codable, Equatable, Identifiable {
 
     var stateDirURL: URL { URL(fileURLWithPath: stateDir) }
 
-    private enum CodingKeys: String, CodingKey {
-        case id, label, provider, codexHome, stateDir, enabled
+    /// What to call this account in a sentence — a notification, a scheduled
+    /// report — where there is no provider to ask.
+    ///
+    /// Falls back to the provider's own wording rather than to `label`: for
+    /// Claude and Antigravity that is the email address the account was added
+    /// under, and a notification is as public a surface as the ring.
+    var displayLabel: String {
+        if let displayName { return displayName }
+        switch provider {
+        case .codex:
+            return CodexProfile(slug: id, configDirectory: codexHomeURL, managedLabel: label).displayName
+        case .claude:      return ClaudeProfile.default().displayName
+        case .antigravity: return AntigravityCLIProvider.providerName
+        }
     }
 
-    init(id: String, label: String, provider: QuotaProvider = .codex,
+    private enum CodingKeys: String, CodingKey {
+        case id, label, displayName, provider, codexHome, stateDir, enabled
+    }
+
+    init(id: String, label: String, displayName: String? = nil,
+         provider: QuotaProvider = .codex,
          codexHome: String, stateDir: String, enabled: Bool = true) {
         self.id = id
         self.label = label
+        self.displayName = displayName
         self.provider = provider
         self.codexHome = codexHome
         self.stateDir = stateDir
@@ -54,6 +82,7 @@ struct QuotaAccountConfig: Codable, Equatable, Identifiable {
         let box = try decoder.container(keyedBy: CodingKeys.self)
         id = try box.decode(String.self, forKey: .id)
         label = try box.decode(String.self, forKey: .label)
+        displayName = try box.decodeIfPresent(String.self, forKey: .displayName)
         // Older files predate the field; those accounts are all Codex.
         provider = try box.decodeIfPresent(QuotaProvider.self, forKey: .provider) ?? .codex
         codexHome = try box.decode(String.self, forKey: .codexHome)
@@ -63,7 +92,7 @@ struct QuotaAccountConfig: Codable, Equatable, Identifiable {
 }
 
 extension Array where Element == QuotaAccountConfig {
-    /// The enabled account Codenotch shows under this id, if there is one.
+    /// The enabled account Khih shows under this id, if there is one.
     func enabledAccount(forProviderID id: String) -> QuotaAccountConfig? {
         first { $0.enabled && $0.providerID == id }
     }
@@ -92,21 +121,46 @@ struct QuotaAccountsFile: Codable, Equatable {
 /// untouched.
 struct QuotaSettings: Codable, Equatable {
     var version: Int
-    /// One-shot: when the user asked for every enabled account's five-hour
-    /// countdown to be started. Cleared as soon as it fires or expires.
-    var fiveHourStartAt: Int64?
+    /// One-shot appointments, by account id: when the user asked that
+    /// account's five-hour countdown to be started. Each is cleared as soon as
+    /// it fires or expires, independently of the others.
+    ///
+    /// By account id rather than provider id because that is the key
+    /// `accounts.json` already uses. The provider ids `claude` and `gemini`
+    /// are display ids the rest of the app is keyed by, and writing one back
+    /// into stored state is what the account contract says not to do.
+    ///
+    /// Under its own JSON name: the key `fiveHourStartAt` held a single
+    /// number, and the Rust app still reads this file. Growing a number into
+    /// an object under the same name would make its `Option<i64>` fail to
+    /// decode and take the whole file down with it; an unfamiliar key it
+    /// simply ignores.
+    var fiveHourStartAt: [String: Int64]
 
-    init(version: Int = 1, fiveHourStartAt: Int64? = nil) {
+    init(version: Int = 1, fiveHourStartAt: [String: Int64] = [:]) {
         self.version = version
         self.fiveHourStartAt = fiveHourStartAt
     }
 
-    private enum CodingKeys: String, CodingKey { case version, fiveHourStartAt }
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case fiveHourStartAt = "fiveHourStartAtByAccount"
+    }
 
     init(from decoder: Decoder) throws {
         let box = try decoder.container(keyedBy: CodingKeys.self)
         version = try box.decodeIfPresent(Int.self, forKey: .version) ?? 1
-        fiveHourStartAt = try box.decodeIfPresent(Int64.self, forKey: .fiveHourStartAt)
+        fiveHourStartAt = try box.decodeIfPresent([String: Int64].self, forKey: .fiveHourStartAt) ?? [:]
+    }
+
+    /// Nothing scheduled writes no key at all, so a file with no appointments
+    /// reads the same as it always did.
+    func encode(to encoder: Encoder) throws {
+        var box = encoder.container(keyedBy: CodingKeys.self)
+        try box.encode(version, forKey: .version)
+        if !fiveHourStartAt.isEmpty {
+            try box.encode(fiveHourStartAt, forKey: .fiveHourStartAt)
+        }
     }
 }
 
@@ -119,7 +173,7 @@ struct QuotaSettings: Codable, Equatable {
 final class CheckLock {
     private let path: URL
     private let descriptor: Int32
-    private let heartbeatQueue = DispatchQueue(label: "Codenotch.check-lock")
+    private let heartbeatQueue = DispatchQueue(label: "Khih.check-lock")
     private let heartbeat: DispatchSourceTimer
 
     init(path: URL, descriptor: Int32, heartbeatInterval: TimeInterval = 30) {
@@ -341,6 +395,19 @@ struct QuotaStorage {
             $0.provider == .codex && $0.id != account.id
                 && CodexFingerprint.of(codexHome: $0.codexHomeURL) == fingerprint
         }
+    }
+
+    /// Replaces an account's on-screen name, or clears it back to the
+    /// provider's own. Trimmed, and an empty name means "clear" — an account
+    /// called nothing but spaces is a row nobody can identify.
+    @discardableResult
+    func renameAccount(_ id: String, to name: String?) throws -> QuotaAccountConfig? {
+        var file = loadAccounts()
+        guard let index = file.accounts.firstIndex(where: { $0.id == id }) else { return nil }
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        file.accounts[index].displayName = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        try saveAccounts(file)
+        return file.accounts[index]
     }
 
     func loadSettings() -> QuotaSettings {

@@ -1,6 +1,6 @@
 import XCTest
 import Security
-@testable import Codenotch
+@testable import Khih
 
 final class KeychainAccessTests: XCTestCase {
     func testSilentAndExplicitAccessRestoreInteractionAfterSuccessAndCancellation() throws {

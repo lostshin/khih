@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 final class QuotaBurnReadingTests: XCTestCase {
     private let now: Int64 = 1_800_000_000

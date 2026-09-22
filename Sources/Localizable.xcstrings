@@ -5361,6 +5361,226 @@
           }
         }
       }
+    },
+    "that time has already passed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "該時間已經過了"
+          }
+        }
+      }
+    },
+    "Scheduled — starts %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已預約 — %@ 啟動"
+          }
+        }
+      }
+    },
+    "5-hour start: not scheduled": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 小時預約：未設定"
+          }
+        }
+      }
+    },
+    "Schedule…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預約…"
+          }
+        }
+      }
+    },
+    "Change…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "變更…"
+          }
+        }
+      }
+    },
+    "Start this account's 5-hour window": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預約這個帳號的 5 小時倒數"
+          }
+        }
+      }
+    },
+    "Apply to all": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "套用到全部"
+          }
+        }
+      }
+    },
+    "Nothing is scheduled.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前沒有任何預約。"
+          }
+        }
+      }
+    },
+    "%@ — starts %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — %@ 啟動"
+          }
+        }
+      }
+    },
+    "Cancel all": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部取消"
+          }
+        }
+      }
+    },
+    "Each account is started on its own time, once. Khih must stay open; it waits while asleep or busy and cancels if more than one hour late.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每個帳號各自依自己的時間啟動，各執行一次。Khih 需保持執行；睡眠或忙碌時會等候，逾時超過一小時則取消。"
+          }
+        }
+      }
+    },
+    "Rename…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新命名…"
+          }
+        }
+      }
+    },
+    "Changes what this account is called in the notch, the menu and here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更改這個帳號在瀏海、選單與此處顯示的名稱。"
+          }
+        }
+      }
+    },
+    "Name on screen": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示名稱"
+          }
+        }
+      }
+    },
+    "Use the default name": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢復預設名稱"
+          }
+        }
+      }
+    },
+    "Save": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存"
+          }
+        }
+      }
+    },
+    "there is no account to schedule": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有可預約的帳號"
+          }
+        }
+      }
+    },
+    "Keep five-hour windows alive": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "五小時守護"
+          }
+        }
+      }
+    },
+    "Automatically starts idle five-hour windows for enabled accounts and checks again when they expire. Each minimal request spends a little quota and may also start the weekly countdown. Unconfirmed requests pause automatic resending. Runs only while Khih is awake and open.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "為已啟用帳號自動啟動尚未倒數的五小時額度，到期後再次檢查。每次最小請求會消耗少量額度，也可能同時啟動週倒數；無法確認成功時，暫停自動重送。僅在 Khih 執行且電腦未睡眠時運作。"
+          }
+        }
+      }
+    },
+    "Waiting for confirmation — automatic resending is paused.": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hant-TW": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待確認，暫停自動重送。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

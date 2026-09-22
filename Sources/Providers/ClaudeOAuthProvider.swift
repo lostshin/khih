@@ -89,9 +89,16 @@ actor ClaudeOAuthProvider: UsageProvider {
         self.now = now
     }
 
+    func fetchSnapshotAfterReconnect() async throws -> ProviderSnapshot {
+        try checkCooldown()
+        lastCLIWindows = nil
+        lastCLIAttempt = nil
+        return try await fetchSnapshot()
+    }
+
     func fetchSnapshot() async throws -> ProviderSnapshot {
         // Ahead of the CLI on purpose, which is the reverse of what this used
-        // to do. Back then the app sent a Codenotch user agent and the CLI sent
+        // to do. Back then the app sent a Khih user agent and the CLI sent
         // `claude-code/<version>`, so the two sat in different buckets and a
         // 429 on one said nothing about the other. Both now present the same
         // agent, so a back-off almost certainly covers the CLI as well:

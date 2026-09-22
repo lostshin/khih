@@ -24,9 +24,9 @@ SOFTWARE.
 
 Third-party notices
 
-- Provider marks in codenotch/glyphs/ are from @lobehub/icons-static-svg (MIT,
-  Copyright (c) LobeHub); see codenotch/glyphs/NOTICE.md. The marks remain the
+- Provider marks in khih/glyphs/ are from @lobehub/icons-static-svg (MIT,
+  Copyright (c) LobeHub); see khih/glyphs/NOTICE.md. The marks remain the
   trademarks of Anthropic, OpenAI, Anysphere (Cursor) and Google respectively.
-- codenotch/icons/icon.ico and tray.png are derived from the upstream Codenotch
+- khih/icons/icon.ico and tray.png are derived from the upstream Codenotch
   app icon by @vinzdg and are used here only for the upstream contribution;
   their license follows the upstream repository.

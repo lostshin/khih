@@ -15,13 +15,13 @@
 # on subsequent runs.
 #
 # Usage:
-#   Scripts/sign-local.sh [path/to/Codenotch.app]
+#   Scripts/sign-local.sh [path/to/Khih.app]
 # Default target is the app in /Applications.
 
 set -euo pipefail
 
-APP="${1:-/Applications/Codenotch.app}"
-CN="Codenotch Local Signing"
+APP="${1:-/Applications/Khih.app}"
+CN="Khih Local Signing"
 
 if [ ! -d "$APP" ]; then
   echo "error: $APP not found — build and install it first (make run)." >&2
@@ -49,21 +49,21 @@ EOF
   # -legacy: OpenSSL 3 otherwise writes a PKCS#12 that `security` cannot
   # import ("MAC verification failed"). Harmless on OpenSSL that ignores it.
   openssl pkcs12 -export -legacy -inkey "$DIR/key.pem" -in "$DIR/cert.pem" \
-    -out "$DIR/id.p12" -passout pass:codenotch -name "$CN" 2>/dev/null || \
+    -out "$DIR/id.p12" -passout pass:khih -name "$CN" 2>/dev/null || \
   openssl pkcs12 -export -inkey "$DIR/key.pem" -in "$DIR/cert.pem" \
-    -out "$DIR/id.p12" -passout pass:codenotch -name "$CN"
+    -out "$DIR/id.p12" -passout pass:khih -name "$CN"
   # -T grants /usr/bin/codesign access to the key; -A avoids a prompt per use.
   security import "$DIR/id.p12" -k "$HOME/Library/Keychains/login.keychain-db" \
-    -P codenotch -T /usr/bin/codesign -A
+    -P khih -T /usr/bin/codesign -A
 fi
 
 # Quit a running instance so the bundle can be replaced in place.
-osascript -e 'quit app "Codenotch"' 2>/dev/null || true
+osascript -e 'quit app "Khih"' 2>/dev/null || true
 sleep 1
 
 codesign --force --deep --sign "$CN" "$APP"
 codesign -dv "$APP" 2>&1 | grep -E 'Authority|Identifier' || true
 
 echo
-echo "Signed with '$CN'. Relaunch Codenotch and grant the keychain prompt one"
+echo "Signed with '$CN'. Relaunch Khih and grant the keychain prompt one"
 echo "more time (new identity) — it will not ask again on later launches."

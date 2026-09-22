@@ -18,7 +18,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let signIn: (String) -> Bool
     private let switchAccount: (String) -> Bool
     private let retry: (String) -> Void
-    private let updater: Updater
+    private let version: String
     private let ollamaRelay: OllamaActivityRelay?
     private let usageStore: UsageStore?
     /// Absent when there is no quota engine to drive — no `codex` binary, or
@@ -28,7 +28,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     init(preferences: Preferences,
          providers: @escaping () -> [ProviderSummary],
-         updater: Updater,
+         version: String,
          signOut: @escaping (String) -> Void,
          signIn: @escaping (String) -> Bool,
          switchAccount: @escaping (String) -> Bool,
@@ -43,7 +43,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.resetPosition = resetPosition
         self.switchAccount = switchAccount
         self.retry = retry
-        self.updater = updater
+        self.version = version
         self.preferences = preferences
         self.providers = providers
         self.signOut = signOut
@@ -173,7 +173,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         )
         // Kept for the Window menu and Mission Control; hidden from the bar
         // itself, where the sidebar already names what you are looking at.
-        window.title = L10n.t("Codenotch Settings")
+        window.title = L10n.t("Khih Settings")
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         // A floating rounded panel rather than a square window. The rounded
@@ -193,7 +193,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                                    switchAccount: switchAccount,
                                    retry: retry,
                                    resetPosition: resetPosition,
-                                   updater: updater,
+                                   version: version,
                                    ollamaRelay: ollamaRelay, usageStore: usageStore,
                                    quota: quota)
         )

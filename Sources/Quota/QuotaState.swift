@@ -333,16 +333,27 @@ struct WeeklyKeeper: Codable, Equatable {
     }
 }
 
-/// A five-hour countdown the user asked to start.
-///
-/// Kept apart from `WeeklyKeeper` because no automatic path may ever write it:
-/// reset detection owns the weekly window, and only an explicit button press or
-/// a schedule the user set themselves may reach this one. That is also why it
-/// has no reset key of its own — there is no automatic reset to deduplicate.
+/// Durable automatic-attempt latch. Only an observed running countdown can
+/// release it; a moving provisional reset timestamp cannot authorize a retry.
 struct FiveHourStarter: Codable, Equatable {
     var lastPoke: LastPoke?
+    var automaticAttemptAt: Int64?
+    var confirmedResetAt: Int64?
 
-    init(lastPoke: LastPoke? = nil) { self.lastPoke = lastPoke }
+    init(lastPoke: LastPoke? = nil, automaticAttemptAt: Int64? = nil,
+         confirmedResetAt: Int64? = nil) {
+        self.lastPoke = lastPoke
+        self.automaticAttemptAt = automaticAttemptAt
+        self.confirmedResetAt = confirmedResetAt
+    }
+
+    mutating func observe(_ window: QuotaWindow?) {
+        guard let window, window.usedPercent != nil, window.countdownActive,
+              let reset = window.resetsAt, reset > window.observedAt,
+              automaticAttemptAt.map({ window.observedAt >= $0 }) ?? true else { return }
+        confirmedResetAt = reset
+        automaticAttemptAt = nil
+    }
 }
 
 /// How much weekly quota one full five-hour window costs, measured over time.

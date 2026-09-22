@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Network
 import os
 
 /// Quota readings remain useful during transient failures. Clear local inventory
@@ -123,6 +124,58 @@ final class UsageStore: ObservableObject {
     private var isRefreshing = false
     private var wakeObserver: NSObjectProtocol?
     private var languageObserver: NSObjectProtocol?
+    private var networkMonitor: NWPathMonitor?
+    private var networkAvailable: Bool?
+    private var recoveryID = UUID()
+    private var recoveryTasks: [Task<Void, Never>] = []
+    private var recoveryDeadline: Task<Void, Never>?
+    private var recoveryStartedAt: TimeInterval = 0
+    private(set) var recoveryPending: Set<String> = []
+    private(set) var recoverySucceeded: Set<String> = []
+    private(set) var recoveryPassed: Bool?
+
+    /// A path transition is a trigger, not proof that the internet is usable.
+    /// Only successful fresh reads within two seconds pass the recovery check.
+    func networkChanged(available: Bool) {
+        let previous = networkAvailable
+        networkAvailable = available
+        guard previous != available else { return }
+        recoveryID = UUID()
+        recoveryTasks.forEach { $0.cancel() }
+        recoveryTasks = []
+        recoveryDeadline?.cancel()
+        recoveryPending = []
+        recoverySucceeded = []
+        recoveryPassed = nil
+        guard previous == false, available else { return }
+        let id = recoveryID
+        let targets = orderedProviders.filter { $0.kind == .usage && !disconnected.contains($0.id) }
+        recoveryPending = Set(targets.map(\.id))
+        recoveryStartedAt = ProcessInfo.processInfo.systemUptime
+        recoveryDeadline = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled, let self, self.recoveryID == id else { return }
+            self.recoveryPassed = !targets.isEmpty && self.recoveryPending.isEmpty && self.recoverySucceeded.count == targets.count
+            Log.usage.notice("network recovery within 2s: \(self.recoveryPassed == true); fresh sources: \(self.recoverySucceeded.count)/\(targets.count)")
+        }
+        recoveryTasks = targets.map { provider in
+            Task { [weak self] in
+                guard let self else { return }
+                // Do not overlap a CLI or a blocked credential read. Time spent
+                // draining old work still counts against the two-second limit.
+                if let active = self.fetchTasks[provider.id] { await active.value }
+                guard !Task.isCancelled, self.recoveryID == id,
+                      !self.disconnected.contains(provider.id) else { return }
+                await self.beginRefresh(provider, recovery: id).value
+                // Two seconds is an upper bound, never a minimum wait.
+                guard !Task.isCancelled, self.recoveryID == id,
+                      self.recoveryPassed == nil, self.recoveryPending.isEmpty else { return }
+                self.recoveryDeadline?.cancel()
+                self.recoveryPassed = self.recoverySucceeded.count == targets.count
+                Log.usage.notice("network recovery within 2s: \(self.recoveryPassed == true); fresh sources: \(self.recoverySucceeded.count)/\(targets.count)")
+            }
+        }
+    }
 
     /// How long one pass gets before the store stops waiting for it.
     ///
@@ -252,7 +305,8 @@ final class UsageStore: ObservableObject {
     var providerSummaries: [ProviderSummary] {
         let models = localModelSummaries
         let summaries = orderedProviders.flatMap { provider in
-            let summary = ProviderSummary(kind: provider.kind, id: provider.id, name: provider.displayName,
+            let summary = ProviderSummary(kind: provider.kind, id: provider.id,
+                            name: displayName(provider.id) ?? provider.displayName,
                             glyph: provider.glyph,
                             account: disconnected.contains(provider.id) ? nil : provider.account(),
                             signIn: provider.signInRoute,
@@ -264,6 +318,16 @@ final class UsageStore: ObservableObject {
     }
 
     func start() {
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            let available = path.status == .satisfied
+            Task { @MainActor in
+                guard let self, self.networkMonitor != nil else { return }
+                self.networkChanged(available: available)
+            }
+        }
+        networkMonitor = monitor
+        monitor.start(queue: DispatchQueue(label: "tw.lokun.khih.network"))
         refreshNow()
 
         let timer = Timer(timeInterval: refreshInterval, repeats: true) { [weak self] _ in
@@ -299,6 +363,14 @@ final class UsageStore: ObservableObject {
     }
 
     func stop() {
+        networkMonitor?.cancel()
+        networkMonitor = nil
+        networkAvailable = nil
+        recoveryID = UUID()
+        recoveryTasks.forEach { $0.cancel() }
+        recoveryTasks = []
+        recoveryDeadline?.cancel()
+        recoveryDeadline = nil
         timer?.invalidate()
         timer = nil
         localTimer?.invalidate()
@@ -429,7 +501,7 @@ final class UsageStore: ObservableObject {
         // The provider tasks below do not inherit this task's cancellation.
         guard !Task.isCancelled else { return }
         let tasks = orderedProviders.filter {
-            !disconnected.contains($0.id) && (providerAttempts[$0.id].map {
+            !(networkAvailable == false && $0.kind == .usage) && !disconnected.contains($0.id) && (providerAttempts[$0.id].map {
                 pollingNow().timeIntervalSince($0)
             } ?? .greatestFiniteMagnitude) >= $0.minimumRefreshInterval
         }.map {
@@ -468,7 +540,7 @@ final class UsageStore: ObservableObject {
         _ = beginRefresh(provider)
     }
 
-    private func beginRefresh(_ provider: UsageProvider, holdIndicator: Bool = false) -> Task<Void, Never> {
+    private func beginRefresh(_ provider: UsageProvider, holdIndicator: Bool = false, recovery: UUID? = nil) -> Task<Void, Never> {
         if let task = fetchTasks[provider.id] { return task }
         providerAttempts[provider.id] = pollingNow()
         let generation = generations[provider.id, default: 0]
@@ -487,7 +559,7 @@ final class UsageStore: ObservableObject {
                 if !manualRefreshing.contains(provider.id) { refreshing.remove(provider.id) }
             } : nil
             defer { providerDeadline?.cancel() }
-            if let fresh = await snapshot(from: provider, generation: generation) {
+            if let fresh = await snapshot(from: provider, generation: generation, recovery: recovery) {
                 publish(fresh)
             } else if acceptsResult(from: provider, generation: generation) {
                 snapshots.removeAll { $0.id == provider.id }
@@ -615,8 +687,33 @@ final class UsageStore: ObservableObject {
     private func publish(_ snapshot: ProviderSnapshot) {
         guard !disconnected.contains(snapshot.id) else { return }
         var current = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.id, $0) })
-        current[snapshot.id] = withBurnReadings(snapshot)
+        current[snapshot.id] = withBurnReadings(renamed(snapshot))
         snapshots = orderedProviders.compactMap { disconnected.contains($0.id) ? nil : current[$0.id] }
+    }
+
+    /// The name the user chose for this account, if they chose one.
+    ///
+    /// Asked for here rather than built into each provider: a provider is
+    /// constructed once at launch and holds its name in a `let`, so a rename
+    /// would not reach the ring until the next restart. This is the single
+    /// place every reading passes through on its way to being displayed, which
+    /// makes it the one place the substitution has to happen.
+    var displayName: (String) -> String? = { _ in nil }
+
+    private func renamed(_ snapshot: ProviderSnapshot) -> ProviderSnapshot {
+        guard let name = displayName(snapshot.id) else { return snapshot }
+        var copy = snapshot
+        copy.displayName = name
+        return copy
+    }
+
+    /// Re-applies the names to what is already on screen, for a rename that
+    /// has to show before the next reading lands.
+    func applyDisplayNames() {
+        snapshots = snapshots.map(renamed)
+        for (id, value) in lastGood {
+            lastGood[id] = (renamed(value.snapshot), value.fetchedAt)
+        }
     }
 
     /// Sign out of one provider: discard anything of its account that this app
@@ -708,7 +805,7 @@ final class UsageStore: ObservableObject {
     /// something you do while already signed in, so the shortcut `signIn` takes
     /// when a credential exists is exactly wrong here.
     ///
-    /// Codenotch cannot switch the account itself. The credential belongs to
+    /// Khih cannot switch the account itself. The credential belongs to
     /// Claude Code, Cursor or Codex, and the most this can honestly do is open
     /// the thing that owns it.
     @discardableResult
@@ -731,13 +828,23 @@ final class UsageStore: ObservableObject {
         }
     }
 
-    private func snapshot(from provider: UsageProvider, generation: Int) async -> ProviderSnapshot? {
+    private func snapshot(from provider: UsageProvider, generation: Int, recovery: UUID? = nil) async -> ProviderSnapshot? {
         // A scheduled task can be disconnected before it begins; avoid reading
         // its credential at all, as well as rejecting an obsolete response.
         guard acceptsResult(from: provider, generation: generation) else { return nil }
         do {
-            let fresh = try await provider.fetchSnapshot()
+            let fresh: ProviderSnapshot
+            if recovery == nil { fresh = try await provider.fetchSnapshot() }
+            else { fresh = try await provider.fetchSnapshotAfterReconnect() }
             guard acceptsResult(from: provider, generation: generation) else { return nil }
+            if let recovery, recovery == recoveryID {
+                recoveryPending.remove(provider.id)
+                let elapsed = ProcessInfo.processInfo.systemUptime - recoveryStartedAt
+                if elapsed <= 2, fresh.status == .ok, !fresh.windows.isEmpty {
+                    recoverySucceeded.insert(provider.id)
+                }
+                Log.usage.notice("network recovery source finished in \(elapsed, format: .fixed(precision: 3))s; fresh: \(fresh.status == .ok && !fresh.windows.isEmpty)")
+            }
             // Model residency becomes untrue as soon as a server stops. It must
             // never use quota's last-good cache or survive an app relaunch.
             if provider.kind == .usage {
@@ -752,6 +859,7 @@ final class UsageStore: ObservableObject {
             Log.usage.debug("\(provider.id, privacy: .public): \(fresh.windows.count) window(s)")
             return fresh
         } catch {
+            if let recovery, recovery == recoveryID { recoveryPending.remove(provider.id) }
             guard acceptsResult(from: provider, generation: generation) else { return nil }
             if provider.kind == .localRuntime {
                 var empty = Self.placeholder(provider)

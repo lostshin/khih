@@ -86,7 +86,7 @@ struct ClaudeUsageCLI: Sendable {
         // lands somewhere disposable rather than in whatever directory the app
         // happened to be launched from.
         let scratch = FileManager.default.temporaryDirectory
-            .appendingPathComponent("codenotch-usage-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("khih-usage-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: scratch) }
 

@@ -3,6 +3,12 @@ import Combine
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Shown in settings and used to decide whether What's New has been seen.
+    /// Read from the bundle rather than a build constant so it cannot drift
+    /// from what the running app actually is.
+    static let appVersion =
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+
     private var notchFleet: NotchFleet?
     private var store: UsageStore?
     private var monitors: [String: any AgentActivityMonitor] = [:]
@@ -10,8 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var preferences: Preferences?
     private var settings: SettingsWindowController?
     private var whatsNew: WhatsNewWindowController?
-    /// Held for the life of the app: releasing it stops the scheduled checks.
-    private var updater: Updater?
     private var thresholdNotifier: ThresholdNotifier?
     private var statusItem: StatusItemController?
     /// Held for the life of the app: it owns the in-flight state the settings
@@ -73,9 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let fleet = NotchFleet(scope: preferences.notchScope, edge: preferences.notchEdge)
         self.notchFleet = fleet
 
-        // `CODENOTCH_DEMO=1` puts the design frame's three providers on screen
+        // `KHIH_DEMO=1` puts the design frame's three providers on screen
         // with its numbers, for screenshots and for eyeballing the layout.
-        if ProcessInfo.processInfo.environment["CODENOTCH_DEMO"] == "1" {
+        if ProcessInfo.processInfo.environment["KHIH_DEMO"] == "1" {
             fleet.setSnapshots(Fixtures.snapshots(), activeCodexID: nil)
         } else {
             // Nothing needs a browser session at the moment. `WebSessionProvider`
@@ -131,9 +135,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 activeCodexProviderID: { [weak self] in self?.activeCodexProviderID() }
             )
 
-            let updater = Updater()
-            self.updater = updater
-
             let relay = OllamaActivityRelay()
             self.ollamaRelay = relay
             // A single publisher chain exceeds Swift's type-checking time limit.
@@ -179,16 +180,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             quota.isKeeperEnabled = { [weak preferences] in
                 preferences?.quotaKeeperEnabled ?? false
             }
+            preferences.$fiveHourKeeperEnabled
+                .removeDuplicates()
+                .sink { [weak quota] enabled in
+                    quota?.setFiveHourKeeperEnabled(enabled)
+                    if enabled { Task { await quota?.runAutomaticTick() } }
+                }
+                .store(in: &cancellables)
+            NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
+                .receive(on: RunLoop.main)
+                .sink { [weak quota] _ in quota?.didWake() }
+                .store(in: &cancellables)
             quota.isEnabledInUI = { [weak preferences] id in
                 !(preferences?.disconnectedProviders.contains(id) ?? true)
             }
+            // Asked for on every publish, so a rename reaches the ring, the
+            // tooltip and the menu without waiting for a relaunch.
+            store.displayName = { [weak quota] id in quota?.account(forProviderID: id)?.displayName }
+            store.applyDisplayNames()
             quota.onBurnReadings = { [weak store] in store?.setBurnReadings($0) }
             quota.onQuotaSnapshot = { [weak store] id, snapshot in
                 store?.publishQuotaSnapshot(providerID: id, quota: snapshot)
             }
             Task { await quota.publishBurnReadings() }
             self.quota = quota
-            quota.onAccountsChanged = { [weak self] in self?.discoverCodexAccounts() }
+            quota.onAccountsChanged = { [weak self, weak store] in
+                store?.applyDisplayNames()
+                self?.discoverCodexAccounts()
+            }
             updateFiveHourItems()
 
             let settings = SettingsWindowController(
@@ -197,7 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // forward; a snapshot here is what made a switched account keep
                 // showing the old address until the app restarted.
                 providers: { [weak store] in store?.providerSummaries ?? [] },
-                updater: updater,
+                version: Self.appVersion,
                 signOut: { [weak store] in store?.signOut(providerID: $0) },
                 signIn: { [weak store] in store?.signIn(providerID: $0) ?? false },
                 switchAccount: { [weak store] in
@@ -222,7 +241,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // What changed, once per version — including on a fresh install,
             // where it is the introduction.
             let whatsNew = WhatsNewWindowController(
-                preferences: preferences, version: updater.currentVersion
+                preferences: preferences, version: Self.appVersion
             )
             self.whatsNew = whatsNew
 
@@ -414,10 +433,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .sink { [weak fleet] ids in fleet?.setRefreshing(ids) }
                 .store(in: &cancellables)
 
-            // CODENOTCH_DISCOVER=<url> loads that page in the signed-in WebView
+            // KHIH_DISCOVER=<url> loads that page in the signed-in WebView
             // and logs the API calls it makes — for finding an undocumented
             // endpoint by watching the site rather than guessing at path names.
-            if let target = ProcessInfo.processInfo.environment["CODENOTCH_DISCOVER"],
+            if let target = ProcessInfo.processInfo.environment["KHIH_DISCOVER"],
                let url = URL(string: target),
                let provider = webProviders.first(where: { url.host?.contains($0.id) == true })
                    ?? webProviders.first {

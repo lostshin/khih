@@ -311,8 +311,8 @@ final class CodexAppServerSession {
     private func handshake() throws {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         _ = try request("initialize", params: [
-            "clientInfo": ["name": "codenotch",
-                           "title": "Codenotch",
+            "clientInfo": ["name": "khih",
+                           "title": "Khih",
                            "version": version ?? "0"]
         ], as: DiscardedResult.self)
         try notify("initialized", params: [:])

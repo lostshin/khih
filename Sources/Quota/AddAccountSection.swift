@@ -125,3 +125,86 @@ struct CodexSignInSheet: View {
         }
     }
 }
+
+/// Renames one managed account, or puts its original name back.
+///
+/// A glyph on the row rather than an editable title: the name on the row is
+/// part of the drag handle, and a text field there would compete with the
+/// gesture that reorders the rings. On the row rather than under it because
+/// Antigravity has no account summary to sit beside — it is read through a
+/// CLI, so `provider.account` is nil and a link there would never appear.
+///
+/// The field starts on the name currently shown — including the one Khih
+/// worked out — so renaming is an edit rather than a blank to fill in.
+struct RenameAccountButton: View {
+    @ObservedObject var quota: QuotaController
+    let providerID: String
+    /// What the row shows today, whether or not anyone chose it.
+    let current: String
+
+    @State private var isEditing = false
+    @State private var name = ""
+    @State private var error: String?
+    @FocusState private var focused: Bool
+
+    private var hasCustomName: Bool {
+        quota.account(forProviderID: providerID)?.displayName != nil
+    }
+
+    var body: some View {
+        Button {
+            name = current
+            error = nil
+            isEditing = true
+        } label: {
+            Image(systemName: "pencil")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.borderless)
+        // Not gated on `isBusy` like the two beside it: this writes one small
+        // file and reaches no backend.
+        .help(L10n.t("Rename…") + " — "
+              + L10n.t("Changes what this account is called in the notch, the menu and here."))
+        .popover(isPresented: $isEditing, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.t("Name on screen")).font(.headline)
+                TextField(current, text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .labelsHidden()
+                    .focused($focused)
+                    .onSubmit { save(name) }
+                if let error {
+                    Text(error).font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack {
+                    // Only offered once there is something to undo. On an
+                    // account that has never been renamed it would be a button
+                    // that puts back the name already on screen.
+                    if hasCustomName {
+                        Button(L10n.t("Use the default name")) { save(nil) }
+                    }
+                    Spacer()
+                    Button(L10n.t("Save")) { save(name) }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(12)
+            .frame(width: 280)
+            .controlSize(.small)
+            .onAppear { focused = true }
+        }
+    }
+
+    private func save(_ value: String?) {
+        Task {
+            if let message = await quota.rename(providerID: providerID, to: value) {
+                error = message
+            } else {
+                isEditing = false
+            }
+        }
+    }
+}

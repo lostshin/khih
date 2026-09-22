@@ -565,7 +565,7 @@ would be theatre. What there *is* to show is whose readings these are:
 ```
 Claude  Pro · via Claude Code
 Cursor  [account email] · Free · via Cursor
-Codex  [account email] · Free · via Codex
+Codex   [account email] · Free · via Codex
 ```
 
 That is not decoration. Borrowing a credential means the account being read can

@@ -1,6 +1,6 @@
-name: Codenotch
+name: Khih
 options:
-  bundleIdPrefix: com.vinz
+  bundleIdPrefix: tw.lokun
   deploymentTarget:
     macOS: "15.0"
   createIntermediateGroups: true
@@ -10,20 +10,23 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    # Sparkle compares CFBundleVersion to decide what is newer, and
     # Sources/Info.plist reads both from here — hardcoding them there instead
-    # silently pins every build to one version, so no customer ever sees an
-    # update. Bump CURRENT_PROJECT_VERSION on every release.
+    # silently pins every build to one version, and the version is what
+    # settings and What's New show. Bump CURRENT_PROJECT_VERSION on release.
     MARKETING_VERSION: "1.7.0"
     CURRENT_PROJECT_VERSION: "9"
-    # Signed with a stable identity on purpose. The app reads Claude Code's
-    # OAuth token out of the login keychain, and the keychain's ACL remembers
-    # *which signed binary* was allowed. Ad-hoc or unsigned builds get a new
-    # identity on every rebuild, so "Always Allow" would be forgotten each time
-    # and the prompt would come back after every `make run`.
-    CODE_SIGN_IDENTITY: "Developer ID Application"
-    CODE_SIGN_STYLE: Manual
-    DEVELOPMENT_TEAM: 6WFPL8B9FB
+    # Ad-hoc. The Developer ID identity this used to name belongs to the
+    # upstream project, and signing with someone else's team is not something a
+    # fork gets to do — nor could it, without their certificate.
+    #
+    # What that identity bought upstream was keychain stability: the ACL behind
+    # Claude Code's "Always Allow" remembers which signed binary was granted
+    # access. Measured here, an ad-hoc rebuild keeps the grant, and the read
+    # has a CLI fallback when it does not. Distribution needs a real Developer
+    # ID; see TEAM_ID in the Makefile.
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
     CODE_SIGNING_REQUIRED: "YES"
     CODE_SIGNING_ALLOWED: "YES"
     # Required by notarization. Worth knowing what it does *not* break here:
@@ -39,18 +42,14 @@ packages:
   SwiftNIO:
     url: https://github.com/apple/swift-nio
     from: "2.102.0"
-  Sparkle:
-    url: https://github.com/sparkle-project/Sparkle
-    from: "2.6.0"
 
 targets:
-  Codenotch:
+  Khih:
     type: application
     platform: macOS
     sources:
       - path: Sources
     dependencies:
-      - package: Sparkle
       - package: SwiftNIO
         product: NIOHTTP1
       - package: SwiftNIO
@@ -62,8 +61,8 @@ targets:
         # notch is ambient, but the *app* still has to be findable: without a
         # Dock tile there is nothing to click to open it, nothing in Cmd-Tab,
         # and no obvious way to reach settings or quit.
-        CFBundleName: Codenotch
-        CFBundleDisplayName: Codenotch
+        CFBundleName: Khih
+        CFBundleDisplayName: Khih
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - en
@@ -74,55 +73,35 @@ targets:
         # build settings keeps one place to bump.
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        # --- Sparkle -------------------------------------------------------
-        # Beside the download itself, on hivinz.com. It used to point at a
-        # GitHub Pages URL for a repo that was never created, so every check
-        # got a 404 and Sparkle reported "an error occurred in retrieving
-        # update information" — correctly, since there was nothing there.
-        #
-        # Must stay reachable for as long as any copy is installed: the feed is
-        # the only route by which a shipped build can ever be replaced.
-        SUFeedURL: https://hivinz.com/appcast.xml
-        # The public half of the EdDSA key in the login keychain. Sparkle
-        # refuses any update not signed by its private half, so a hijacked feed
-        # or a swapped download cannot install code. Losing the private key
-        # means no existing install can ever be updated again — back it up.
-        SUPublicEDKey: rmUfT5r49nR+3HdkbR5/YYLghfnAi6L49eOk3sIegSk=
-        # Set explicitly so Sparkle never asks on first launch. Left unset, it
-        # shows a "check for updates automatically?" prompt, which is exactly
-        # the permission this is meant to avoid.
-        SUEnableAutomaticChecks: true
-        SUAutomaticallyUpdate: true
-        SUScheduledCheckInterval: 86400
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.vinz.codenotch
+        PRODUCT_BUNDLE_IDENTIFIER: tw.lokun.khih
         GENERATE_INFOPLIST_FILE: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_EMIT_LOC_STRINGS: "YES"
         DEVELOPMENT_LANGUAGE: en
 
-  CodenotchTests:
+  KhihTests:
     type: bundle.unit-test
     platform: macOS
     sources:
       - path: Tests
     dependencies:
-      - target: Codenotch
+      - target: Khih
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.vinz.codenotch.tests
+        PRODUCT_BUNDLE_IDENTIFIER: tw.lokun.khih.tests
         GENERATE_INFOPLIST_FILE: "YES"
 
 schemes:
-  Codenotch:
+  Khih:
     build:
       targets:
-        Codenotch: all
-        CodenotchTests: [test]
+        Khih: all
+        KhihTests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - CodenotchTests
+        - KhihTests

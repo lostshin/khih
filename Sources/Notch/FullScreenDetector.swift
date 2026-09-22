@@ -26,7 +26,7 @@ enum FullScreenDetector {
         guard let screen = screen ?? NSScreen.main else { return false }
         guard let frontApp = NSWorkspace.shared.frontmostApplication else { return false }
 
-        // Ignore Codenotch itself (settings panel, etc.)
+        // Ignore Khih itself (settings panel, etc.)
         guard frontApp.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
 
         if let windowInfoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {

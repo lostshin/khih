@@ -1,6 +1,6 @@
 import SQLite3
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Guards the shape of `GET /api/oauth/usage`. It is not a published API, so
 /// these are the tests that will fail first if Anthropic changes it.
@@ -880,7 +880,7 @@ final class ModalRouteCopyTests: XCTestCase {
     func testItDoesNotClaimYouStaySignedIn() {
         let caveat = SignInRoute.modal(name: "Perplexity").signOutCaveat
         XCTAssertFalse(caveat.contains("stay signed in"),
-                       "a session Codenotch owns really is ended")
+                       "a session Khih owns really is ended")
     }
 }
 

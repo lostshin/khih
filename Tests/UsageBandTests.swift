@@ -1,6 +1,6 @@
 import SwiftUI
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 final class UsageBandTests: XCTestCase {
     func testBandsMatchTheDesignFrame() {

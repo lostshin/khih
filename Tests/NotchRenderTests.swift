@@ -1,6 +1,6 @@
 import SwiftUI
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// The layout maths can be right in every unit and still put nothing on the
 /// screen. These render the real view and count the pixels it actually paints,

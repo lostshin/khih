@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Catalog lookups with an explicit locale. English is the source; Chinese
 /// assertions here only prove a translation that exists is served, not that

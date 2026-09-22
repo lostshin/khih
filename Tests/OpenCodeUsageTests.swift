@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// The Go plan windows, pinned to the live response (secret redacted) — the
 /// same figures the OpenCode dashboard shows.

@@ -3,7 +3,9 @@ import Foundation
 /// A serialized, read-only observer of Google's official CLI.
 actor AntigravityCLIProvider: UsageProvider {
     nonisolated let id = "gemini"
-    nonisolated let displayName = "Antigravity"
+    /// Also the fallback name for the managed account, so the two cannot drift.
+    nonisolated static let providerName = "Antigravity"
+    nonisolated let displayName = AntigravityCLIProvider.providerName
     nonisolated let glyph = ProviderGlyph.antigravity
     nonisolated let minimumRefreshInterval: TimeInterval = 300
     nonisolated let fetchDeadline: TimeInterval = 140

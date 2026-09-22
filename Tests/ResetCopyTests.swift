@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 final class ResetCopyTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)

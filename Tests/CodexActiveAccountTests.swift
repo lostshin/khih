@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Which account `codex` is signed in to, decided by comparing the signed-in
 /// account rather than a name. Everything here uses throwaway directories: the

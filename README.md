@@ -1,8 +1,10 @@
+# Khih
+
 <div align="center">
 
-![Codenotch](docs/design/codenotch-banner.png)
+![Khih](docs/design/khih-banner.png)
 
-[![CI](https://github.com/vinzdg/codenotch/actions/workflows/ci.yml/badge.svg)](https://github.com/vinzdg/codenotch/actions/workflows/ci.yml)
+[![CI](https://github.com/lostshin/khih/actions/workflows/ci.yml/badge.svg)](https://github.com/lostshin/khih/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-macOS%2026%2B-black)
 ![Swift](https://img.shields.io/badge/swift-5-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -21,25 +23,21 @@ two never disagree.
 
 ## Download
 
-[**Latest release**](../../releases/latest) — signed, notarized, and updating
-itself from then on. Take this one unless you have a reason not to.
+No notarized release. The Developer ID certificate behind upstream's signed
+builds belongs to upstream, and nothing here is signed as them, so this fork
+builds from source and signs ad-hoc — see [Building](#building). The Package
+workflow still keeps an ad-hoc disk image on each of its
+[runs](https://github.com/lostshin/khih/actions/workflows/package.yml) and refreshes a
+[preview](https://github.com/lostshin/khih/releases/tag/preview) prerelease from `main`.
 
-To try unreleased `main` without an Xcode install, the [preview
-build](../../releases/tag/preview) is rebuilt from every commit, and the
-Package workflow keeps a per-commit disk image on each of its
-[runs](../../actions/workflows/package.yml). Neither is notarized — they are
-ad-hoc signed, because the Developer ID certificate exists on one machine — so
-macOS quarantines the download. Clear the flag once, after dragging the app to
-Applications:
+If you build a copy and macOS calls it *damaged*, that is the quarantine flag
+on a downloaded artifact rather than a bad build:
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/Codenotch.app
+xattr -dr com.apple.quarantine /Applications/Khih.app
 ```
 
-If macOS says the app is *damaged*, that is the quarantine flag rather than a bad download — run the command above.
-
-Universal binary. macOS 15 or later. To build and install a copy from source
-instead, see [Building](#building).
+macOS 15 or later.
 
 ## Windows
 
@@ -70,7 +68,7 @@ Each loaded model gets a notch cell; reorder or hide it in **Settings → Accoun
 Hover for RAM/VRAM, unload time, context limit and quantization.
 
 For generation speed (**tok/s**) and live **Thinking**, enable **Measure speed and thinking**
-in Settings → Ollama, keep Codenotch open and connect through its local relay:
+in Settings → Ollama, keep Khih open and connect through its local relay:
 
 ```sh
 OLLAMA_HOST=http://127.0.0.1:11435 ollama run gemma4:e4b --think
@@ -110,18 +108,18 @@ mkdir -p "$HOME/.codex-work"
 CODEX_HOME="$HOME/.codex-work" codex -c 'cli_auth_credentials_store="file"' login
 ```
 
-Choose the second account during sign-in, then restart Codenotch. Run that
+Choose the second account during sign-in, then restart Khih. Run that
 account's CLI sessions with `CODEX_HOME="$HOME/.codex-work" codex` as well.
 Repeat with another name, such as `.codex-personal`, for more accounts.
 Settings shows each account's email and profile directory; each ring can be
 reordered or switched off independently. Switching one off forgets only its
-Codenotch readings and leaves the Codex login intact.
+Khih readings and leaves the Codex login intact.
 
-Codenotch reads each profile's `auth.json`; keychain-only or API-key-only
+Khih reads each profile's `auth.json`; keychain-only or API-key-only
 logins cannot provide these ChatGPT account limits. It never copies, refreshes
 or writes Codex credentials. If a login expires, use that profile's Codex CLI
 to renew it. Directories outside the `~/.codex-<slug>` convention are not
-discovered automatically, and adding a profile requires restarting Codenotch,
+discovered automatically, and adding a profile requires restarting Khih,
 just as it does for Claude.
 
 ## When a session ends
@@ -198,10 +196,11 @@ The app itself can show a Dock icon, a menu bar icon, or neither.
 
 ## Updates
 
-Codenotch updates itself. [Sparkle](https://sparkle-project.org) checks daily
-and installs in the background without prompting; Settings says so and can
-switch it off. Every update is EdDSA-signed, so nothing installs that wasn't
-built and signed by the maintainer.
+There are none. Upstream updates itself through Sparkle; the feed and the EdDSA
+signing key behind it are upstream's, and a fork left pointing at them would
+quietly replace itself with upstream's build on the next scheduled check. With
+no feed this fork can use, Sparkle is gone rather than left inert — updating
+means building again from source.
 
 ## Building
 
@@ -224,14 +223,14 @@ tool's token returns on every launch. To make the grant stick during local
 development, sign the built app with a stable self-signed identity:
 
 ```sh
-Scripts/sign-local.sh   # signs /Applications/Codenotch.app (pass a path to override)
+Scripts/sign-local.sh   # signs /Applications/Khih.app (pass a path to override)
 ```
 
-It creates a reusable `Codenotch Local Signing` certificate in your login
+It creates a reusable `Khih Local Signing` certificate in your login
 keychain (no Apple Developer account needed) and re-signs the app. Grant the
 keychain prompt once more after signing; it will not ask again.
 
-Run with `CODENOTCH_DEMO=1` to see fixed sample data instead of live readings.
+Run with `KHIH_DEMO=1` to see fixed sample data instead of live readings.
 
 ## Architecture
 
@@ -282,13 +281,35 @@ right-clicking the notch offers **Refresh now**.
 unified log.
 
 ```sh
-/usr/bin/log stream --predicate 'subsystem == "com.vinz.codenotch"' --level debug
+/usr/bin/log stream --predicate 'subsystem == "tw.lokun.khih"' --level debug
 ```
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Acknowledgements
+
+Khih began as a fork of [Codenotch](https://github.com/vinzdg/codenotch),
+created by [Vinz](https://github.com/vinzdg). Its quiet screen-edge presence,
+compact rings, fluid expansion and careful interaction details are the reason
+this fork exists. Khih deliberately preserves that interface and builds its
+quota safeguards around it.
+
+Thank you to Vinz and every Codenotch contributor for sharing such thoughtful
+UI and UX as open source. Khih's additional code and behavior belong to this
+fork; the original design and upstream work remain credited to their authors.
+
 ## License
 
-[MIT](LICENSE) © 2026 Vinz
+[MIT](LICENSE) © 2026 Vinz.
+
+Khih is a fork of [Codenotch](https://github.com/vinzdg/codenotch), renamed
+because it is no longer the same app: it carries a quota engine that sends
+requests of its own. To distinguish the fork and keep its signing and update
+boundaries separate, Khih uses its own app name, bundle id and update channel.
+The upstream copyright and license notices remain intact.
+
+Third-party license material shipped with the app is kept in
+[`Sources/Resources`](Sources/Resources), including the Lobe Icons and
+SwiftNIO license and notice files.

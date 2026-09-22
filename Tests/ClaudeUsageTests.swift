@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// Reading `/api/oauth/usage` into the engine's snapshot.
 ///

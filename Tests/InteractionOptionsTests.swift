@@ -1,7 +1,7 @@
 import XCTest
 import AppKit
 import SwiftUI
-@testable import Codenotch
+@testable import Khih
 
 @MainActor
 final class InteractionOptionsTests: XCTestCase {
@@ -65,7 +65,7 @@ final class InteractionOptionsTests: XCTestCase {
         let preferences = Preferences(defaults: defaults)
         let settings = SettingsView(preferences: preferences, providers: { [] },
             signOut: { _ in }, signIn: { _ in false }, switchAccount: { _ in false },
-            retry: { _ in }, resetPosition: {}, updater: Updater())
+            retry: { _ in }, resetPosition: {}, version: "1.7.0")
         let snapshot = ProviderSnapshot(id: "claude", displayName: "Claude", glyph: .claude,
             fidelity: .official, status: .ok, windows: [
                 LimitWindow(id: "session", label: "5 小時額度", usedFraction: 0.25, duration: 18000),
@@ -131,7 +131,7 @@ final class InteractionOptionsTests: XCTestCase {
         let preferences = Preferences(defaults: defaults)
         preferences.appPresence = .dock
         let controller = SettingsWindowController(preferences: preferences, providers: { [] },
-            updater: Updater(), signOut: { _ in }, signIn: { _ in false },
+            version: "1.7.0", signOut: { _ in }, signIn: { _ in false },
             switchAccount: { _ in false }, retry: { _ in }, resetPosition: {})
         let previous = NSApp.activationPolicy()
         defer { NSApp.setActivationPolicy(previous) }

@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import Codenotch
+@testable import Khih
 
 @MainActor
 final class QuotaInteractionTests: XCTestCase {
@@ -87,7 +87,7 @@ final class QuotaInteractionTests: XCTestCase {
                     ProviderRing(usedFraction: [0.0, 1.0, nil][index], glyph: .openai, isRefreshing: true)
                 }
             }.padding(24).background(Color.black)
-                .environment(\.codenotchReduceTransparency, true)
+                .environment(\.khihReduceTransparency, true)
             let sheet = CodexSignInSheet(quota: quota)
                 .background(scheme == .light ? Color.white : Color(white: 0.15))
                 .environment(\.colorScheme, scheme)

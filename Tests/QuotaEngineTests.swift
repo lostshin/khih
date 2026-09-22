@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// The five gates, in the order they run.
 ///
@@ -12,6 +12,7 @@ final class QuotaEngineTests: XCTestCase {
 
     private final class FakeBackend: QuotaBackend {
         var fingerprint: String? = "fp1234567890"
+        var identityReads = 0
         /// Consumed in order; the last one repeats once exhausted.
         var reads: [RateLimitsSnapshot] = []
         private var readIndex = 0
@@ -19,11 +20,17 @@ final class QuotaEngineTests: XCTestCase {
         var poked = 0
         var pokeError: Error?
         var pokeResponse = "OK"
+        var onRead: (() throws -> Void)?
+        var onPoke: (() -> Void)?
 
-        func accountFingerprint(for account: QuotaAccountConfig) -> String? { fingerprint }
+        func accountFingerprint(for account: QuotaAccountConfig) -> String? {
+            identityReads += 1
+            return fingerprint
+        }
 
         func readRateLimits(for account: QuotaAccountConfig,
                             observedAt: Int64) throws -> RateLimitsSnapshot {
+            try onRead?()
             if let readError { throw readError }
             guard !reads.isEmpty else { return RateLimitsSnapshot(observedAt: observedAt) }
             let snapshot = reads[min(readIndex, reads.count - 1)]
@@ -35,6 +42,7 @@ final class QuotaEngineTests: XCTestCase {
 
         func poke(for account: QuotaAccountConfig, target: PokeTarget,
                   expectedFingerprint: String?) throws -> QuotaPokeResult {
+            onPoke?()
             poked += 1
             if let pokeError { throw pokeError }
             return QuotaPokeResult(model: Quota.defaultModel,
@@ -119,6 +127,167 @@ final class QuotaEngineTests: XCTestCase {
 
     private func activityText() -> String {
         storage.recentActivity(for: account, limit: 100).joined(separator: "\n")
+    }
+
+    func testAutomaticLatchIsOnDiskBeforePokeAndSaveFailurePreventsPoke() throws {
+        try seedBaseline()
+        backend.reads = [idleFiveHour(at: clock)]
+        backend.onPoke = {
+            XCTAssertEqual(self.storage.loadState(for: self.account).fiveHourStarter.automaticAttemptAt, self.clock)
+        }
+        _ = try makeEngine().startFiveHour(account: account, trigger: .automatic)
+        try seedBaseline()
+        backend.onRead = {
+            let temporary = QuotaStorage.statePath(for: self.account).appendingPathExtension("tmp")
+            try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: false)
+            self.backend.onRead = nil
+        }
+        XCTAssertThrowsError(try makeEngine().startFiveHour(account: account, trigger: .automatic))
+        XCTAssertEqual(backend.poked, 1)
+    }
+
+    func testAutomaticHonorsCooldownBeforeIdentityOrReads() throws {
+        account.provider = .claude
+        try seedBaseline()
+        var state = storage.loadState(for: account)
+        state.checkCooldownUntil = clock + 900
+        try storage.saveState(state, for: account)
+        backend.onRead = { XCTFail("Cooldown must prevent a backend read") }
+        guard case .failed = try makeEngine().startFiveHour(account: account, trigger: .automatic) else { return XCTFail() }
+        XCTAssertEqual(backend.identityReads, 0)
+        XCTAssertEqual(backend.poked, 0)
+    }
+
+    func testExplicitStartCannotBeImmediatelyRepeatedByAutomaticKeeper() throws {
+        for trigger in [FiveHourTrigger.manual, .scheduled] {
+            try seedBaseline()
+            backend.reads = [idleFiveHour(at: clock)]
+            let before = backend.poked
+            _ = try makeEngine().startFiveHour(account: account, trigger: trigger)
+            XCTAssertEqual(try makeEngine().startFiveHour(account: account, trigger: .automatic), .refused(.awaitingConfirmation))
+            XCTAssertEqual(backend.poked, before + 1)
+        }
+    }
+
+    func testFallbackObservationCannotReleasePendingFiveHourAttempt() throws {
+        try seedBaseline()
+        var state = storage.loadState(for: account)
+        state.fiveHourStarter.automaticAttemptAt = clock - 10
+        try storage.saveState(state, for: account)
+        backend.readError = ClaudeUsageError.accessDenied
+        backend.observation = snapshot(fiveHourUsed: 5, fiveHourResetsAt: clock + 100)
+        _ = try makeEngine().checkAccount(account: account, mode: .observe)
+        XCTAssertEqual(storage.loadState(for: account).fiveHourStarter.automaticAttemptAt, clock - 10)
+        XCTAssertEqual(backend.poked, 0)
+    }
+
+    func testAutomaticClaudeNeverUsesCredentialFallback() throws {
+        account.provider = .claude
+        try seedBaseline()
+        backend.readError = ClaudeUsageError.accessDenied
+        backend.observation = idleFiveHour(at: clock)
+        XCTAssertThrowsError(try makeEngine().startFiveHour(account: account, trigger: .automatic))
+        XCTAssertEqual(backend.observationReads, 0)
+        XCTAssertEqual(backend.poked, 0)
+    }
+
+    func testOlderObservationCannotReleaseAutomaticLatch() {
+        var starter = FiveHourStarter(automaticAttemptAt: clock)
+        var window = QuotaWindow(usedPercent: 5, windowDurationMins: 300,
+                                 resetsAt: clock + 100, observedAt: clock - 1)
+        window.countdownActive = true
+        starter.observe(window)
+        XCTAssertEqual(starter.automaticAttemptAt, clock)
+        XCTAssertNil(starter.confirmedResetAt)
+    }
+
+    func testAutomaticUnverifiedAttemptSurvivesRestartAndMovingReset() throws {
+        try seedBaseline()
+        backend.reads = [idleFiveHour(at: clock)]
+        XCTAssertEqual(try makeEngine().startFiveHour(account: account, trigger: .automatic), .started(.unverified))
+        XCTAssertEqual(storage.loadState(for: account).fiveHourStarter.automaticAttemptAt, clock)
+        clock += 600
+        backend.reads = [idleFiveHour(at: clock)]
+        XCTAssertEqual(try makeEngine().startFiveHour(account: account, trigger: .automatic), .refused(.awaitingConfirmation))
+        XCTAssertEqual(backend.poked, 1)
+    }
+
+    func testAutomaticFailedPokeIsLatchedBeforeSending() throws {
+        try seedBaseline()
+        backend.reads = [idleFiveHour(at: clock)]
+        backend.pokeError = CodexError.pokeFailed(status: 1, detail: "fake failure")
+        XCTAssertThrowsError(try makeEngine().startFiveHour(account: account, trigger: .automatic))
+        XCTAssertNotNil(storage.loadState(for: account).fiveHourStarter.automaticAttemptAt)
+        backend.pokeError = nil
+        XCTAssertEqual(try makeEngine().startFiveHour(account: account, trigger: .automatic), .refused(.awaitingConfirmation))
+        XCTAssertEqual(backend.poked, 1)
+        _ = try makeEngine().startFiveHour(account: account, trigger: .manual)
+        XCTAssertEqual(backend.poked, 2, "Explicit manual handling remains available")
+    }
+
+    func testAutomaticFirstReadOnlyEstablishesBaseline() throws {
+        backend.reads = [idleFiveHour(at: clock)]
+        XCTAssertEqual(try makeEngine().startFiveHour(account: account, trigger: .automatic), .refused(.noBaseline))
+        XCTAssertNotNil(storage.loadState(for: account).snapshot)
+        XCTAssertEqual(backend.poked, 0)
+        _ = try makeEngine().startFiveHour(account: account, trigger: .automatic)
+        XCTAssertEqual(backend.poked, 1)
+    }
+
+    func testAutomaticInUseDoesNotSpendOrLatch() throws {
+        try seedBaseline()
+        backend.reads = [idleFiveHour(at: clock)]
+        let engine = makeEngine()
+        engine.isAccountInUse = { _ in true }
+        XCTAssertEqual(try engine.startFiveHour(account: account, trigger: .automatic), .refused(.inUse))
+        XCTAssertNil(storage.loadState(for: account).fiveHourStarter.automaticAttemptAt)
+        XCTAssertEqual(backend.poked, 0)
+    }
+
+    func testObservedCountdownReleasesLatchAndExpiryAllowsNextRound() throws {
+        try seedBaseline()
+        backend.reads = [idleFiveHour(at: clock)]
+        _ = try makeEngine().startFiveHour(account: account, trigger: .automatic)
+        let reset = clock + 18000
+        clock += 300
+        backend.reads = [snapshot(fiveHourUsed: 2, fiveHourResetsAt: reset)]
+        XCTAssertEqual(try makeEngine().startFiveHour(account: account, trigger: .automatic), .refused(.alreadyRunning))
+        let state = storage.loadState(for: account)
+        XCTAssertNil(state.fiveHourStarter.automaticAttemptAt)
+        XCTAssertEqual(state.fiveHourStarter.confirmedResetAt, reset)
+        XCTAssertEqual(backend.poked, 1)
+        clock = reset + 1
+        backend.reads = [idleFiveHour(at: clock)]
+        _ = try makeEngine().startFiveHour(account: account, trigger: .automatic)
+        XCTAssertEqual(backend.poked, 2)
+    }
+
+    func testAutomaticDoesNotRepeatAnUnconfirmedWeeklyRequest() throws {
+        try seedBaseline()
+        var state = storage.loadState(for: account)
+        state.weeklyKeeper.lastPoke = LastPoke(at: clock, model: "fake", response: "OK",
+            accountFingerprint: backend.fingerprint, status: .unverified, attempt: 1, verifiedAt: nil)
+        try storage.saveState(state, for: account)
+        backend.reads = [idleFiveHour(at: clock)]
+        XCTAssertEqual(try makeEngine().startFiveHour(account: account, trigger: .automatic), .refused(.awaitingConfirmation))
+        XCTAssertEqual(backend.poked, 0)
+    }
+
+    func testHistoricalWeeklyPokeDoesNotBlockFirstAutomaticFiveHourRound() throws {
+        try seedBaseline()
+        var state = storage.loadState(for: account)
+        state.weeklyKeeper.lastPoke = LastPoke(at: clock - 18001, model: "fake", response: "OK",
+            accountFingerprint: backend.fingerprint, status: .verified, attempt: 1, verifiedAt: clock - 18000)
+        try storage.saveState(state, for: account)
+        backend.reads = [idleFiveHour(at: clock)]
+        _ = try makeEngine().startFiveHour(account: account, trigger: .automatic)
+        XCTAssertEqual(backend.poked, 1)
+    }
+
+    func testAutomaticStateSemanticRoundTripAndLegacyDecode() throws {
+        let value = FiveHourStarter(automaticAttemptAt: clock, confirmedResetAt: clock + 18000)
+        XCTAssertEqual(try JSONDecoder().decode(FiveHourStarter.self, from: JSONEncoder().encode(value)), value)
+        XCTAssertEqual(try JSONDecoder().decode(FiveHourStarter.self, from: Data("{}".utf8)), FiveHourStarter())
     }
 
     // MARK: - Gate 1: baseline

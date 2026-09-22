@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// `claude "/usage"` is asked before the keychain, because Claude Code files a
 /// new keychain item on every token rotation and a grant against the old one

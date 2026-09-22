@@ -65,13 +65,15 @@ extension QuotaEngine {
         case .resetPending:           return "每週預定 reset time 已過，但 backend 尚未回報 reset；繼續等待。"
         case .skippedInUse:           return "這個帳號正在使用中；本次不送出自動請求，等下次檢查。"
         case .dryRunWouldPoke:        return "Dry run：每週 reset 已確認，本可送出最小請求。"
+        case .awaitingFiveHourConfirmation: return FiveHourRefusal.awaitingConfirmation.activityMessage
         case .noReset:                return "未偵測到每週 reset；未送出自動請求。"
         case .poked, .failed, .skippedBusy, .rateLimited, .noBackend, .groups: return nil
         }
     }
 
     private func observeGroup(_ group: AntigravityGroup, previous: RateLimitsSnapshot?,
-                              current: RateLimitsSnapshot, state: inout AccountState) {
+                              current: RateLimitsSnapshot, state: inout AccountState,
+                              observeFiveHour: Bool = true) {
         var saved = state.antigravityGroups[group.rawValue] ?? AntigravityGroupState()
         if let previous,
            let oldFive = group.window(in: previous, weekly: false),
@@ -81,6 +83,7 @@ extension QuotaEngine {
             saved.burnRate.observeWindows(previousFiveHour: oldFive, currentFiveHour: five,
                                           previousWeekly: oldWeek, currentWeekly: week)
         }
+        if observeFiveHour { saved.fiveHourStarter.observe(group.window(in: current, weekly: false)) }
         let weekly = group.window(in: current, weekly: true)
         saved.weeklyKeeper.countdownActive = weekly?.countdownActive ?? false
         if let poke = saved.weeklyKeeper.lastPoke {
@@ -112,6 +115,9 @@ extension QuotaEngine {
             keeper.pendingScheduledResetAt = nil
             outcome = .countdownAlreadyActive
         } else if decision.shouldPoke || manual {
+            if mode == .live && state.antigravityGroups[group.rawValue]?.fiveHourStarter.automaticAttemptAt != nil {
+                return .awaitingFiveHourConfirmation
+            }
             if mode == .live && isAccountInUse(account) { return .skippedInUse }
             if mode == .dryRun { return .dryRunWouldPoke }
             if cancelled() { throw CodexError.cancelled }
@@ -152,11 +158,15 @@ extension QuotaEngine {
     }
 
     func startAntigravity(account: QuotaAccountConfig, backend: QuotaBackend,
-                          cancelled: () -> Bool) throws -> [AntigravityFiveHourOutcome] {
+                          trigger: FiveHourTrigger = .manual, cancelled: () -> Bool) throws -> [AntigravityFiveHourOutcome] {
         var state = storage.loadState(for: account)
         let previous = state.snapshot
         let incoming = try backend.readRateLimits(for: account, observedAt: now())
         guard previous != nil else {
+            if trigger == .automatic {
+                state.snapshot = incoming
+                try storage.saveState(state, for: account)
+            }
             try? activity(FiveHourRefusal.noBaseline.activityMessage, for: account)
             return AntigravityGroup.allCases.map { .init(group: $0, outcome: .refused(.noBaseline)) }
         }
@@ -166,6 +176,15 @@ extension QuotaEngine {
             if cancelled() { throw CodexError.cancelled }
             do {
                 observeGroup(group, previous: previous, current: current, state: &state)
+                if trigger == .automatic,
+                   let weeklyPoke = state.antigravityGroups[group.rawValue]!.weeklyKeeper.lastPoke,
+                   weeklyPoke.at >= now() - Quota.fiveHourWindowMins * 60,
+                   weeklyPoke.at >= (state.antigravityGroups[group.rawValue]!.fiveHourStarter.confirmedResetAt ?? 0),
+                   group.window(in: current, weekly: false)?.countdownActive != true {
+                    state.antigravityGroups[group.rawValue]!.fiveHourStarter.automaticAttemptAt =
+                        state.antigravityGroups[group.rawValue]!.fiveHourStarter.automaticAttemptAt ?? weeklyPoke.at
+                }
+                let starter = state.antigravityGroups[group.rawValue]!.fiveHourStarter
                 let outcome: FiveHourOutcome
                 if previous.flatMap({ group.window(in: $0, weekly: false) }) == nil {
                     outcome = .refused(.noBaseline)
@@ -174,7 +193,17 @@ extension QuotaEngine {
                         outcome = .refused(.unknownUsage)
                     } else if window.countdownActive {
                         outcome = .refused(.alreadyRunning)
+                    } else if trigger == .automatic && starter.automaticAttemptAt != nil {
+                        outcome = .refused(.awaitingConfirmation)
+                    } else if trigger == .automatic && isAccountInUse(account) {
+                        outcome = .refused(.inUse)
+                    } else if trigger == .automatic && (starter.confirmedResetAt ?? 0) > now() {
+                        outcome = .refused(.alreadyRunning)
                     } else {
+                        if cancelled() { throw CodexError.cancelled }
+                        state.antigravityGroups[group.rawValue]!.fiveHourStarter.automaticAttemptAt = now()
+                        state.snapshot = current
+                        try storage.saveState(state, for: account)
                         let target = PokeTarget.antigravityGroup(group, weekly: false)
                         let poke = try backend.poke(for: account, target: target, expectedFingerprint: nil)
                         let at = now()
@@ -192,13 +221,19 @@ extension QuotaEngine {
                             state.antigravityGroups[group.rawValue]!.fiveHourStarter.lastPoke?.verifiedAt =
                                 group.window(in: current, weekly: false)?.observedAt
                         }
+                        if verification.status != .unverified {
+                            state.antigravityGroups[group.rawValue]!.fiveHourStarter.observe(group.window(in: current, weekly: false))
+                        }
+                        if trigger == .automatic && state.antigravityGroups[group.rawValue]!.fiveHourStarter.automaticAttemptAt != nil {
+                            try? activity("\(group.name)：" + FiveHourRefusal.awaitingConfirmation.activityMessage, for: account)
+                        }
                         outcome = .started(verification.status)
                     }
                 } else {
                     outcome = .refused(.noUniqueWindow)
                 }
                 // Normalize keeper without collecting the same burn-rate sample twice.
-                observeGroup(group, previous: nil, current: current, state: &state)
+                observeGroup(group, previous: nil, current: current, state: &state, observeFiveHour: false)
                 state.snapshot = current
                 try storage.saveState(state, for: account)
                 try? activity("\(group.name) 5h：\(outcome)", for: account)

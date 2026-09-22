@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 final class BackgroundAuthenticationTests: XCTestCase {
     private func executable(_ body: String) throws -> URL {

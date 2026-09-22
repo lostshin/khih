@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// The layout is a scaled copy of `docs/design/frame-124-hover-tooltip.png`.
 /// These pin the ratios the frame fixes, so a change to `Design.scale` resizes

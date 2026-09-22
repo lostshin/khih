@@ -125,6 +125,11 @@ final class QuotaController: ObservableObject {
     let schedule: QuotaSchedule
     private var scheduleTimer: Timer?
     private var scheduledBatchRunning = false
+    private var maintenanceRunning = false
+    private var periodicCheckPending = false
+    private var fiveHourKeeperEnabled = false
+    private var fiveHourGeneration = 0
+    private var fiveHourNextCheck: [String: Int64] = [:]
     var isEnabledInUI: (String) -> Bool = { _ in true }
     private let cancellation: QuotaCancellation
     private let storage: QuotaStorage
@@ -205,7 +210,7 @@ final class QuotaController: ObservableObject {
     }
 
     private var manualBatchRunning = false
-    var isBusy: Bool { addingAccount || manualBatchRunning || scheduledBatchRunning || !running.isEmpty || !checking.isEmpty || login != nil || addAccountState == .starting }
+    var isBusy: Bool { maintenanceRunning || addingAccount || manualBatchRunning || scheduledBatchRunning || !running.isEmpty || !checking.isEmpty || login != nil || addAccountState == .starting }
     func isRunning(_ providerID: String) -> Bool { running.contains(providerID) || checking.contains(providerID) }
 
     func result(for providerID: String) -> FiveHourResult? { results[providerID] }
@@ -230,11 +235,20 @@ final class QuotaController: ObservableObject {
 
     /// Who a batch five-hour start applies to, shared by the button and the
     /// schedule so the two cannot drift apart on which accounts they skip.
+    var fiveHourTargets: [QuotaAccountConfig] {
+        enabledAccounts.filter { isEnabledInUI($0.providerID) }
+    }
+
     /// The batch flag itself stays with the caller: `isBusy` and
     /// `startFiveHour`'s guard read the manual and scheduled ones apart.
-    private func forEachFiveHourTarget(_ body: (QuotaAccountConfig) async -> Void) async {
+    ///
+    /// `matching` narrows the run to the accounts whose appointment came due,
+    /// in the same order and with the same exclusions as the button — a
+    /// schedule that fired for one account must not start the other three.
+    private func forEachFiveHourTarget(matching ids: Set<String>? = nil,
+                                       _ body: (QuotaAccountConfig) async -> Void) async {
         reloadAccounts()
-        for account in enabledAccounts.filter({ isEnabledInUI($0.providerID) }) {
+        for account in fiveHourTargets where ids?.contains(account.id) ?? true {
             if cancellation.isCancelled { break }
             await body(account)
         }
@@ -258,7 +272,7 @@ final class QuotaController: ObservableObject {
         results[providerID] = result
         let state = await publishAccountReadings(account)
         switch result {
-        case .started, .groups, .refused(.alreadyRunning), .refused(.noUniqueWindow), .refused(.unknownUsage):
+        case .started, .groups, .refused(.alreadyRunning), .refused(.noUniqueWindow), .refused(.unknownUsage), .refused(.awaitingConfirmation), .refused(.inUse):
             if let snapshot = state.snapshot { onQuotaSnapshot(providerID, snapshot) }
         case .skippedBusy, .failed, .refused:
             break
@@ -449,15 +463,25 @@ final class QuotaController: ObservableObject {
 
     // MARK: - The periodic check
 
+    func setFiveHourKeeperEnabled(_ enabled: Bool) {
+        fiveHourKeeperEnabled = enabled
+        fiveHourGeneration += 1
+        fiveHourNextCheck.removeAll()
+    }
+
+    func didWake() {
+        fiveHourGeneration += 1
+        periodicCheckPending = true
+        fiveHourNextCheck.removeAll()
+    }
+
     /// Check every managed account now, and every five minutes after that.
     ///
     /// Separate from `UsageStore`'s sixty-second usage poll on purpose: that
     /// one only reads, while this one can decide to spend quota.
     func start() {
-        Task {
-            await runScheduleTick()
-            await checkAll(mode: isKeeperEnabled() ? .live : .observe)
-        }
+        periodicCheckPending = true
+        Task { await runScheduleTick() }
         let scheduleTimer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.runScheduleTick() }
         }
@@ -465,13 +489,54 @@ final class QuotaController: ObservableObject {
         self.scheduleTimer = scheduleTimer
         timer = Timer.scheduledTimer(withTimeInterval: Self.checkInterval,
                                      repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                await self.checkAll(mode: self.isKeeperEnabled() ? .live : .observe)
-            }
+            Task { @MainActor in self?.periodicCheckPending = true }
         }
-        // The keeper has to keep running while a menu is open.
         timer.map { RunLoop.main.add($0, forMode: .common) }
+    }
+
+    /// The one-second tick compares memory only. Backend reads remain serialized,
+    /// with weekly work first and a fresh five-hour gate afterwards.
+    func runAutomaticTick(now: Int64 = Int64(Date().timeIntervalSince1970)) async {
+        guard !isBusy, !cancellation.isCancelled else { return }
+        let periodic = periodicCheckPending
+        let generation = fiveHourGeneration
+        let due = fiveHourKeeperEnabled ? Set(fiveHourTargets.filter {
+            (fiveHourNextCheck[$0.id] ?? 0) <= now
+        }.map(\.id)) : []
+        guard periodic || !due.isEmpty else { return }
+        periodicCheckPending = false
+        maintenanceRunning = true
+        defer { maintenanceRunning = false }
+        reloadAccounts()
+        for account in fiveHourTargets {
+            if cancellation.isCancelled { break }
+            var baseline = false
+            if periodic || (due.contains(account.id) && isKeeperEnabled()) {
+                // With only 5h enabled, its own read establishes the first baseline.
+                if isKeeperEnabled() || !fiveHourKeeperEnabled {
+                    let outcome = await performCheck(account.providerID, mode: isKeeperEnabled() ? .live : .observe)
+                    if case .baseline = outcome { baseline = true }
+                    if case .groups(let groups) = outcome {
+                        baseline = groups.contains { $0.outcome == .baseline }
+                    }
+                }
+            }
+            guard fiveHourKeeperEnabled, due.contains(account.id) else { continue }
+            if !baseline { await performFiveHour(account.providerID, trigger: .automatic) }
+            // A failed or unconfirmed read is observed again at the normal cadence.
+            // Completed requests are never retried merely because this timer fires.
+            let state = await publishAccountReadings(account)
+            let starters = account.provider == .antigravity
+                ? AntigravityGroup.allCases.map { state.antigravityGroups[$0.rawValue]?.fiveHourStarter ?? FiveHourStarter() }
+                : [state.fiveHourStarter]
+            let retryAt = now + Int64(Self.checkInterval)
+            guard generation == fiveHourGeneration else { continue }
+            fiveHourNextCheck[account.id] = starters.map { starter in
+                guard starter.automaticAttemptAt == nil,
+                      let reset = starter.confirmedResetAt, reset > now else { return retryAt }
+                return min(reset, retryAt)
+            }.min() ?? retryAt
+        }
     }
 
     func stop() {
@@ -506,22 +571,49 @@ final class QuotaController: ObservableObject {
     }
 
     func runScheduleTick(now: Int64 = Int64(Date().timeIntervalSince1970)) async {
-        switch schedule.takeDue(now: now, busy: isBusy) {
-        case .waiting, .failed: return
-        case .expired:
-            for account in enabledAccounts {
-                try? storage.appendActivity("\(QuotaStorage.activityTimestamp()) 預約已超過一小時，取消不補送。", for: account)
-            }
-        case .fire:
-            scheduledBatchRunning = true
-            defer { scheduledBatchRunning = false }
-            await forEachFiveHourTarget { account in
-                await self.startFiveHour(account.providerID, trigger: .scheduled)
-                if let result = self.results[account.providerID] {
-                    self.onScheduledResult(account.providerID, account.label, result)
-                }
+        await runScheduledAppointments(now: now)
+        await runAutomaticTick(now: now)
+    }
+
+    private func runScheduledAppointments(now: Int64) async {
+        let due = schedule.takeDue(now: now, busy: isBusy,
+                                   targets: Set(fiveHourTargets.map(\.id)))
+        guard !due.isEmpty else { return }
+
+        // Only the account that ran out of time hears about it. The record has
+        // to name the one appointment that was dropped, not tell every other
+        // account that something of theirs expired.
+        for id in due.expired {
+            guard let account = accounts.first(where: { $0.id == id }) else { continue }
+            try? storage.appendActivity("\(QuotaStorage.activityTimestamp()) 預約已超過一小時，取消不補送。", for: account)
+        }
+
+        guard !due.fired.isEmpty else { return }
+        scheduledBatchRunning = true
+        defer { scheduledBatchRunning = false }
+        await forEachFiveHourTarget(matching: Set(due.fired)) { account in
+            await self.startFiveHour(account.providerID, trigger: .scheduled)
+            if let result = self.results[account.providerID] {
+                self.onScheduledResult(account.providerID, account.displayLabel, result)
             }
         }
+    }
+
+    /// Replaces an account's on-screen name, or clears it back to the
+    /// provider's own. Hands back a message when it could not be saved.
+    ///
+    /// `onAccountsChanged` rather than a targeted refresh: the same callback
+    /// already rediscovers profiles and re-reads names after a sign-in, and a
+    /// rename has to reach exactly the same places.
+    func rename(providerID: String, to name: String?) async -> String? {
+        guard let account = account(forProviderID: providerID) else { return nil }
+        let storage = self.storage
+        if let error = await Self.discarding({ try storage.renameAccount(account.id, to: name) }) {
+            return error.localizedDescription
+        }
+        reloadAccounts()
+        onAccountsChanged?()
+        return nil
     }
 
     /// One account failing must not stop the others: they are separate
@@ -571,7 +663,7 @@ final class QuotaController: ObservableObject {
         let state = await publishAccountReadings(account)
         switch outcome {
         case .baseline, .alreadyHandled, .countdownAlreadyActive, .resetPending,
-             .poked, .dryRunWouldPoke, .noReset, .groups:
+             .poked, .dryRunWouldPoke, .noReset, .groups, .awaitingFiveHourConfirmation:
             if let snapshot = state.snapshot {
                 onQuotaSnapshot(providerID, snapshot)
             }
@@ -582,7 +674,7 @@ final class QuotaController: ObservableObject {
         // reports on screen instead.
         if mode == .live, case .poked(let status) = outcome {
             QuotaAlerts.weeklyKeeperFinished(providerID: providerID,
-                                             providerName: account.label,
+                                             providerName: account.displayLabel,
                                              status: status)
         }
         if mode == .live, case .groups(let groups) = outcome {

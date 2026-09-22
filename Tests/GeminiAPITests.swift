@@ -1,6 +1,6 @@
 import SQLite3
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// A date in the calendar the readers use, so a fixture and the `now` it is
 /// measured against cannot disagree about the zone.
@@ -633,12 +633,12 @@ final class GeminiCLIActivityMonitorTests: XCTestCase {
     }
 
     func testAJustWrittenSessionReadsAsWorking() throws {
-        try session(project: "9d2c", projectRoot: "/Users/x/Projects/codenotch", modified: now)
+        try session(project: "9d2c", projectRoot: "/Users/x/Projects/khih", modified: now)
         let sessions = GeminiCLIActivityMonitor.read(root: root, staleAfter: 45, now: now)
         XCTAssertEqual(sessions.count, 1)
         XCTAssertEqual(sessions.first?.state, .busy)
         XCTAssertEqual(sessions.first?.name, "Gemini CLI")
-        XCTAssertEqual(sessions.first?.detail, "Working in codenotch")
+        XCTAssertEqual(sessions.first?.detail, "Working in khih")
         XCTAssertEqual(sessions.first?.id, "gemini-api.session-a")
     }
 

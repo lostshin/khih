@@ -73,7 +73,7 @@ enum ReleaseNotes {
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("A ready-made download, no Xcode needed"),
-                        detail: L10n.t("Every build now produces an app bundle you can run, so trying Codenotch no longer starts with a developer setup.")
+                        detail: L10n.t("Every build now produces an app bundle you can run, so trying Khih no longer starts with a developer setup.")
                     ),
                 ]
             ),
@@ -203,7 +203,7 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("Codex is read live instead of from a log"),
-                        detail: L10n.t("The figure came from a file Codex writes during a turn, so it was as old as the last time you used it — three days stale in one case. Codenotch now asks Codex itself, and matches its own panel.")
+                        detail: L10n.t("The figure came from a file Codex writes during a turn, so it was as old as the last time you used it — three days stale in one case. Khih now asks Codex itself, and matches its own panel.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("The Codex ring notices the desktop app"),
@@ -251,7 +251,7 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("Antigravity shows its actual quota"),
-                        detail: L10n.t("Google will not answer Codenotch directly, so it asks Antigravity's own language server instead — the same place Antigravity's usage panel gets its figure.")
+                        detail: L10n.t("Google will not answer Khih directly, so it asks Antigravity's own language server instead — the same place Antigravity's usage panel gets its figure.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Usage reads both ways"),
@@ -285,10 +285,10 @@ enum ReleaseNotes {
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Claude, Cursor, Codex and Gemini"),
-                        detail: L10n.t("Each read from the tool already signed in on this Mac. Codenotch never asks for a password.")
+                        detail: L10n.t("Each read from the tool already signed in on this Mac. Khih never asks for a password.")
                     ),
                     ReleaseNote.Change(
-                        title: L10n.t("Choose where Codenotch appears"),
+                        title: L10n.t("Choose where Khih appears"),
                         detail: L10n.t("In the Dock, in the menu bar, or nowhere at all.")
                     )
                 ]

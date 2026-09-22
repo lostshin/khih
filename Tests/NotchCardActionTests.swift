@@ -1,5 +1,5 @@
 import XCTest
-@testable import Codenotch
+@testable import Khih
 
 /// A click on an open card checks the accounts behind it. Both halves are pure:
 /// which accounts a card stands for, and the one line that reports back.
