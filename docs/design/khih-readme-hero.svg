@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="title desc">
+  <title id="title">缺 Khih</title>
+  <desc id="desc">為缺繪製的品牌圖：未閉合的圓環與螢幕邊緣，象徵剩餘額度與倒數。非 App 截圖。</desc>
+  <!-- Original vector artwork for Khih. Copyright 2026 Khih contributors. MIT. -->
+  <rect width="1200" height="440" rx="24" fill="#111815"/>
+  <path d="M760 0V440M0 362H1200" stroke="#2b3932"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang TC', 'Noto Sans CJK TC', sans-serif">
+    <text x="64" y="76" fill="#a6b9ad" font-size="18" letter-spacing="3">KHIH / macOS</text>
+    <text x="60" y="226" fill="#f1f4eb" font-size="118" font-weight="600">缺</text>
+    <text x="216" y="221" fill="#f1f4eb" font-size="100" font-weight="500" letter-spacing="-4">Khih</text>
+    <text x="66" y="291" fill="#c5d1c8" font-size="26">把額度，收在螢幕邊緣。</text>
+    <text x="66" y="407" fill="#a6b9ad" font-size="19">多帳號明細  /  五小時守護  /  台灣繁體中文</text>
+    <text x="795" y="407" fill="#a6b9ad" font-size="16" letter-spacing="2">QUOTA, AT A GLANCE.</text>
+  </g>
+  <circle cx="970" cy="184" r="108" fill="none" stroke="#293b31" stroke-width="26"/>
+  <circle cx="970" cy="184" r="108" fill="none" stroke="#c5e78e" stroke-width="26" stroke-dasharray="485 679" transform="rotate(-90 970 184)"/>
+  <path d="M963 143H993V174H963Z" fill="#c5e78e"/>
+  <path d="M947 191H977V222H947Z" fill="#f1f4eb"/>
+  <path d="M1103 143H1200V226H1103" fill="#111815"/>
+  <path d="M1124 154H1180M1124 170H1160" stroke="#718b77" stroke-width="3"/>
+</svg>

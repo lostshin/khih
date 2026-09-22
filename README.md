@@ -2,18 +2,17 @@
 
 <div align="center">
 
-![缺 Khih 的螢幕邊緣額度介面](docs/design/khih-banner.png)
+![缺 Khih 原創品牌圖：把額度，收在螢幕邊緣](docs/design/khih-readme-hero.svg)
 
-[![CI](https://github.com/lostshin/khih/actions/workflows/ci.yml/badge.svg)](https://github.com/lostshin/khih/actions/workflows/ci.yml)
-![Platform](https://img.shields.io/badge/platform-macOS%2015%2B-black)
-![Swift](https://img.shields.io/badge/swift-5-orange)
-![License](https://img.shields.io/badge/license-MIT-green)
+macOS 15+ · Swift · [MIT 授權](LICENSE) · [CI 執行狀態](https://github.com/lostshin/khih/actions/workflows/ci.yml)
 
 **把程式助理的額度、工作狀態與等待提醒，收在螢幕邊緣。**
 
-![收合中的缺與懸停明細](docs/design/frame-124-hover-tooltip.png)
+![缺 Khih 功能示意：Codex 帳號合併圓環與五小時守護流程，使用匿名範例資料，非實機截圖](docs/design/khih-readme-overview.svg)
 
 </div>
+
+以上兩張圖為缺專案重新繪製的 SVG，依本專案 MIT 授權提供；功能圖使用匿名範例，並非實機截圖。介面設計的上游來源與致謝見下文。
 
 「缺」是這個專案的中文名，`Khih` 是 App、程式碼與儲存庫使用的名稱。
 它是一套 macOS 螢幕邊緣介面：用小型圓環顯示各個程式助理的額度，並告訴你工作階段仍在執行、已完成，或正在等你回覆。

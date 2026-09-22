@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">缺 Khih：多帳號與五小時守護功能示意</title>
+  <desc id="desc">匿名帳號 A 剩餘百分之七十二、帳號 B 剩餘百分之四十五，合併顯示於 Codex 圓環。五小時守護依序檢查、送出最小請求、確認倒數；未確認就暫停自動重送。非實機截圖。</desc>
+  <!-- Original vector artwork for Khih. Copyright 2026 Khih contributors. MIT. -->
+  <rect width="1200" height="560" rx="24" fill="#edf0e7"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang TC', 'Noto Sans CJK TC', sans-serif">
+    <text x="48" y="62" fill="#17261d" font-size="30" font-weight="600">缺 Khih / 看見額度，也安排下一輪</text>
+    <text x="48" y="99" fill="#556858" font-size="18">功能示意 · 匿名範例資料 · 非實機截圖</text>
+    <rect x="48" y="133" width="660" height="374" rx="22" fill="#111815"/>
+    <text x="78" y="179" fill="#f1f4eb" font-size="23">Codex 多帳號，一個圓環</text>
+    <rect x="78" y="207" width="379" height="121" rx="13" fill="#1b2920" stroke="#c5e78e" stroke-width="2"/>
+    <text x="99" y="242" fill="#e9f1df" font-size="20">帳號 A</text>
+    <text x="332" y="242" fill="#c5e78e" font-size="16">使用中</text>
+    <path d="M99 265H432" stroke="#35463b" stroke-width="7" stroke-linecap="round"/>
+    <path d="M99 265H339" stroke="#c5e78e" stroke-width="7" stroke-linecap="round"/>
+    <text x="99" y="302" fill="#c5d1c8" font-size="17">5 小時剩餘 72%</text>
+    <rect x="78" y="343" width="379" height="121" rx="13" fill="#1b2920"/>
+    <text x="99" y="378" fill="#e9f1df" font-size="20">帳號 B</text>
+    <path d="M99 401H432" stroke="#35463b" stroke-width="7" stroke-linecap="round"/>
+    <path d="M99 401H249" stroke="#a3bcab" stroke-width="7" stroke-linecap="round"/>
+    <text x="99" y="438" fill="#c5d1c8" font-size="17">5 小時剩餘 45%</text>
+    <circle cx="577" cy="287" r="60" fill="none" stroke="#35463b" stroke-width="10"/>
+    <circle cx="577" cy="287" r="60" fill="none" stroke="#c5e78e" stroke-width="10" stroke-dasharray="271 377" transform="rotate(-90 577 287)"/>
+    <text x="577" y="299" text-anchor="middle" fill="#f1f4eb" font-size="33">72%</text>
+    <text x="577" y="390" text-anchor="middle" fill="#c5d1c8" font-size="18">跟隨目前帳號</text>
+    <text x="577" y="420" text-anchor="middle" fill="#a6b9ad" font-size="16">不加總、不平均</text>
+    <text x="751" y="176" fill="#17261d" font-size="25" font-weight="600">五小時守護</text>
+    <text x="751" y="207" fill="#556858" font-size="17">預設關閉，由你決定是否啟用</text>
+    <path d="M775 246V409" stroke="#b3c3ae" stroke-width="2"/>
+    <g fill="#17261d"><circle cx="775" cy="252" r="17"/><circle cx="775" cy="322" r="17"/><circle cx="775" cy="392" r="17"/></g>
+    <g fill="#edf0e7" text-anchor="middle" font-size="17"><text x="775" y="258">1</text><text x="775" y="328">2</text><text x="775" y="398">3</text></g>
+    <g fill="#17261d" font-size="22"><text x="810" y="259">先確認身分與額度</text><text x="810" y="329">安全時送最小請求</text><text x="810" y="399">確認倒數，再接續</text></g>
+    <text x="751" y="454" fill="#556858" font-size="18">未確認 → 暫停自動重送</text>
+    <text x="751" y="485" fill="#556858" font-size="16">最小請求會消耗少量額度。</text>
+  </g>
+</svg>
